@@ -38,13 +38,13 @@ proc ydbmsg*(status: cint): string =
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
 
 
-proc ydb_set*(name: string, value: string, keys: varargs[string]) =
+proc ydb_set*(name: string, keys: openArray[string], value: string) =
   # setup the global
   let global = stringToBuffer(name)
   
-  # setup index array
+  # setup index array (max 31)
   var idxcnt: cint = cast[cint](keys.len)
-  var idxarr: array[0..5, ydb_buffer_t]
+  var idxarr: array[0..31, ydb_buffer_t]
   for idx in 0 .. keys.len-1:
     idxarr[idx] = stringToBuffer(keys[idx])
   
@@ -61,9 +61,9 @@ proc ydb_get*(name: string, keys: varargs[string]): string =
   # setup the global
   let global = stringToBuffer(name)
   
-  # setup index array
+  # setup index array (max 31)
   var idxcnt: cint = cast[cint](keys.len)
-  var idxarr: array[0..5, ydb_buffer_t]
+  var idxarr: array[0..31, ydb_buffer_t]
   for idx in 0 .. keys.len-1:
     idxarr[idx] = stringToBuffer(keys[idx])
 
@@ -73,6 +73,6 @@ proc ydb_get*(name: string, keys: varargs[string]): string =
   buf = stringToBuffer(' '.repeat(buf.len_used))
   rc = ydb_get_s(global.addr, idxcnt, idxarr[0].addr, buf.addr)
   if rc != YDB_OK:
-    raise newException(YottaDbError, ydbmsg(rc))  
+    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
   else:
     return $buf.buf_addr

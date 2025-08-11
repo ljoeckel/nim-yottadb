@@ -1,17 +1,13 @@
 import std/strformat
 import libs/nim_yottadb
 
-const MAX=1000000
-for i in 0..MAX:
-  # Save in yottadb
-  try:
-    ydb_set("^LJ", fmt"Hello Lothar Jöckel {i} from switzerland", $i)
-  except YottaDbError:
-    echo "YOTTADB: ", getCurrentExceptionMsg()
-
-echo "Start reading..."
+const MAX=10
 for i in 0..MAX:
   try:
-    let result = ydb_get("^LJ", $i)
+    # Save in yottadb
+    ydb_set("^LJ", @["LAND", "ORT", $i], fmt"Hello Lothar Jöckel {i} from switzerland")
+    # Read back
+    let result = ydb_get("^LJ", @["LAND", "ORT", $i])
+    echo result
   except YottaDbError:
-    echo "YOTTADB: ", getCurrentExceptionMsg()
+    echo getCurrentExceptionMsg()
