@@ -1,6 +1,10 @@
 import strutils, std/strformat
 
 
+var BUF_32767 = '\0'.repeat(32767)
+var BUF_1024 = '\0'.repeat(1024)
+
+
 when defined(futhark):
   import futhark, os
   importc:
@@ -22,9 +26,10 @@ proc stringToBuffer(name: string): ydb_buffer_t =
   buf.len_used = cast[uint32](len(name))
   return buf
 
+
 proc ydbmsg*(status: cint): string =
   if status == YDB_OK: return
-  var buf = stringToBuffer(' '.repeat(1024))
+  var buf = stringToBuffer(BUF_1024)
   buf.len_used = cast[uint32](0)
   let rc = ydb_message(status, buf.addr)
   if rc == 0:
@@ -50,3 +55,24 @@ proc ydb_set*(name: string, value: string, keys: varargs[string]) =
   let rc = ydb_set_s(global.addr, idxcnt, idxarr[0].addr, value.addr)
   if rc != YDB_OK:
     raise newException(YottaDbError, ydbmsg(rc))
+
+
+proc ydb_get*(name: string, keys: varargs[string]): string =
+  # setup the global
+  let global = stringToBuffer(name)
+  
+  # setup index array
+  var idxcnt: cint = cast[cint](keys.len)
+  var idxarr: array[0..5, ydb_buffer_t]
+  for idx in 0 .. keys.len-1:
+    idxarr[idx] = stringToBuffer(keys[idx])
+
+  var buf = stringToBuffer("")
+  # get the length from yottadb signaled with an exception to avoid passing a huge buffer over
+  var rc = ydb_get_s(global.addr, idxcnt, idxarr[0].addr, buf.addr)
+  buf = stringToBuffer(' '.repeat(buf.len_used))
+  rc = ydb_get_s(global.addr, idxcnt, idxarr[0].addr, buf.addr)
+  if rc != YDB_OK:
+    raise newException(YottaDbError, ydbmsg(rc))  
+  else:
+    return $buf.buf_addr
