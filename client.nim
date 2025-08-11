@@ -8,6 +8,5 @@ for i in 0..MAX:
     ydb_set("^LJ", @["LAND", "ORT", $i], fmt"Hello Lothar Jöckel {i} from switzerland")
     # Read back
     let result = ydb_get("^LJ", @["LAND", "ORT", $i])
-    echo result
   except YottaDbError:
     echo getCurrentExceptionMsg()

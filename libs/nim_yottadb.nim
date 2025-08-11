@@ -27,6 +27,15 @@ proc stringToBuffer(name: string): ydb_buffer_t =
   return buf
 
 
+proc setupIndex(keys: seq[string]): array[32, ydb_buffer_t] =
+  # setup index array (max 31)
+  var idxcnt: cint = cast[cint](keys.len)
+  var idxarr: array[0..31, ydb_buffer_t]
+  for idx in 0 .. keys.len-1:
+    idxarr[idx] = stringToBuffer(keys[idx])
+  return idxarr
+
+
 proc ydbmsg*(status: cint): string =
   if status == YDB_OK: return
   var buf = stringToBuffer(BUF_1024)
@@ -38,41 +47,29 @@ proc ydbmsg*(status: cint): string =
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
 
 
-proc ydb_set*(name: string, keys: openArray[string], value: string) =
+proc ydb_set*(name: string, keys: seq[string], value: string) =
   # setup the global
   let global = stringToBuffer(name)
-  
-  # setup index array (max 31)
-  var idxcnt: cint = cast[cint](keys.len)
-  var idxarr: array[0..31, ydb_buffer_t]
-  for idx in 0 .. keys.len-1:
-    idxarr[idx] = stringToBuffer(keys[idx])
-  
-  # The Value
+  let idxarr = setupIndex(keys)
   let value = stringToBuffer(value)
 
   # Save in yottadb
-  let rc = ydb_set_s(global.addr, idxcnt, idxarr[0].addr, value.addr)
+  let rc = ydb_set_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc != YDB_OK:
     raise newException(YottaDbError, ydbmsg(rc))
 
 
-proc ydb_get*(name: string, keys: varargs[string]): string =
-  # setup the global
+proc ydb_get*(name: string, keys: seq[string]): string =
+  # setup the data structures
   let global = stringToBuffer(name)
-  
-  # setup index array (max 31)
-  var idxcnt: cint = cast[cint](keys.len)
-  var idxarr: array[0..31, ydb_buffer_t]
-  for idx in 0 .. keys.len-1:
-    idxarr[idx] = stringToBuffer(keys[idx])
+  let idxarr = setupIndex(keys)
+  var value = stringToBuffer("")
 
-  var buf = stringToBuffer("")
   # get the length from yottadb signaled with an exception to avoid passing a huge buffer over
-  var rc = ydb_get_s(global.addr, idxcnt, idxarr[0].addr, buf.addr)
-  buf = stringToBuffer(' '.repeat(buf.len_used))
-  rc = ydb_get_s(global.addr, idxcnt, idxarr[0].addr, buf.addr)
+  var rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
+  value = stringToBuffer(' '.repeat(value.len_used))
+  rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc != YDB_OK:
     raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
   else:
-    return $buf.buf_addr
+    return $value.buf_addr
