@@ -29,7 +29,6 @@ proc stringToBuffer(name: string): ydb_buffer_t =
 
 proc setupIndex(keys: seq[string]): array[32, ydb_buffer_t] =
   # setup index array (max 31)
-  var idxcnt: cint = cast[cint](keys.len)
   var idxarr: array[0..31, ydb_buffer_t]
   for idx in 0 .. keys.len-1:
     idxarr[idx] = stringToBuffer(keys[idx])
@@ -41,7 +40,7 @@ proc ydbmsg*(status: cint): string =
   var buf = stringToBuffer(BUF_1024)
   buf.len_used = cast[uint32](0)
   let rc = ydb_message(status, buf.addr)
-  if rc == 0:
+  if rc == YDB_OK:
     return fmt"{status}, " & strip($buf.buf_addr)
   else:
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
@@ -55,7 +54,7 @@ proc ydb_set*(name: string, keys: seq[string], value: string) =
 
   # Save in yottadb
   let rc = ydb_set_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
-  if rc != YDB_OK:
+  if rc < YDB_OK:
     raise newException(YottaDbError, ydbmsg(rc))
 
 
@@ -69,7 +68,19 @@ proc ydb_get*(name: string, keys: seq[string]): string =
   var rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   value = stringToBuffer(' '.repeat(value.len_used))
   rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
-  if rc != YDB_OK:
+  if rc < YDB_OK:
     raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
   else:
     return $value.buf_addr
+
+
+proc ydb_data*(name: string, keys: seq[string]): int =
+  # setup the data structures
+  let global = stringToBuffer(name)
+  let idxarr = setupIndex(keys)
+  var value: cuint = 0
+  var rc = ydb_data_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
+  if rc < YDB_OK:
+    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+  else:
+    return cast[int](value)
