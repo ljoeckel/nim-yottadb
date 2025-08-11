@@ -1,7 +1,6 @@
 import strutils, std/strformat
 
 
-var BUF_32767 = '\0'.repeat(32767)
 var BUF_1024 = '\0'.repeat(1024)
 
 
@@ -19,10 +18,10 @@ type
   YottaDbError* = object of CatchableError
 
 
-proc stringToBuffer(name: string): ydb_buffer_t =
+proc stringToBuffer(name: string = ""): ydb_buffer_t =
   var buf = ydb_buffer_t()
   buf.buf_addr = name.cstring
-  buf.len_alloc = cast[uint32](len(name)+1)
+  buf.len_alloc = cast[uint32](len(name))
   buf.len_used = cast[uint32](len(name))
   return buf
 
@@ -47,7 +46,6 @@ proc ydbmsg*(status: cint): string =
 
 
 proc ydb_set*(name: string, keys: seq[string], value: string) =
-  # setup the global
   let global = stringToBuffer(name)
   let idxarr = setupIndex(keys)
   let value = stringToBuffer(value)
@@ -59,14 +57,14 @@ proc ydb_set*(name: string, keys: seq[string], value: string) =
 
 
 proc ydb_get*(name: string, keys: seq[string]): string =
-  # setup the data structures
   let global = stringToBuffer(name)
   let idxarr = setupIndex(keys)
   var value = stringToBuffer("")
 
   # get the length from yottadb signaled with an exception to avoid passing a huge buffer over
   var rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
-  value = stringToBuffer(' '.repeat(value.len_used))
+  value = stringToBuffer('\0'.repeat(value.len_used))
+
   rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc < YDB_OK:
     raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
@@ -75,7 +73,6 @@ proc ydb_get*(name: string, keys: seq[string]): string =
 
 
 proc ydb_data*(name: string, keys: seq[string]): int =
-  # setup the data structures
   let global = stringToBuffer(name)
   let idxarr = setupIndex(keys)
   var value: cuint = 0
@@ -84,3 +81,31 @@ proc ydb_data*(name: string, keys: seq[string]): int =
     raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
   else:
     return cast[int](value)
+
+
+proc ydb_delete(name: string, keys: seq[string], deltype: uint): cint =
+  let global = stringToBuffer(name)
+  let idxarr = setupIndex(keys)
+  var rc = ydb_delete_s(global.addr, cast[cint](keys.len), idxarr[0].addr, cast[cint](deltype))
+  if rc < YDB_OK:
+    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+  else:
+    return rc
+
+proc ydb_delete_node*(name: string, keys: seq[string]): cint =
+  return ydb_delete(name, keys, YDB_DEL_NODE)
+
+proc ydb_delete_tree*(name: string, keys: seq[string]): cint =
+  return ydb_delete(name, keys, YDB_DEL_TREE)
+
+
+proc ydb_increment*(name: string, keys: seq[string], increment: int): string =
+  let global = stringToBuffer(name)
+  let idxarr = setupIndex(keys)
+  let incr = stringToBuffer($increment)
+  var value = stringToBuffer(' '.repeat(28))
+  var rc = ydb_incr_s(global.addr, cast[cint](keys.len), idxarr[0].addr, incr.addr, value.addr)
+  if rc < YDB_OK:
+    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+  else:
+    return $value.buf_addr
