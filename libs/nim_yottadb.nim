@@ -1,5 +1,5 @@
 import strutils, std/strformat
-
+import std/sequtils
 
 var BUF_1024 = '\0'.repeat(1024)
 
@@ -18,11 +18,14 @@ type
   YottaDbError* = object of CatchableError
 
 
-proc stringToBuffer(name: string = ""): ydb_buffer_t =
-  var buf = ydb_buffer_t()
+proc stringToBuffer(name: string = "", len_used:int = -1): ydb_buffer_t =
+  var buf: ydb_buffer_t = ydb_buffer_t()
   buf.buf_addr = name.cstring
   buf.len_alloc = cast[uint32](len(name))
-  buf.len_used = cast[uint32](len(name))
+  if len_used != -1:
+    buf.len_used = cast[uint32](len_used)
+  else:
+    buf.len_used = cast[uint32](len(name))
   return buf
 
 
@@ -109,3 +112,42 @@ proc ydb_increment*(name: string, keys: seq[string], increment: int): string =
     raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
   else:
     return $value.buf_addr
+
+
+proc printArray(a: openArray[ydb_buffer_t]) =
+  for item in a:
+    if item.len_used > 0 or item.len_alloc > 0:
+      echo item
+
+proc ydb_node_next*(name: string, keys: seq[string]): seq[string] =
+  var varname = stringToBuffer(name)
+  var idxarr = setupIndex(keys)
+  var ret_subs_used: cint = 0
+  var ret_subsarray: array[0..31, ydb_buffer_t]
+  ret_subsarray[0] = stringToBuffer('\0'.repeat(64), len_used=0)
+  ret_subsarray[1] = stringToBuffer('\0'.repeat(64), len_used=0)
+  ret_subsarray[2] = stringToBuffer('\0'.repeat(64), len_used=0)
+  ret_subsarray[3] = stringToBuffer('\0'.repeat(64), len_used=0)
+
+  var rc:cint = ydb_node_next_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
+  rc = ydb_node_next_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
+  #printArray(ret_subsarray)
+
+  if rc == YDB_ERR_INSUFFSUBS:
+    echo "INSUFFSUBS2"
+  if rc == YDB_ERR_INVSTRLEN:
+    echo "INVSTRLEN"
+  if rc == YDB_ERR_NODEEND:
+    echo "NODEEND"
+  if rc == YDB_ERR_PARAMINVALID:
+    echo "PARAMINVALID"
+
+  var s = newSeq[string]()
+  for item in ret_subsarray:
+    if item.len_used > 0:
+      s.add($item.buf_addr)
+  return s
+  #if rc < YDB_OK:
+  #  raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+  #else:
+  #  return $ret_subsarray.buf_addr

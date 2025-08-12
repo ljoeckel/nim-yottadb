@@ -1,22 +1,30 @@
 import std/strformat
 import libs/nim_yottadb
 
-const MAX=10
+const MAX=100
+
+echo "Write data"
 for i in 0..MAX:
   try:
     # Save in yottadb
     ydb_set("^LJ", @["LAND", "ORT", $i], fmt"Hello Lothar Jöckel {i} from switzerland")
     ydb_set("^LJ", @["LAND", "ORT", $i, $i], fmt"Hello Lothar Jöckel {i} from switzerland")
-    # Read back
+  except YottaDbError:
+    echo getCurrentExceptionMsg()
+
+ydb_set("^LJ", @["LAND", "STRASSE"], fmt"Gartenweg 4")
+
+echo "Read back"
+for i in 0..MAX:
+  try:
     let result = ydb_get("^LJ", @["LAND", "ORT", $i])
     assert result == fmt"Hello Lothar Jöckel {i} from switzerland"
   except YottaDbError:
     echo getCurrentExceptionMsg()
 
-  ydb_set("^LJ", @["LAND", "STRASSE"], fmt"Hello Lothar Jöckel {i} from switzerland")
 
 
-# Test ydb_data
+echo "ydb_data"
 try:
   assert ydb_data("^LJ", @["XXX"]) == 0 # There is neither a value nor a subtree, i.e., it is undefined.
   assert ydb_data("^LJ", @["LAND"]) == 10 # There is no value, but there is a subtree.
@@ -28,6 +36,19 @@ except YottaDbError:
   echo getCurrentExceptionMsg()
 
 
+echo "Traverse over Global"
+let glb="^LJ"
+try:
+  var rc = ydb_node_next(glb, @[""])
+  while(rc.len > 0):
+    let data = ydb_get(glb, rc)
+    echo rc,"=",data
+    rc = ydb_node_next(glb, rc)
+except YottaDbError:
+  echo getCurrentExceptionMsg()
+
+
+echo "Delete Tree"
 try:
   var rc = ydb_delete_node("^LJ", @["LAND", "STRASSE"])
   for i in 0..MAX:
@@ -35,7 +56,7 @@ try:
 except YottaDbError:
   echo getCurrentExceptionMsg()
 
-
+echo "Delete Node"
 try:
     var rc = ydb_delete_node("^CNT", @["CHANNEL", "INPUT"])
     var result = ydb_increment("^CNT", @["CHANNEL", "INPUT"], 1)
