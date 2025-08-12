@@ -150,3 +150,29 @@ proc ydb_node_next*(name: string, keys: seq[string]): seq[string] =
     raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
 
   return s
+
+
+proc ydb_node_previous*(name: string, keys: seq[string]): seq[string] =
+  var varname = stringToBuffer(name)
+  var idxarr = setupIndex(keys)
+  var ret_subs_used: cint = 0
+  var tmp = stringToBuffer()
+  # 1. call to get ret_subs_used
+  var rc:cint = ydb_node_previous_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
+  var ret_subsarray: array[0..31, ydb_buffer_t]
+  for i in 0..cast[int](ret_subs_used) - 1:
+    ret_subsarray[i] = stringToBuffer('\0'.repeat(64), len_used=0) # TODO: max length of index
+  # 2. call to get the data
+  rc = ydb_node_previous_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
+  
+  # construct the return key sequence
+  var s = newSeq[string]()
+  for item in ret_subsarray:
+    if item.len_used > 0:
+      s.add($item.buf_addr)
+
+  if not isExpectedErrorNextNode(rc):  
+    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+
+  return s
+
