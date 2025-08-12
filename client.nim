@@ -1,14 +1,32 @@
 import std/strformat
 import libs/nim_yottadb
+import std/strutils 
 
-const MAX=100
+
+const MAX=10
+
+func indexKeysToString(global: string, indexKeys: seq[string]): string =
+  result = global & "("
+
+  for i, idx in indexKeys:
+    try:
+      let nmbr = parseInt(idx)
+      result.add($nmbr)
+    except ValueError:
+      result.add("\"" & idx & "\"")
+
+    if i < indexKeys.len - 1:
+      result.add(",")
+  
+  result.add(")")
+
 
 echo "Write data"
 for i in 0..MAX:
   try:
     # Save in yottadb
-    ydb_set("^LJ", @["LAND", "ORT", $i], fmt"Hello Lothar Jöckel {i} from switzerland")
-    ydb_set("^LJ", @["LAND", "ORT", $i, $i], fmt"Hello Lothar Jöckel {i} from switzerland")
+    ydb_set("^LJ", @["LAND", "ORT", $i], fmt"Hello Lothar Jöckel {i} aus der Schweiz")
+    ydb_set("^LJ", @["LAND", "ORT", $i, $i], fmt"Hello Lothar Jöckel {i} from Switzerland")
   except YottaDbError:
     echo getCurrentExceptionMsg()
 
@@ -18,7 +36,7 @@ echo "Read back"
 for i in 0..MAX:
   try:
     let result = ydb_get("^LJ", @["LAND", "ORT", $i])
-    assert result == fmt"Hello Lothar Jöckel {i} from switzerland"
+    assert result == fmt"Hello Lothar Jöckel {i} aus der Schweiz"
   except YottaDbError:
     echo getCurrentExceptionMsg()
 
@@ -39,11 +57,12 @@ except YottaDbError:
 echo "Traverse over Global"
 let glb="^LJ"
 try:
-  var rc = ydb_node_next(glb, @[""])
-  while(rc.len > 0):
-    let data = ydb_get(glb, rc)
-    echo rc,"=",data
-    rc = ydb_node_next(glb, rc)
+  var indexKeys = ydb_node_next(glb, @[""])
+  while(indexKeys.len > 0):
+    let key = indexKeysToString(glb, indexKeys)
+    let value = ydb_get(glb, indexKeys)
+    echo fmt"{key}={value}"
+    indexKeys = ydb_node_next(glb, indexKeys)
 except YottaDbError:
   echo getCurrentExceptionMsg()
 
@@ -63,3 +82,7 @@ try:
     assert ydb_get("^CNT", @["CHANNEL", "INPUT"]) == "1"
 except YottaDbError:
   echo getCurrentExceptionMsg()
+
+echo "Delete Global var ^LJ"
+echo ydbmsg(ydb_delete_node("^LJ", @[]))
+
