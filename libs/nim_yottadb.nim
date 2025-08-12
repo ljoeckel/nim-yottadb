@@ -61,7 +61,7 @@ proc ydbmsg*(status: cint): string =
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
 
 
-proc ydb_set*(name: string, keys: seq[string], value: string) =
+proc ydb_set*(name: string, keys: seq[string], value: string = "") =
   let global = stringToBuffer(name)
   let idxarr = setupIndex(keys)
   let value = stringToBuffer(value)
@@ -176,3 +176,22 @@ proc ydb_node_previous*(name: string, keys: seq[string]): seq[string] =
 
   return s
 
+
+proc ydb_subscript_next*(name: string, keys: var seq[string]): int =
+  var varname = stringToBuffer(name)
+  var subsarr = setupIndex(keys)
+  let subs_used = cast[cint](keys.len)
+  var ret_value = stringToBuffer('\0'.repeat(64), len_used=0) # TODO: max length of index
+  # 1. call to get ret_subs_used
+  var rc:cint = ydb_subscript_next_s(varname.addr, subs_used, subsarr[0].addr,  ret_value.addr)
+  
+  if not isExpectedErrorNextNode(rc):  
+    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+
+  # update the key sequence as return value
+  let level = keys.len - 1
+  if level < 0:
+    keys.add($ret_value.buf_addr)
+  else:
+    keys[level] = $ret_value.buf_addr
+  return rc

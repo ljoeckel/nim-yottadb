@@ -86,6 +86,39 @@ proc traversePrevious() =
     echo getCurrentExceptionMsg()
 
 
+proc nextSubscript() =
+  echo "Getting next subscript"
+  let glb = "^LL"
+
+  ydb_set("^LL", @["HAUS"])
+  ydb_set("^LL", @["HAUS", "ELEKTRIK"])
+  ydb_set("^LL", @["HAUS", "ELEKTRIK", "DOSEN"])
+  ydb_set("^LL", @["HAUS", "ELEKTRIK", "DOSEN", "1"], "Telefondose")
+  ydb_set("^LL", @["HAUS", "ELEKTRIK", "DOSEN", "2"], "Steckdose")
+  ydb_set("^LL", @["HAUS", "ELEKTRIK", "DOSEN", "3"], "IP-Dose")
+  ydb_set("^LL", @["HAUS", "ELEKTRIK", "DOSEN", "4"], "KFZ-Dose")
+  ydb_set("^LL", @["HAUS", "ELEKTRIK", "KABEL"])
+  ydb_set("^LL", @["HAUS", "ELEKTRIK", "KABEL", "FARBEN"])
+  ydb_set("^LL", @["HAUS", "ELEKTRIK", "KABEL", "STAERKEN"])
+  ydb_set("^LL", @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
+  ydb_set("^LL", @["HAUS", "HEIZUNG"])
+  ydb_set("^LL", @["HAUS", "HEIZUNG", "MESSGERAETE"])
+  ydb_set("^LL", @["HAUS", "HEIZUNG", "ROHRE"])
+  ydb_set("^LL", @["LAND"])
+  ydb_set("^LL", @["LAND", "FLAECHEN"])
+  ydb_set("^LL", @["LAND", "NUTZUNG"])
+  ydb_set("^LL", @["ORT"])
+
+  try:
+    var indexkeys = @["HAUS", "ELEKTRIK", ""]
+    var rc = 0
+    while(rc == YDB_OK):
+      rc = ydb_subscript_next(glb, indexKeys)
+      echo "rc=", rc, "keys=", indexKeys
+  except YottaDbError:
+      echo getCurrentExceptionMsg()
+
+
 proc deleteTree() =
   echo "Delete Tree"
   try:
@@ -117,3 +150,4 @@ traversePrevious()
 deleteTree()
 deleteNode()
 deleteGlobalVar()
+nextSubscript()
