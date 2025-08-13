@@ -56,16 +56,15 @@ proc testData() =
     echo getCurrentExceptionMsg()
 
 
-proc traverseNext() =
+proc traverseNext(global: string) =
   echo "Traverse NEXT over Global"
-  let glb="^LJ"
   try:
-    var indexKeys = ydb_node_next(glb, @[""])
+    var indexKeys = ydb_node_next(global, @[""])
     while(indexKeys.len > 0):
-      let key = indexKeysToString(glb, indexKeys)
-      let value = ydb_get(glb, indexKeys)
+      let key = indexKeysToString(global, indexKeys)
+      let value = ydb_get(global, indexKeys)
       echo fmt"{key}={value}"
-      indexKeys = ydb_node_next(glb, indexKeys)
+      indexKeys = ydb_node_next(global, indexKeys)
   except YottaDbError:
     echo getCurrentExceptionMsg()
 
@@ -142,12 +141,59 @@ proc deleteGlobalVar() =
   echo ydbmsg(ydb_delete_node("^LJ", @[]))
 
 
-writeData()
-readBack()
-testData()
-traverseNext()
-traversePrevious()
-deleteTree()
-deleteNode()
-deleteGlobalVar()
-nextSubscript()
+proc getSpecialVariables() =
+  echo "getSpecialVariables"
+  let vars = ["$DEVICE", "$ECODE","$ESTACK", "$ETRAP", "$HOROLOG",
+              "$IO", "$JOB", "$KEY", "$PRINCIPAL", "$QUIT", "$REFERENCE", "$STACK", "$STORAGE",
+              "$SYSTEM", "$TLEVEL", "$TRESTART", "$X", "$Y", "$ZA", "$ZALLOCSTOR", "$ZAUDIT",
+              "$ZB", "$ZCHSET", "$ZCLOSE", "$ZCMDLINE", "$ZCOMPILE", "$ZCSTATUS", "$ZDATEFORM",
+              "$ZDIRECTORY", "$ZEDITOR", "$ZEOF", "$ZERROR", "$ZGBLDIR", "$ZHOROLOG", 
+              "$ZININTERRUPT", "$ZINTERRUPT", "$ZIO", "$ZJOB", "$ZKEY", "$ZLEVEL", "$ZMALLOCLIM",
+              "$ZMAXTPTIME", "$ZMODE", "$ZONLNRLBK", "$ZPATNUMERIC", "$ZPIN", "$ZPOSITION",
+              "$ZPOUT", "$ZPROMPT", "$ZQUIT", "$ZREALSTOR", "$ZRELDATE", "$ZROUTINES", "$ZSOURCE", 
+              "$ZSTATUS", "$ZSTEP", "$ZSTRPLLIM", "$ZSYSTEM", "$ZTEXIT", "$ZTIMEOUT", "$ZTRAP",
+              "$ZUSEDSTOR", "$ZUT", "$ZVERSION", "$ZYERROR", "$ZYINTRSIG", "$ZYRELEASE", 
+              "$ZYSQLNULL"]
+  for variable in vars:
+    try:
+      echo variable, "=", ydb_get(variable)
+    except:
+      echo "Error when getting variable ", variable, ": ", getCurrentExceptionMsg()
+
+  try:
+    let s = ydb_get("$XXXX")
+  except YottaDbError:
+    echo getCurrentExceptionMsg()
+
+
+proc setAndGetVariable() =
+  echo "setAndGetVariable"
+  let vars = ["X"]
+  for variable in vars:
+    try:
+      echo variable
+      ydb_set(variable, @[], "hello")
+      ydb_set("X", @["1"], "hello X(1)")
+      #echo variable, "=", ydb_set(variable, @[], value="Hello")
+    except:
+      echo "Error when setting variable ", variable, ": ", getCurrentExceptionMsg()
+
+  try:
+    echo "X=", (ydb_get("X"))
+    echo "X(1)=", (ydb_get("X", @["1"]))
+    
+  except YottaDbError:
+    echo getCurrentExceptionMsg()
+
+
+# writeData()
+# readBack()
+# testData()
+traverseNext("^LJ")
+# traversePrevious()
+# deleteTree()
+# deleteNode()
+# deleteGlobalVar()
+# nextSubscript()
+# getSpecialVariables()
+setAndGetVariable()

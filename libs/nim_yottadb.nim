@@ -61,7 +61,7 @@ proc ydbmsg*(status: cint): string =
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
 
 
-proc ydb_set*(name: string, keys: seq[string], value: string = "") =
+proc ydb_set*(name: string, keys: seq[string] = @[], value: string = "") =
   let global = stringToBuffer(name)
   let idxarr = setupIndex(keys)
   let value = stringToBuffer(value)
@@ -72,7 +72,7 @@ proc ydb_set*(name: string, keys: seq[string], value: string = "") =
     raise newException(YottaDbError, ydbmsg(rc))
 
 
-proc ydb_get*(name: string, keys: seq[string]): string =
+proc ydb_get*(name: string, keys: seq[string] = @[]): string =
   let global = stringToBuffer(name)
   let idxarr = setupIndex(keys)
   var value = stringToBuffer("")
