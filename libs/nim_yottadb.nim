@@ -127,7 +127,7 @@ proc ydb_increment*(name: string, keys: seq[string], increment: int): string =
     return $value.buf_addr
 
 
-proc ydb_node_next*(name: string, keys: seq[string]): seq[string] =
+proc ydb_node_next*(name: string, keys: seq[string]): (int, seq[string]) =
   var varname = stringToBuffer(name)
   var idxarr = setupIndex(keys)
   var ret_subs_used: cint = 0
@@ -141,15 +141,15 @@ proc ydb_node_next*(name: string, keys: seq[string]): seq[string] =
   rc = ydb_node_next_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
   
   # construct the return key sequence
-  var s = newSeq[string]()
+  var sbscr = newSeq[string]()
   for item in ret_subsarray:
     if item.len_used > 0:
-      s.add($item.buf_addr)
+      sbscr.add($item.buf_addr)
 
   if not isExpectedErrorNextNode(rc):  
     raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
 
-  return s
+  return (rc: cast[int](rc), subscript: sbscr)
 
 
 proc ydb_node_previous*(name: string, keys: seq[string]): seq[string] =

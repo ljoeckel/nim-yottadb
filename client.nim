@@ -5,17 +5,17 @@ import std/strutils
 
 const MAX=10
 
-func indexKeysToString(global: string, indexKeys: seq[string]): string =
+func keysToString(global: string, subscript: seq[string]): string =
   result = global & "("
 
-  for i, idx in indexKeys:
+  for i, idx in subscript:
     try:
       let nmbr = parseInt(idx)
       result.add($nmbr)
     except ValueError:
       result.add("\"" & idx & "\"")
 
-    if i < indexKeys.len - 1:
+    if i < subscript.len - 1:
       result.add(",")
   
   result.add(")")
@@ -56,38 +56,54 @@ proc testData() =
     echo getCurrentExceptionMsg()
 
 
-proc traverseNext(global: string) =
-  echo "Traverse NEXT over Global"
+proc traverseNext(global: string, start_subscript: seq[string] = @[]) =
+  var rc: int
+  var subscript = start_subscript
   try:
-    var indexKeys = ydb_node_next(global, @[""])
-    while(indexKeys.len > 0):
-      let key = indexKeysToString(global, indexKeys)
-      let value = ydb_get(global, indexKeys)
-      echo fmt"{key}={value}"
-      indexKeys = ydb_node_next(global, indexKeys)
+    while true:
+      (rc, subscript) = ydb_node_next(global, subscript)
+      if rc != YDB_OK: break
+      echo keysToString(global, subscript)
   except YottaDbError:
     echo getCurrentExceptionMsg()
+
+traverseNext("^LJ", @["LAND", "ORT", "5"]) # start at ^LJ("LAND","ORT","3")
+echo ""
+traverseNext("^LJ") # get all keys
+
+
+# proc traversePrevious(global: string, subscript: seq[string] = @[""]) =
+#   echo "Traverse NEXT over Global"
+#   var rc: int
+#   try:
+#     while true:
+#       (rc, subscript) = ydb_node_previous(global, subscript)
+#       if rc != YDB_OK: break
+#       let value = ydb_get(global, subscript)
+#       echo fmt"{keysToString(global, subscript)}={value}"
+#   except YottaDbError:
+#     echo getCurrentExceptionMsg()
 
 
 proc traversePrevious() =
   echo "Traverse PREVIOUS over Global"
-  let glb="^LJ"
-  var indexKeys = @["LAND", "STRASSE"]
-  echo "Starting with ", indexKeysToString(glb, indexKeys)
+  let global="^LJ"
+  var subscript = @["LAND", "STRASSE"]
+  echo "Starting with ", keysToString(global, subscript)
   try:
-    indexKeys = ydb_node_previous(glb, indexKeys)
-    while(indexKeys.len > 0):
-      let key = indexKeysToString(glb, indexKeys)
-      let value = ydb_get(glb, indexKeys)
+    subscript = ydb_node_previous(global, subscript)
+    while(subscript.len > 0):
+      let key = keysToString(global, subscript)
+      let value = ydb_get(global, subscript)
       echo fmt"{key}={value}"
-      indexKeys = ydb_node_previous(glb, indexKeys)
+      subscript = ydb_node_previous(global, subscript)
   except YottaDbError:
     echo getCurrentExceptionMsg()
 
 
 proc nextSubscript() =
   echo "Getting next subscript"
-  let glb = "^LL"
+  let global = "^LL"
 
   ydb_set("^LL", @["HAUS"])
   ydb_set("^LL", @["HAUS", "ELEKTRIK"])
@@ -109,11 +125,11 @@ proc nextSubscript() =
   ydb_set("^LL", @["ORT"])
 
   try:
-    var indexkeys = @["HAUS", "ELEKTRIK", ""]
+    var subscript = @["HAUS", "ELEKTRIK", ""]
     var rc = 0
     while(rc == YDB_OK):
-      rc = ydb_subscript_next(glb, indexKeys)
-      echo "rc=", rc, "keys=", indexKeys
+      rc = ydb_subscript_next(global, subscript)
+      echo "rc=", rc, "keys=", subscript
   except YottaDbError:
       echo getCurrentExceptionMsg()
 
@@ -174,6 +190,11 @@ proc setAndGetVariable() =
       echo variable
       ydb_set(variable, @[], "hello")
       ydb_set("X", @["1"], "hello X(1)")
+      ydb_set("X", @["1","1"], "hello X(1,1)")
+      ydb_set("X", @["1","2"], "hello X(1,2)")
+      ydb_set("X", @["1","3"], "hello X(1,3)")
+      ydb_set("X", @["2"], "hello X(2)")
+      ydb_set("X", @["2","3"], "hello X(2,3)")
       #echo variable, "=", ydb_set(variable, @[], value="Hello")
     except:
       echo "Error when setting variable ", variable, ": ", getCurrentExceptionMsg()
@@ -181,19 +202,22 @@ proc setAndGetVariable() =
   try:
     echo "X=", (ydb_get("X"))
     echo "X(1)=", (ydb_get("X", @["1"]))
-    
+    echo "X(2)=", (ydb_get("X", @["2"]))
+    echo "X(1,1)=", (ydb_get("X", @["1","1"]))
+    traverseNext("X")  
   except YottaDbError:
     echo getCurrentExceptionMsg()
 
 
-# writeData()
-# readBack()
-# testData()
+writeData()
+readBack()
+testData()
 traverseNext("^LJ")
-# traversePrevious()
-# deleteTree()
-# deleteNode()
-# deleteGlobalVar()
-# nextSubscript()
-# getSpecialVariables()
+traversePrevious()
+deleteTree()
+deleteNode()
+deleteGlobalVar()
+nextSubscript()
+getSpecialVariables()
 setAndGetVariable()
+traverseNext("^words")
