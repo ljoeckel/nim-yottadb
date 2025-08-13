@@ -11,7 +11,12 @@ else:
   include "yottadb.nim"
 
 type 
+  Direction = enum
+    Next,
+    Previous
+
   YottaDbError* = object of CatchableError
+
 
 var BUF_1024 = '\0'.repeat(1024)
 const EXPECTED_ERRORS_NEXT_NODE: array[0..4, int] = [YDB_ERR_INSUFFSUBS, YDB_ERR_INVSTRLEN, YDB_ERR_NODEEND, YDB_ERR_PARAMINVALID, YDB_OK]
@@ -127,18 +132,25 @@ proc ydb_increment*(name: string, keys: seq[string], increment: int): string =
     return $value.buf_addr
 
 
-proc ydb_node_next*(name: string, keys: seq[string]): (int, seq[string]) =
+proc node_traverse(direction: Direction, name: string, keys: seq[string]): (int, seq[string]) =
   var varname = stringToBuffer(name)
   var idxarr = setupIndex(keys)
   var ret_subs_used: cint = 0
   var tmp = stringToBuffer()
+  var rc: cint = YDB_OK
   # 1. call to get ret_subs_used
-  var rc:cint = ydb_node_next_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
+  if direction == Direction.Next:
+    rc = ydb_node_next_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
+  else:
+    rc = ydb_node_previous_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
   var ret_subsarray: array[0..31, ydb_buffer_t]
   for i in 0..cast[int](ret_subs_used) - 1:
     ret_subsarray[i] = stringToBuffer('\0'.repeat(64), len_used=0) # TODO: max length of index
   # 2. call to get the data
-  rc = ydb_node_next_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
+  if direction == Direction.Next:
+    rc = ydb_node_next_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
+  else:
+    rc = ydb_node_previous_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
   
   # construct the return key sequence
   var sbscr = newSeq[string]()
@@ -152,38 +164,23 @@ proc ydb_node_next*(name: string, keys: seq[string]): (int, seq[string]) =
   return (rc: cast[int](rc), subscript: sbscr)
 
 
-proc ydb_node_previous*(name: string, keys: seq[string]): seq[string] =
-  var varname = stringToBuffer(name)
-  var idxarr = setupIndex(keys)
-  var ret_subs_used: cint = 0
-  var tmp = stringToBuffer()
-  # 1. call to get ret_subs_used
-  var rc:cint = ydb_node_previous_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
-  var ret_subsarray: array[0..31, ydb_buffer_t]
-  for i in 0..cast[int](ret_subs_used) - 1:
-    ret_subsarray[i] = stringToBuffer('\0'.repeat(64), len_used=0) # TODO: max length of index
-  # 2. call to get the data
-  rc = ydb_node_previous_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
-  
-  # construct the return key sequence
-  var s = newSeq[string]()
-  for item in ret_subsarray:
-    if item.len_used > 0:
-      s.add($item.buf_addr)
+proc ydb_node_next*(name: string, keys: seq[string]): (int, seq[string]) =
+  return node_traverse(Direction.Next, name, keys)
 
-  if not isExpectedErrorNextNode(rc):  
-    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+proc ydb_node_previous*(name: string, keys: seq[string]): (int, seq[string]) =
+  return node_traverse(Direction.Previous, name, keys)
 
-  return s
-
-
-proc ydb_subscript_next*(name: string, keys: var seq[string]): int =
+proc subscript_traverse(direction: Direction, name: string, keys: var seq[string]): int =
   var varname = stringToBuffer(name)
   var subsarr = setupIndex(keys)
   let subs_used = cast[cint](keys.len)
   var ret_value = stringToBuffer('\0'.repeat(64), len_used=0) # TODO: max length of index
+  var rc: cint = YDB_OK
   # 1. call to get ret_subs_used
-  var rc:cint = ydb_subscript_next_s(varname.addr, subs_used, subsarr[0].addr,  ret_value.addr)
+  if direction == Direction.Next:
+    rc = ydb_subscript_next_s(varname.addr, subs_used, subsarr[0].addr,  ret_value.addr)
+  else:
+    rc = ydb_subscript_previous_s(varname.addr, subs_used, subsarr[0].addr,  ret_value.addr)    
   
   if not isExpectedErrorNextNode(rc):  
     raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
@@ -195,3 +192,9 @@ proc ydb_subscript_next*(name: string, keys: var seq[string]): int =
   else:
     keys[level] = $ret_value.buf_addr
   return rc
+
+proc ydb_subscript_next*(name: string, keys: var seq[string]): int =
+  return subscript_traverse(Direction.Next, name, keys)
+
+proc ydb_subscript_previous*(name: string, keys: var seq[string]): int =
+  return subscript_traverse(Direction.Previous, name, keys)

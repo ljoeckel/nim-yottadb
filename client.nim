@@ -67,42 +67,20 @@ proc traverseNext(global: string, start_subscript: seq[string] = @[]) =
   except YottaDbError:
     echo getCurrentExceptionMsg()
 
-traverseNext("^LJ", @["LAND", "ORT", "5"]) # start at ^LJ("LAND","ORT","3")
-echo ""
-traverseNext("^LJ") # get all keys
 
-
-# proc traversePrevious(global: string, subscript: seq[string] = @[""]) =
-#   echo "Traverse NEXT over Global"
-#   var rc: int
-#   try:
-#     while true:
-#       (rc, subscript) = ydb_node_previous(global, subscript)
-#       if rc != YDB_OK: break
-#       let value = ydb_get(global, subscript)
-#       echo fmt"{keysToString(global, subscript)}={value}"
-#   except YottaDbError:
-#     echo getCurrentExceptionMsg()
-
-
-proc traversePrevious() =
-  echo "Traverse PREVIOUS over Global"
-  let global="^LJ"
-  var subscript = @["LAND", "STRASSE"]
-  echo "Starting with ", keysToString(global, subscript)
+proc traversePrevious(global: string, start_subscript: seq[string] = @[]) =
+  var rc: int
+  var subscript = start_subscript
   try:
-    subscript = ydb_node_previous(global, subscript)
-    while(subscript.len > 0):
-      let key = keysToString(global, subscript)
-      let value = ydb_get(global, subscript)
-      echo fmt"{key}={value}"
-      subscript = ydb_node_previous(global, subscript)
+    while true:
+      (rc, subscript) = ydb_node_previous(global, subscript)
+      if rc != YDB_OK: break
+      echo keysToString(global, subscript)
   except YottaDbError:
     echo getCurrentExceptionMsg()
 
 
 proc nextSubscript() =
-  echo "Getting next subscript"
   let global = "^LL"
 
   ydb_set("^LL", @["HAUS"])
@@ -124,11 +102,22 @@ proc nextSubscript() =
   ydb_set("^LL", @["LAND", "NUTZUNG"])
   ydb_set("^LL", @["ORT"])
 
+  echo "Getting next subscript"
   try:
     var subscript = @["HAUS", "ELEKTRIK", ""]
     var rc = 0
     while(rc == YDB_OK):
       rc = ydb_subscript_next(global, subscript)
+      echo "rc=", rc, "keys=", subscript
+  except YottaDbError:
+      echo getCurrentExceptionMsg()
+
+  echo "Getting previous subscript"
+  try:
+    var subscript = @["HAUS", "HEIZUNG"]
+    var rc = 0
+    while(rc == YDB_OK):
+      rc = ydb_subscript_previous(global, subscript)
       echo "rc=", rc, "keys=", subscript
   except YottaDbError:
       echo getCurrentExceptionMsg()
@@ -142,6 +131,7 @@ proc deleteTree() =
       rc = ydb_delete_tree("^LJ", @["LAND", "ORT", $i, $i])
   except YottaDbError:
     echo getCurrentExceptionMsg()
+
 
 proc deleteNode() =
   echo "Delete Node"
@@ -213,11 +203,12 @@ writeData()
 readBack()
 testData()
 traverseNext("^LJ")
-traversePrevious()
 deleteTree()
 deleteNode()
 deleteGlobalVar()
 nextSubscript()
 getSpecialVariables()
 setAndGetVariable()
-traverseNext("^words")
+traverseNext("^LJ") # get all keys
+traverseNext("^LJ", @["LAND", "ORT", "5"]) # start at ^LJ("LAND","ORT","5") -> 10
+traversePrevious("^LJ", @["LAND", "ORT", "5"]) # start at ^LJ("LAND","ORT","5") -> 0
