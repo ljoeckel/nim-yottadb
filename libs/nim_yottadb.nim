@@ -1,5 +1,4 @@
 import strutils, std/strformat
-import std/sequtils
 
 when defined(futhark):
   import futhark, os

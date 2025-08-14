@@ -1,10 +1,10 @@
 import std/strformat
-import libs/nim_yottadb
 import std/strutils 
 import std/times
+import yottadb
 
 const 
-  MAX = 100000
+  MAX = 1000
   LOG = false
 
 template print(str: varargs[string]) =
