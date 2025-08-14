@@ -1,4 +1,5 @@
 import strutils, std/strformat
+import yottadb_types
 
 when defined(futhark):
   import futhark, os
@@ -9,16 +10,10 @@ when defined(futhark):
 else:
   include "yottadb.nim"
 
-type 
-  Direction = enum
-    Next,
-    Previous
-
-  YottaDbError* = object of CatchableError
-
-
-var BUF_1024 = '\0'.repeat(1024)
-const EXPECTED_ERRORS_NEXT_NODE: array[0..4, int] = [YDB_ERR_INSUFFSUBS, YDB_ERR_INVSTRLEN, YDB_ERR_NODEEND, YDB_ERR_PARAMINVALID, YDB_OK]
+var 
+  BUF_1024 = '\0'.repeat(1024)
+const 
+  EXPECTED_ERRORS_NEXT_NODE: array[0..4, int] = [YDB_ERR_INSUFFSUBS, YDB_ERR_INVSTRLEN, YDB_ERR_NODEEND, YDB_ERR_PARAMINVALID, YDB_OK]
 
 # Helper to test for a unexpected error condition when traversing with ydb_next_node etc.
 proc isExpectedErrorNextNode(rc: cint): bool =
@@ -27,7 +22,6 @@ proc isExpectedErrorNextNode(rc: cint): bool =
     if return_code == error:
       return true
   return false
-
 
 proc stringToBuffer(name: string = "", len_used:int = -1): ydb_buffer_t =
   var buf = ydb_buffer_t()
@@ -39,7 +33,6 @@ proc stringToBuffer(name: string = "", len_used:int = -1): ydb_buffer_t =
     buf.len_used = cast[uint32](len(name))
   return buf
 
-
 proc setupIndex(keys: seq[string]): array[32, ydb_buffer_t] =
   # setup index array (max 31)
   var idxarr: array[0..31, ydb_buffer_t]
@@ -47,14 +40,12 @@ proc setupIndex(keys: seq[string]): array[32, ydb_buffer_t] =
     idxarr[idx] = stringToBuffer(keys[idx])
   return idxarr
 
-
 proc printArray(a: openArray[ydb_buffer_t]) =
   for item in a:
     if item.len_used > 0 or item.len_alloc > 0:
       echo item
 
-
-proc ydbmsg*(status: cint): string =
+proc ydbmsg_db*(status: cint): string =
   if status == YDB_OK: return
   var buf = stringToBuffer(BUF_1024)
   buf.len_used = cast[uint32](0)
@@ -64,8 +55,9 @@ proc ydbmsg*(status: cint): string =
   else:
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
 
+# ------------ YottaDB internal API calls -----------------------
 
-proc ydb_set*(name: string, keys: seq[string] = @[], value: string = "") =
+proc ydb_set_db*(name: string, keys: seq[string] = @[], value: string = "") =
   let global = stringToBuffer(name)
   let idxarr = setupIndex(keys)
   let value = stringToBuffer(value)
@@ -73,10 +65,9 @@ proc ydb_set*(name: string, keys: seq[string] = @[], value: string = "") =
   # Save in yottadb
   let rc = ydb_set_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc < YDB_OK:
-    raise newException(YottaDbError, ydbmsg(rc))
+    raise newException(YottaDbError, ydbmsg_db(rc))
 
-
-proc ydb_get*(name: string, keys: seq[string] = @[]): string =
+proc ydb_get_db*(name: string, keys: seq[string] = @[]): string =
   let global = stringToBuffer(name)
   let idxarr = setupIndex(keys)
   var value = stringToBuffer("")
@@ -87,49 +78,45 @@ proc ydb_get*(name: string, keys: seq[string] = @[]): string =
 
   rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+    raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
   else:
     return $value.buf_addr
 
-
-proc ydb_data*(name: string, keys: seq[string]): int =
+proc ydb_data_db*(name: string, keys: seq[string]): int =
   let global = stringToBuffer(name)
   let idxarr = setupIndex(keys)
   var value: cuint = 0
   var rc = ydb_data_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+    raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
   else:
     return cast[int](value)
-
 
 proc ydb_delete(name: string, keys: seq[string], deltype: uint): cint =
   let global = stringToBuffer(name)
   let idxarr = setupIndex(keys)
   var rc = ydb_delete_s(global.addr, cast[cint](keys.len), idxarr[0].addr, cast[cint](deltype))
   if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+    raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
   else:
     return rc
 
-proc ydb_delete_node*(name: string, keys: seq[string]): cint =
+proc ydb_delete_node_db*(name: string, keys: seq[string]): cint =
   return ydb_delete(name, keys, YDB_DEL_NODE)
 
-proc ydb_delete_tree*(name: string, keys: seq[string]): cint =
+proc ydb_delete_tree_db*(name: string, keys: seq[string]): cint =
   return ydb_delete(name, keys, YDB_DEL_TREE)
 
-
-proc ydb_increment*(name: string, keys: seq[string], increment: int): string =
+proc ydb_increment_db*(name: string, keys: seq[string], increment: int): string =
   let global = stringToBuffer(name)
   let idxarr = setupIndex(keys)
   let incr = stringToBuffer($increment)
   var value = stringToBuffer(' '.repeat(28))
   var rc = ydb_incr_s(global.addr, cast[cint](keys.len), idxarr[0].addr, incr.addr, value.addr)
   if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+    raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
   else:
     return $value.buf_addr
-
 
 proc node_traverse(direction: Direction, name: string, keys: seq[string]): (int, seq[string]) =
   var varname = stringToBuffer(name)
@@ -158,15 +145,14 @@ proc node_traverse(direction: Direction, name: string, keys: seq[string]): (int,
       sbscr.add($item.buf_addr)
 
   if not isExpectedErrorNextNode(rc):  
-    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+    raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
 
   return (rc: cast[int](rc), subscript: sbscr)
 
-
-proc ydb_node_next*(name: string, keys: seq[string]): (int, seq[string]) =
+proc ydb_node_next_db*(name: string, keys: seq[string]): (int, seq[string]) =
   return node_traverse(Direction.Next, name, keys)
 
-proc ydb_node_previous*(name: string, keys: seq[string]): (int, seq[string]) =
+proc ydb_node_previous_db*(name: string, keys: seq[string]): (int, seq[string]) =
   return node_traverse(Direction.Previous, name, keys)
 
 proc subscript_traverse(direction: Direction, name: string, keys: var seq[string]): int =
@@ -182,7 +168,7 @@ proc subscript_traverse(direction: Direction, name: string, keys: var seq[string
     rc = ydb_subscript_previous_s(varname.addr, subs_used, subsarr[0].addr,  ret_value.addr)    
   
   if not isExpectedErrorNextNode(rc):  
-    raise newException(YottaDbError, fmt"{ydbmsg(rc)}, Global:{name}{keys}")
+    raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
 
   # update the key sequence as return value
   let level = keys.len - 1
@@ -192,8 +178,8 @@ proc subscript_traverse(direction: Direction, name: string, keys: var seq[string
     keys[level] = $ret_value.buf_addr
   return rc
 
-proc ydb_subscript_next*(name: string, keys: var seq[string]): int =
+proc ydb_subscript_next_db*(name: string, keys: var seq[string]): int =
   return subscript_traverse(Direction.Next, name, keys)
 
-proc ydb_subscript_previous*(name: string, keys: var seq[string]): int =
+proc ydb_subscript_previous_db*(name: string, keys: var seq[string]): int =
   return subscript_traverse(Direction.Previous, name, keys)

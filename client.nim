@@ -3,8 +3,8 @@ import std/strutils
 import std/times
 import yottadb
 
-const 
-  MAX = 1000
+var
+  MAX = 10
   LOG = false
 
 template print(str: varargs[string]) =
@@ -35,6 +35,8 @@ func keysToString(global: string, subscript: seq[string]): string =
       result.add(",")
 
   result.add(")")
+
+# ------------- Test cases are here ---------------------
 
 proc writeData() =
   for i in 0..MAX:
@@ -156,18 +158,21 @@ proc setAndGetVariable() =
 
 # -------------------------------------------------------------------
 
-execute "ALL TESTS":
+proc main() =
+  execute "ALL TESTS":
+    execute "writeData":  writeData()
+    execute "readBack": readBack()
+    execute "testData": testData()
+    execute "traverseNext(^LJ)": traverseNext("^LJ")
+    execute "deleteTree": deleteTree()
+    execute "deleteNode": deleteNode()
+    execute "deleteGlobalVar": deleteGlobalVar()
+    execute "nextSubscript": nextSubscript()
+    execute "getSpecialVariables": getSpecialVariables()
+    execute "setAndGetVariable": setAndGetVariable()
+    execute "traverseNext(^LJ)": traverseNext("^LJ") # get all keys
+    execute "traveseNext(^LJ(LAND,ORT)": traverseNext("^LJ", @["LAND", "ORT", "5"]) # start at ^LJ("LAND","ORT","5") -> 10
+    execute "traversePrevious(^LJ(LAND, ORT, 5)": traversePrevious("^LJ", @["LAND", "ORT", "5"]) # start at ^LJ("LAND","ORT","5") -> 0
 
-  execute "writeData":  writeData()
-  execute "readBack": readBack()
-  execute "testData": testData()
-  execute "traverseNext(^LJ)": traverseNext("^LJ")
-  execute "deleteTree": deleteTree()
-  execute "deleteNode": deleteNode()
-  execute "deleteGlobalVar": deleteGlobalVar()
-  execute "nextSubscript": nextSubscript()
-  execute "getSpecialVariables": getSpecialVariables()
-  execute "setAndGetVariable": setAndGetVariable()
-  execute "traverseNext(^LJ)": traverseNext("^LJ") # get all keys
-  execute "traveseNext(^LJ(LAND,ORT)": traverseNext("^LJ", @["LAND", "ORT", "5"]) # start at ^LJ("LAND","ORT","5") -> 10
-  execute "traversePrevious(^LJ(LAND, ORT, 5)": traversePrevious("^LJ", @["LAND", "ORT", "5"]) # start at ^LJ("LAND","ORT","5") -> 0
+when isMainModule:
+  main()

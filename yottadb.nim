@@ -1,3 +1,5 @@
-import libs/nim_yottadb
+import libs/yottadb_types
+import libs/yottadb_api
 
-export nim_yottadb
+export yottadb_types
+export yottadb_api
