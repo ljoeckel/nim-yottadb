@@ -1,4 +1,4 @@
-import nim_yottadb
+import yottadb_impl
 
 import yottadb_types
 export yottadb_types
