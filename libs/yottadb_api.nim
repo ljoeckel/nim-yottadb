@@ -37,5 +37,5 @@ proc ydb_subscript_previous*(name: string, keys: var seq[string]): int =
   return ydb_subscript_previous_db(name, keys)
 
 # Max of 35 variable names in one call
-proc ydb_lock*(timeout_nsec: uint, keys: seq[seq[string]]): cint =
+proc ydb_lock*(timeout_nsec: culonglong, keys: seq[seq[string]]): cint =
   return ydb_lock_db(timeout_nsec, keys)

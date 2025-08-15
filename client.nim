@@ -155,30 +155,25 @@ proc setAndGetVariable() =
   traverseNext("X")  
 
 proc testLock() =
-  var rc: cint = -1
-  while rc != YDB_OK:
-    rc = ydb_lock(1000000000, @[
-              @["^LL","HAUS", "1"], @["^LL","HAUS", "2"], @["^LL","HAUS", "3"],
-              @["^LL","HAUS", "4"], #@["^LL","HAUS", "5"], #@["^LL","HAUS", "6"]
-              #@["^LL","HAUS", "7"], @["^LL","HAUS", "8"], @["^LL","HAUS", "9"], @["^LL","HAUS", "10"],
-              #@["^LL","HAUS", "11"], @["^LL","HAUS", "12"], @["^LL","HAUS", "13"],
-              #@["^LL","HAUS", "14"], @["^LL","HAUS", "15"], @["^LL","HAUS", "16"],
-              #@["^LL","HAUS", "17"], @["^LL","HAUS", "18"], @["^LL","HAUS", "19"], @["^LL","HAUS", "20"],
-              #@["^LL","HAUS", "21"], @["^LL","HAUS", "22"], @["^LL","HAUS", "23"],
-              #@["^LL","HAUS", "24"], @["^LL","HAUS", "25"], @["^LL","HAUS", "26"],
-              #@["^LL","HAUS", "27"], @["^LL","HAUS", "28"], @["^LL","HAUS", "29"], @["^LL","HAUS", "30"],
-              #@["^LL","HAUS", "31"], @["^LL","HAUS", "32"],
+  var rc = ydb_lock(1000000000, @[
+        @["^LL","HAUS", "1"], @["^LL","HAUS", "2"], @["^LL","HAUS", "3"],
+        @["^LL","HAUS", "4"], @["^LL","HAUS", "5"], @["^LL","HAUS", "6"], 
+        @["^LL","HAUS", "7"], @["^LL","HAUS", "8"], @["^LL","HAUS", "9"], @["^LL","HAUS", "10"],
+        @["^LL","HAUS", "11"], @["^LL","HAUS", "12"], @["^LL","HAUS", "13"],
+        @["^LL","HAUS", "14"], @["^LL","HAUS", "15"], @["^LL","HAUS", "16"],
+        @["^LL","HAUS", "17"], @["^LL","HAUS", "18"], @["^LL","HAUS", "19"], @["^LL","HAUS", "20"],
+        @["^LL","HAUS", "21"], @["^LL","HAUS", "22"], @["^LL","HAUS", "23"],
+        @["^LL","HAUS", "24"], @["^LL","HAUS", "25"], @["^LL","HAUS", "26"],
+        @["^LL","HAUS", "27"], @["^LL","HAUS", "28"], @["^LL","HAUS", "29"], @["^LL","HAUS", "30"],
+        @["^LL","HAUS", "31"], @["^LL","HAUS", "32"], @["^LL","HAUS", "33"], @["^LL","HAUS", "34"], 
+        @["^LL","HAUS", "35"]
+        ])
 
-            ])
-    echo "rc:", rc
-
-  echo "locks set"
-  for i in 0..9:
-    sleep 1000
-
-  rc = ydb_lock(1000000000, @[])
+  echo "locks set rc:", rc
+  sleep 3000
   echo "released all locks"
-    
+  rc = ydb_lock(1000000000, @[])
+  echo "rc after release ", rc
 
 # -------------------------------------------------------------------
 
@@ -198,5 +193,6 @@ proc main() =
     execute "traveseNext(^LJ(LAND,ORT)": traverseNext("^LJ", @["LAND", "ORT", "5"]) # start at ^LJ("LAND","ORT","5") -> 10
     execute "traversePrevious(^LJ(LAND, ORT, 5)": traversePrevious("^LJ", @["LAND", "ORT", "5"]) # start at ^LJ("LAND","ORT","5") -> 0
     execute "testLock": testLock()
+
 when isMainModule:
   main()
