@@ -1,6 +1,4 @@
-import std/strformat
-import std/strutils 
-import std/times
+import std/[strformat, strutils, times, os]
 import yottadb
 
 var
@@ -77,24 +75,24 @@ proc traversePrevious(global: string, start_subscript: seq[string] = @[]) =
 proc nextSubscript() =
   let global = "^LL"
 
-  ydb_set("^LL", @["HAUS"])
-  ydb_set("^LL", @["HAUS", "ELEKTRIK"])
-  ydb_set("^LL", @["HAUS", "ELEKTRIK", "DOSEN"])
-  ydb_set("^LL", @["HAUS", "ELEKTRIK", "DOSEN", "1"], "Telefondose")
-  ydb_set("^LL", @["HAUS", "ELEKTRIK", "DOSEN", "2"], "Steckdose")
-  ydb_set("^LL", @["HAUS", "ELEKTRIK", "DOSEN", "3"], "IP-Dose")
-  ydb_set("^LL", @["HAUS", "ELEKTRIK", "DOSEN", "4"], "KFZ-Dose")
-  ydb_set("^LL", @["HAUS", "ELEKTRIK", "KABEL"])
-  ydb_set("^LL", @["HAUS", "ELEKTRIK", "KABEL", "FARBEN"])
-  ydb_set("^LL", @["HAUS", "ELEKTRIK", "KABEL", "STAERKEN"])
-  ydb_set("^LL", @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
-  ydb_set("^LL", @["HAUS", "HEIZUNG"])
-  ydb_set("^LL", @["HAUS", "HEIZUNG", "MESSGERAETE"])
-  ydb_set("^LL", @["HAUS", "HEIZUNG", "ROHRE"])
-  ydb_set("^LL", @["LAND"])
-  ydb_set("^LL", @["LAND", "FLAECHEN"])
-  ydb_set("^LL", @["LAND", "NUTZUNG"])
-  ydb_set("^LL", @["ORT"])
+  ydb_set(global, @["HAUS"])
+  ydb_set(global, @["HAUS", "ELEKTRIK"])
+  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN"])
+  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "1"], "Telefondose")
+  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "2"], "Steckdose")
+  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "3"], "IP-Dose")
+  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "4"], "KFZ-Dose")
+  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL"])
+  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL", "FARBEN"])
+  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL", "STAERKEN"])
+  ydb_set(global, @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
+  ydb_set(global, @["HAUS", "HEIZUNG"])
+  ydb_set(global, @["HAUS", "HEIZUNG", "MESSGERAETE"])
+  ydb_set(global, @["HAUS", "HEIZUNG", "ROHRE"])
+  ydb_set(global, @["LAND"])
+  ydb_set(global, @["LAND", "FLAECHEN"])
+  ydb_set(global, @["LAND", "NUTZUNG"])
+  ydb_set(global, @["ORT"])
 
   var subscript = @["HAUS", "ELEKTRIK", ""]
   var rc = 0
@@ -156,6 +154,32 @@ proc setAndGetVariable() =
   print "X(1,1)=", (ydb_get("X", @["1","1"]))
   traverseNext("X")  
 
+proc testLock() =
+  var rc: cint = -1
+  while rc != YDB_OK:
+    rc = ydb_lock(1000000000, @[
+              @["^LL","HAUS", "1"], @["^LL","HAUS", "2"], @["^LL","HAUS", "3"],
+              @["^LL","HAUS", "4"], #@["^LL","HAUS", "5"], #@["^LL","HAUS", "6"]
+              #@["^LL","HAUS", "7"], @["^LL","HAUS", "8"], @["^LL","HAUS", "9"], @["^LL","HAUS", "10"],
+              #@["^LL","HAUS", "11"], @["^LL","HAUS", "12"], @["^LL","HAUS", "13"],
+              #@["^LL","HAUS", "14"], @["^LL","HAUS", "15"], @["^LL","HAUS", "16"],
+              #@["^LL","HAUS", "17"], @["^LL","HAUS", "18"], @["^LL","HAUS", "19"], @["^LL","HAUS", "20"],
+              #@["^LL","HAUS", "21"], @["^LL","HAUS", "22"], @["^LL","HAUS", "23"],
+              #@["^LL","HAUS", "24"], @["^LL","HAUS", "25"], @["^LL","HAUS", "26"],
+              #@["^LL","HAUS", "27"], @["^LL","HAUS", "28"], @["^LL","HAUS", "29"], @["^LL","HAUS", "30"],
+              #@["^LL","HAUS", "31"], @["^LL","HAUS", "32"],
+
+            ])
+    echo "rc:", rc
+
+  echo "locks set"
+  for i in 0..9:
+    sleep 1000
+
+  rc = ydb_lock(1000000000, @[])
+  echo "released all locks"
+    
+
 # -------------------------------------------------------------------
 
 proc main() =
@@ -173,6 +197,6 @@ proc main() =
     execute "traverseNext(^LJ)": traverseNext("^LJ") # get all keys
     execute "traveseNext(^LJ(LAND,ORT)": traverseNext("^LJ", @["LAND", "ORT", "5"]) # start at ^LJ("LAND","ORT","5") -> 10
     execute "traversePrevious(^LJ(LAND, ORT, 5)": traversePrevious("^LJ", @["LAND", "ORT", "5"]) # start at ^LJ("LAND","ORT","5") -> 0
-
+    execute "testLock": testLock()
 when isMainModule:
   main()

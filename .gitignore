@@ -6,3 +6,4 @@ nimble.paths
 client
 deepseek.nim
 deepseek
+chatgpt/chatgpt

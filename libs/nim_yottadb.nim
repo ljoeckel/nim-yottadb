@@ -1,5 +1,6 @@
 import strutils, std/strformat
 import yottadb_types
+import macros
 
 when defined(futhark):
   import futhark, os
@@ -23,21 +24,20 @@ proc isExpectedErrorNextNode(rc: cint): bool =
       return true
   return false
 
-proc stringToBuffer(name: string = "", len_used:int = -1): ydb_buffer_t =
-  var buf = ydb_buffer_t()
-  buf.buf_addr = name.cstring
-  buf.len_alloc = cast[uint32](len(name))
+proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t =
+  result = ydb_buffer_t()
+  result.len_alloc = name.len.uint32
   if len_used != -1:
-    buf.len_used = cast[uint32](len_used)
+    result.len_used = len_used.uint32
   else:
-    buf.len_used = cast[uint32](len(name))
-  return buf
+    result.len_used = name.len.uint32
+  result.buf_addr = name.cstring
 
-proc setupIndex(keys: seq[string]): array[32, ydb_buffer_t] =
+proc initSubscripts(keys: seq[string]): array[32, ydb_buffer_t] =
   # setup index array (max 31)
   var idxarr: array[0..31, ydb_buffer_t]
   for idx in 0 .. keys.len-1:
-    idxarr[idx] = stringToBuffer(keys[idx])
+    idxarr[idx] = stringToYdbBuffer(keys[idx])
   return idxarr
 
 proc printArray(a: openArray[ydb_buffer_t]) =
@@ -47,7 +47,7 @@ proc printArray(a: openArray[ydb_buffer_t]) =
 
 proc ydbmsg_db*(status: cint): string =
   if status == YDB_OK: return
-  var buf = stringToBuffer(BUF_1024)
+  var buf = stringToYdbBuffer(BUF_1024)
   buf.len_used = cast[uint32](0)
   let rc = ydb_message(status, buf.addr)
   if rc == YDB_OK:
@@ -58,9 +58,9 @@ proc ydbmsg_db*(status: cint): string =
 # ------------ YottaDB internal API calls -----------------------
 
 proc ydb_set_db*(name: string, keys: seq[string] = @[], value: string = "") =
-  let global = stringToBuffer(name)
-  let idxarr = setupIndex(keys)
-  let value = stringToBuffer(value)
+  let global = stringToYdbBuffer(name)
+  let idxarr = initSubscripts(keys)
+  let value = stringToYdbBuffer(value)
 
   # Save in yottadb
   let rc = ydb_set_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
@@ -68,13 +68,13 @@ proc ydb_set_db*(name: string, keys: seq[string] = @[], value: string = "") =
     raise newException(YottaDbError, ydbmsg_db(rc))
 
 proc ydb_get_db*(name: string, keys: seq[string] = @[]): string =
-  let global = stringToBuffer(name)
-  let idxarr = setupIndex(keys)
-  var value = stringToBuffer("")
+  let global = stringToYdbBuffer(name)
+  let idxarr = initSubscripts(keys)
+  var value = stringToYdbBuffer("")
 
   # get the length from yottadb signaled with an exception to avoid passing a huge buffer over
   var rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
-  value = stringToBuffer('\0'.repeat(value.len_used))
+  value = stringToYdbBuffer('\0'.repeat(value.len_used))
 
   rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc < YDB_OK:
@@ -83,18 +83,18 @@ proc ydb_get_db*(name: string, keys: seq[string] = @[]): string =
     return $value.buf_addr
 
 proc ydb_data_db*(name: string, keys: seq[string]): int =
-  let global = stringToBuffer(name)
-  let idxarr = setupIndex(keys)
+  let global = stringToYdbBuffer(name)
+  let idxarr = initSubscripts(keys)
   var value: cuint = 0
   var rc = ydb_data_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc < YDB_OK:
     raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
   else:
-    return cast[int](value)
+    return cast[int](value) # 0,1,10,11
 
 proc ydb_delete(name: string, keys: seq[string], deltype: uint): cint =
-  let global = stringToBuffer(name)
-  let idxarr = setupIndex(keys)
+  let global = stringToYdbBuffer(name)
+  let idxarr = initSubscripts(keys)
   var rc = ydb_delete_s(global.addr, cast[cint](keys.len), idxarr[0].addr, cast[cint](deltype))
   if rc < YDB_OK:
     raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
@@ -108,10 +108,10 @@ proc ydb_delete_tree_db*(name: string, keys: seq[string]): cint =
   return ydb_delete(name, keys, YDB_DEL_TREE)
 
 proc ydb_increment_db*(name: string, keys: seq[string], increment: int): string =
-  let global = stringToBuffer(name)
-  let idxarr = setupIndex(keys)
-  let incr = stringToBuffer($increment)
-  var value = stringToBuffer(' '.repeat(28))
+  let global = stringToYdbBuffer(name)
+  let idxarr = initSubscripts(keys)
+  let incr = stringToYdbBuffer($increment)
+  var value = stringToYdbBuffer(' '.repeat(28))
   var rc = ydb_incr_s(global.addr, cast[cint](keys.len), idxarr[0].addr, incr.addr, value.addr)
   if rc < YDB_OK:
     raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
@@ -119,10 +119,10 @@ proc ydb_increment_db*(name: string, keys: seq[string], increment: int): string 
     return $value.buf_addr
 
 proc node_traverse(direction: Direction, name: string, keys: seq[string]): (int, seq[string]) =
-  var varname = stringToBuffer(name)
-  var idxarr = setupIndex(keys)
+  var varname = stringToYdbBuffer(name)
+  var idxarr = initSubscripts(keys)
   var ret_subs_used: cint = 0
-  var tmp = stringToBuffer()
+  var tmp = stringToYdbBuffer()
   var rc: cint = YDB_OK
   # 1. call to get ret_subs_used
   if direction == Direction.Next:
@@ -131,7 +131,7 @@ proc node_traverse(direction: Direction, name: string, keys: seq[string]): (int,
     rc = ydb_node_previous_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
   var ret_subsarray: array[0..31, ydb_buffer_t]
   for i in 0..cast[int](ret_subs_used) - 1:
-    ret_subsarray[i] = stringToBuffer('\0'.repeat(64), len_used=0) # TODO: max length of index
+    ret_subsarray[i] = stringToYdbBuffer('\0'.repeat(64), len_used=0) # TODO: max length of index
   # 2. call to get the data
   if direction == Direction.Next:
     rc = ydb_node_next_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
@@ -156,10 +156,10 @@ proc ydb_node_previous_db*(name: string, keys: seq[string]): (int, seq[string]) 
   return node_traverse(Direction.Previous, name, keys)
 
 proc subscript_traverse(direction: Direction, name: string, keys: var seq[string]): int =
-  var varname = stringToBuffer(name)
-  var subsarr = setupIndex(keys)
+  var varname = stringToYdbBuffer(name)
+  var subsarr = initSubscripts(keys)
   let subs_used = cast[cint](keys.len)
-  var ret_value = stringToBuffer('\0'.repeat(64), len_used=0) # TODO: max length of index
+  var ret_value = stringToYdbBuffer('\0'.repeat(64), len_used=0) # TODO: max length of index
   var rc: cint = YDB_OK
   # 1. call to get ret_subs_used
   if direction == Direction.Next:
@@ -183,3 +183,59 @@ proc ydb_subscript_next_db*(name: string, keys: var seq[string]): int =
 
 proc ydb_subscript_previous_db*(name: string, keys: var seq[string]): int =
   return subscript_traverse(Direction.Previous, name, keys)
+
+
+
+# Create the variatic call to ydb_lock_s
+# return ydb_lock_s(timeout, names.len.cint, addr names[0], subs.len.cint, addr subs[0][0])  
+import macros
+
+macro ydbLockDbVariadic(timeout: uint; names: typed; subs: typed): untyped =
+  result = newCall(ident("ydb_lock_s"))
+  result.add newCall(ident("culonglong"), timeout)
+  result.add newCall(ident("cint"), newDotExpr(names, ident("len")))
+  for i in 0 ..< names.len:
+    result.add newCall(ident("addr"), newTree(nnkBracketExpr, names, newLit(i)))
+    result.add newCall(ident("cint"), newDotExpr(newTree(nnkBracketExpr, subs, newLit(i)), ident("len")))
+    result.add newCall(ident("addr"), newTree(nnkBracketExpr, newTree(nnkBracketExpr, subs, newLit(i)), newLit(0)))
+
+
+proc ydb_lock_db_variadic(timeout: uint, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]]): cint =
+  var rc: cint = 0
+  if names.len == 1:
+    rc = ydb_lock_s(timeout, names.len.cint, addr names[0], subs.len.cint, addr subs[0][0])  
+  elif names.len == 2:
+    rc = ydb_lock_s(timeout, names.len.cint, 
+        addr names[0], subs[0].len.cint, addr subs[0][0],
+        addr names[1], subs[1].len.cint, addr subs[1][0])
+  elif names.len == 3:
+    rc = ydb_lock_s(timeout, names.len.cint, 
+        addr names[0], subs[0].len.cint, addr subs[0][0],
+        addr names[1], subs[1].len.cint, addr subs[1][0],
+        addr names[2], subs[2].len.cint, addr subs[2][0])
+  elif names.len == 4:
+    rc = ydb_lock_s(timeout, names.len.cint, 
+        addr names[0], subs[0].len.cint, addr subs[0][0],
+        addr names[1], subs[1].len.cint, addr subs[1][0],
+        addr names[2], subs[2].len.cint, addr subs[2][0],
+        addr names[3], subs[3].len.cint, addr subs[3][0])
+  return rc
+
+proc ydb_lock_db*(timeout_nsec: uint, keys: seq[seq[string]]): cint =
+  #if keys.len > 35:
+  #  return 
+  let tout = cast[uint](timeout_nsec)
+  let namecount = keys.len.cint
+
+  var locknames: seq[ydb_buffer_t] = newSeq[ydb_buffer_t]()
+  var locksubs: seq[seq[ydb_buffer_t]] = newSeq[newSeq[ydb_buffer_t]()]()
+
+  for subskeys in keys:
+    let varname = stringToYdbBuffer(subskeys[0])
+    locknames.add(varname)
+    var subs = newSeq[ydb_buffer_t]()
+    for idx in 1..len(subskeys)-1:
+      subs.add(stringToYdbBuffer(subskeys[idx]))
+    locksubs.add(subs)
+
+  return ydbLockDbVariadic(timeout_nsec, locknames, locksubs)
