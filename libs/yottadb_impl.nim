@@ -11,10 +11,14 @@ when defined(futhark):
 else:
   include "yottadb.nim"
 
+proc zeroBuffer(size: int): string =
+  '\0'.repeat(size)
+
 var 
-  BUF_1024 = '\0'.repeat(1024)
+  BUF_1024 = zeroBuffer(1024)
 const 
   EXPECTED_ERRORS_NEXT_NODE: array[0..4, int] = [YDB_ERR_INSUFFSUBS, YDB_ERR_INVSTRLEN, YDB_ERR_NODEEND, YDB_ERR_PARAMINVALID, YDB_OK]
+
 
 # Helper to test for a unexpected error condition when traversing with ydb_next_node etc.
 proc isExpectedErrorNextNode(rc: cint): bool =
@@ -74,7 +78,7 @@ proc ydb_get_db*(name: string, keys: seq[string] = @[]): string =
 
   # get the length from yottadb signaled with an exception to avoid passing a huge buffer over
   var rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
-  value = stringToYdbBuffer('\0'.repeat(value.len_used))
+  value = stringToYdbBuffer(zeroBuffer(value.len_used.int))
 
   rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc < YDB_OK:
@@ -111,7 +115,7 @@ proc ydb_increment_db*(name: string, keys: seq[string], increment: int): string 
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   let incr = stringToYdbBuffer($increment)
-  var value = stringToYdbBuffer(' '.repeat(28))
+  var value = stringToYdbBuffer(zeroBuffer(32))
   var rc = ydb_incr_s(global.addr, cast[cint](keys.len), idxarr[0].addr, incr.addr, value.addr)
   if rc < YDB_OK:
     raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
@@ -131,7 +135,7 @@ proc node_traverse(direction: Direction, name: string, keys: seq[string]): (int,
     rc = ydb_node_previous_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
   var ret_subsarray: array[0..31, ydb_buffer_t]
   for i in 0..cast[int](ret_subs_used) - 1:
-    ret_subsarray[i] = stringToYdbBuffer('\0'.repeat(64), len_used=0) # TODO: max length of index
+    ret_subsarray[i] = stringToYdbBuffer(zeroBuffer(64), len_used=0) # TODO: max length of index
   # 2. call to get the data
   if direction == Direction.Next:
     rc = ydb_node_next_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
@@ -159,7 +163,7 @@ proc subscript_traverse(direction: Direction, name: string, keys: var seq[string
   var varname = stringToYdbBuffer(name)
   var subsarr = initSubscripts(keys)
   let subs_used = cast[cint](keys.len)
-  var ret_value = stringToYdbBuffer('\0'.repeat(64), len_used=0) # TODO: max length of index
+  var ret_value = stringToYdbBuffer(zeroBuffer(64), len_used=0) # TODO: max length of index
   var rc: cint = YDB_OK
   # 1. call to get ret_subs_used
   if direction == Direction.Next:
@@ -904,7 +908,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
 
   return rc
 
-proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[seq[string]]): cint =
+proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[seq[string]]): int =
   var locknames: seq[ydb_buffer_t] = newSeq[ydb_buffer_t]()
   var locksubs: seq[seq[ydb_buffer_t]] = newSeq[newSeq[ydb_buffer_t]()]()
   for subskeys in keys:
