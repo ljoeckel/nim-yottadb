@@ -96,19 +96,19 @@ proc ydb_data_db*(name: string, keys: seq[string]): int =
   else:
     return cast[int](value) # 0,1,10,11
 
-proc ydb_delete(name: string, keys: seq[string], deltype: uint): cint =
+proc ydb_delete(name: string, keys: seq[string], deltype: uint): int =
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   var rc = ydb_delete_s(global.addr, cast[cint](keys.len), idxarr[0].addr, cast[cint](deltype))
   if rc < YDB_OK:
     raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
   else:
-    return rc
+    return rc.int
 
-proc ydb_delete_node_db*(name: string, keys: seq[string]): cint =
+proc ydb_delete_node_db*(name: string, keys: seq[string]): int =
   return ydb_delete(name, keys, YDB_DEL_NODE)
 
-proc ydb_delete_tree_db*(name: string, keys: seq[string]): cint =
+proc ydb_delete_tree_db*(name: string, keys: seq[string]): int =
   return ydb_delete(name, keys, YDB_DEL_TREE)
 
 proc ydb_increment_db*(name: string, keys: seq[string], increment: int): string =
@@ -151,7 +151,7 @@ proc node_traverse(direction: Direction, name: string, keys: seq[string]): (int,
   if not isExpectedErrorNextNode(rc):  
     raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
 
-  return (rc: cast[int](rc), subscript: sbscr)
+  return (rc.int, sbscr)
 
 proc ydb_node_next_db*(name: string, keys: seq[string]): (int, seq[string]) =
   return node_traverse(Direction.Next, name, keys)
@@ -180,7 +180,7 @@ proc subscript_traverse(direction: Direction, name: string, keys: var seq[string
     keys.add($ret_value.buf_addr)
   else:
     keys[level] = $ret_value.buf_addr
-  return rc
+  return rc.int
 
 proc ydb_subscript_next_db*(name: string, keys: var seq[string]): int =
   return subscript_traverse(Direction.Next, name, keys)

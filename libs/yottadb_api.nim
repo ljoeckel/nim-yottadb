@@ -16,10 +16,10 @@ proc ydbGet*(name: string, keys: seq[string] = @[]): string =
 proc ydbData*(name: string, keys: seq[string]): int =
   return ydb_data_db(name, keys)
 
-proc ydbDeleteNode*(name: string, keys: seq[string]): cint =
+proc ydbDeleteNode*(name: string, keys: seq[string]): int =
   return ydb_delete_node_db(name, keys)
 
-proc ydbDeleteTree*(name: string, keys: seq[string]): cint =
+proc ydbDeleteTree*(name: string, keys: seq[string]): int =
   return ydb_delete_tree_db(name, keys)
 
 proc ydbIncrement*(name: string, keys: seq[string], increment: int = 1): int =
