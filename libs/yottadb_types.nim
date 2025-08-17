@@ -5,5 +5,7 @@ type
 
   YottaDbError* = object of CatchableError
 
+  Subscripts* = seq[string]
+
 const
    YDB_OK* = 0 

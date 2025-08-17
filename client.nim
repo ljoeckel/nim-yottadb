@@ -1,7 +1,7 @@
 import std/[strformat, strutils, times, os, osproc]
 import yottadb
 
-var
+const
   MAX = 10
   LOG = true
 
@@ -11,16 +11,21 @@ template print(str: varargs[string]) =
     stdout.writeLine("")
 
 template execute(title: string, body: untyped): untyped =
-  let time = cpuTime()
+  let cpu_tm = cpuTime()
+  let epoch_tm = epochTime()
+
   try:
     body
-  except:
+  except CatchableError:
     echo getCurrentExceptionMsg()
-  let diff = (cpuTime() - time) * 1000
-  echo title, ": finished in ", formatFloat(diff, ffDecimal, 0, '\0') ," ms."
+
+  let diffCpu = (cpuTime() - cpu_tm) * 1000
+  let diffEpoch = (epochTime() - epoch_tm) * 1000
+
+  echo title, ": finished in ", formatFloat(diffCpu, ffDecimal, 0, '\0') ," ms CPU, ", formatFloat(diffEpoch, ffDecimal, 0, '\0'), " ms Epoch"
   echo ""
 
-func keysToString(global: string, subscript: seq[string]): string =
+func keysToString(global: string, subscript: Subscripts): string =
   result = global & "("
   for i, idx in subscript:
     try:
@@ -56,7 +61,7 @@ proc testData() =
 
   doAssertRaises(YottaDbError): discard ydbData("^LJ", @[""])
 
-proc traverseNext(global: string, start_subscript: seq[string] = @[]) =
+proc traverseNext(global: string, start_subscript: Subscripts = @[]) =
   var rc: int
   var subscript = start_subscript
   while true:
@@ -64,7 +69,7 @@ proc traverseNext(global: string, start_subscript: seq[string] = @[]) =
     if rc != YDB_OK: break
     print keysToString(global, subscript)
 
-proc traversePrevious(global: string, start_subscript: seq[string] = @[]) =
+proc traversePrevious(global: string, start_subscript: Subscripts = @[]) =
   var rc: int
   var subscript = start_subscript
   while true:

@@ -37,7 +37,7 @@ proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t =
     result.len_used = name.len.uint32
   result.buf_addr = name.cstring
 
-proc initSubscripts(keys: seq[string]): array[32, ydb_buffer_t] =
+proc initSubscripts(keys: Subscripts): array[32, ydb_buffer_t] =
   # setup index array (max 31)
   var idxarr: array[0..31, ydb_buffer_t]
   for idx in 0 .. keys.len-1:
@@ -61,7 +61,7 @@ proc ydbMessage_db*(status: cint): string =
 
 # ------------ YottaDB internal API calls -----------------------
 
-proc ydb_set_db*(name: string, keys: seq[string] = @[], value: string = "") =
+proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   let value = stringToYdbBuffer(value)
@@ -71,7 +71,7 @@ proc ydb_set_db*(name: string, keys: seq[string] = @[], value: string = "") =
   if rc < YDB_OK:
     raise newException(YottaDbError, ydbMessage_db(rc))
 
-proc ydb_get_db*(name: string, keys: seq[string] = @[]): string =
+proc ydb_get_db*(name: string, keys: Subscripts = @[]): string =
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   var value = stringToYdbBuffer("")
@@ -86,7 +86,7 @@ proc ydb_get_db*(name: string, keys: seq[string] = @[]): string =
   else:
     return $value.buf_addr
 
-proc ydb_data_db*(name: string, keys: seq[string]): int =
+proc ydb_data_db*(name: string, keys: Subscripts): int =
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   var value: cuint = 0
@@ -96,7 +96,7 @@ proc ydb_data_db*(name: string, keys: seq[string]): int =
   else:
     return cast[int](value) # 0,1,10,11
 
-proc ydb_delete(name: string, keys: seq[string], deltype: uint): int =
+proc ydb_delete(name: string, keys: Subscripts, deltype: uint): int =
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   var rc = ydb_delete_s(global.addr, cast[cint](keys.len), idxarr[0].addr, cast[cint](deltype))
@@ -105,13 +105,13 @@ proc ydb_delete(name: string, keys: seq[string], deltype: uint): int =
   else:
     return rc.int
 
-proc ydb_delete_node_db*(name: string, keys: seq[string]): int =
+proc ydb_delete_node_db*(name: string, keys: Subscripts): int =
   return ydb_delete(name, keys, YDB_DEL_NODE)
 
-proc ydb_delete_tree_db*(name: string, keys: seq[string]): int =
+proc ydb_delete_tree_db*(name: string, keys: Subscripts): int =
   return ydb_delete(name, keys, YDB_DEL_TREE)
 
-proc ydb_increment_db*(name: string, keys: seq[string], increment: int): string =
+proc ydb_increment_db*(name: string, keys: Subscripts, increment: int): string =
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   let incr = stringToYdbBuffer($increment)
@@ -122,7 +122,7 @@ proc ydb_increment_db*(name: string, keys: seq[string], increment: int): string 
   else:
     return $value.buf_addr
 
-proc node_traverse(direction: Direction, name: string, keys: seq[string]): (int, seq[string]) =
+proc node_traverse(direction: Direction, name: string, keys: Subscripts): (int, Subscripts) =
   var varname = stringToYdbBuffer(name)
   var idxarr = initSubscripts(keys)
   var ret_subs_used: cint = 0
@@ -153,13 +153,13 @@ proc node_traverse(direction: Direction, name: string, keys: seq[string]): (int,
 
   return (rc.int, sbscr)
 
-proc ydb_node_next_db*(name: string, keys: seq[string]): (int, seq[string]) =
+proc ydb_node_next_db*(name: string, keys: Subscripts): (int, Subscripts) =
   return node_traverse(Direction.Next, name, keys)
 
-proc ydb_node_previous_db*(name: string, keys: seq[string]): (int, seq[string]) =
+proc ydb_node_previous_db*(name: string, keys: Subscripts): (int, Subscripts) =
   return node_traverse(Direction.Previous, name, keys)
 
-proc subscript_traverse(direction: Direction, name: string, keys: var seq[string]): int =
+proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts): int =
   var varname = stringToYdbBuffer(name)
   var subsarr = initSubscripts(keys)
   let subs_used = cast[cint](keys.len)
@@ -182,10 +182,10 @@ proc subscript_traverse(direction: Direction, name: string, keys: var seq[string
     keys[level] = $ret_value.buf_addr
   return rc.int
 
-proc ydb_subscript_next_db*(name: string, keys: var seq[string]): int =
+proc ydb_subscript_next_db*(name: string, keys: var Subscripts): int =
   return subscript_traverse(Direction.Next, name, keys)
 
-proc ydb_subscript_previous_db*(name: string, keys: var seq[string]): int =
+proc ydb_subscript_previous_db*(name: string, keys: var Subscripts): int =
   return subscript_traverse(Direction.Previous, name, keys)
 
 # macro ydbLockDbVariadicMacro(timeout: culonglong; names: typed; subs: typed): untyped =
@@ -908,7 +908,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
 
   return rc
 
-proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[seq[string]]): int =
+proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts]): int =
   var locknames: seq[ydb_buffer_t] = newSeq[ydb_buffer_t]()
   var locksubs: seq[seq[ydb_buffer_t]] = newSeq[newSeq[ydb_buffer_t]()]()
   for subskeys in keys:
