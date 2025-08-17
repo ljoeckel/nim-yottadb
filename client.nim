@@ -1,4 +1,4 @@
-import std/[strformat, strutils, times, os]
+import std/[strformat, strutils, times, os, osproc]
 import yottadb
 
 var
@@ -148,14 +148,14 @@ proc setAndGetVariable() =
     ydbSet("X", @["2"], "hello X(2)")
     ydbSet("X", @["2","3"], "hello X(2,3)")
 
-  print "X=", (ydbGet("X"))
-  print "X(1)=", (ydbGet("X", @["1"]))
-  print "X(2)=", (ydbGet("X", @["2"]))
-  print "X(1,1)=", (ydbGet("X", @["1","1"]))
+  print "X=", ydbGet("X")
+  print "X(1)=", ydbGet("X", @["1"])
+  print "X(2)=", ydbGet("X", @["2"])
+  print "X(1,1)=", ydbGet("X", @["1","1"])
   traverseNext("X")  
 
 proc testLock() =
-  var rc = ydbLock(1000000000, @[
+  let globals = @[
         @["^LL","HAUS", "1"], @["^LL","HAUS", "2"], @["^LL","HAUS", "3"],
         @["^LL","HAUS", "4"], @["^LL","HAUS", "5"], @["^LL","HAUS", "6"], 
         @["^LL","HAUS", "7"], @["^LL","HAUS", "8"], @["^LL","HAUS", "9"], @["^LL","HAUS", "10"],
@@ -167,9 +167,18 @@ proc testLock() =
         @["^LL","HAUS", "27"], @["^LL","HAUS", "28"], @["^LL","HAUS", "29"], @["^LL","HAUS", "30"],
         @["^LL","HAUS", "31"], @["^LL","HAUS", "32"], @["^LL","HAUS", "33"], @["^LL","HAUS", "34"], 
         @["^LL","HAUS", "35"]
-        ])
+        ]
+  var rc = ydbLock(1000000000, globals)
 
-  echo "locks set rc:", rc
+# Show real locks on db with 'lke show'
+  var lockcnt = 0
+  let lke = findExe("lke")
+  let result = execProcess(lke & " show")
+  for line in result.split('\n'):
+    if line.contains("Owned by"):
+      inc(lockcnt)
+  assert lockcnt == globals.len
+  
   sleep 3000
   echo "released all locks"
   rc = ydbLock(1000000000, @[])
