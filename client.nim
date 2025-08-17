@@ -3,7 +3,7 @@ import yottadb
 
 var
   MAX = 10
-  LOG = false
+  LOG = true
 
 template print(str: varargs[string]) =
   if LOG:
@@ -38,29 +38,29 @@ func keysToString(global: string, subscript: seq[string]): string =
 
 proc writeData() =
   for i in 0..MAX:
-    ydb_set("^LJ", @["LAND", "ORT", $i], fmt"Hello Lothar Jöckel {i} aus der Schweiz")
-    ydb_set("^LJ", @["LAND", "ORT", $i, $i], fmt"Hello Lothar Jöckel {i} from Switzerland")
+    ydbSet("^LJ", @["LAND", "ORT", $i], fmt"Hello Lothar Jöckel {i} aus der Schweiz")
+    ydbSet("^LJ", @["LAND", "ORT", $i, $i], fmt"Hello Lothar Jöckel {i} from Switzerland")
 
-  ydb_set("^LJ", @["LAND", "STRASSE"], fmt"Gartenweg 4")
+  ydbSet("^LJ", @["LAND", "STRASSE"], fmt"Gartenweg 4")
 
 proc readBack() =
   for i in 0..MAX:
-    let result = ydb_get("^LJ", @["LAND", "ORT", $i])
+    let result = ydbGet("^LJ", @["LAND", "ORT", $i])
     assert result == fmt"Hello Lothar Jöckel {i} aus der Schweiz"
 
 proc testData() =
-  assert ydb_data("^LJ", @["XXX"]) == 0 # There is neither a value nor a subtree, i.e., it is undefined.
-  assert ydb_data("^LJ", @["LAND"]) == 10 # There is no value, but there is a subtree.
-  assert ydb_data("^LJ", @["LAND", "ORT", "1"]) == 11 # There are both a value and a subtree.
-  assert ydb_data("^LJ", @["LAND", "STRASSE"]) == 1 # There is a value, but no subtree
+  assert ydbData("^LJ", @["XXX"]) == 0 # There is neither a value nor a subtree, i.e., it is undefined.
+  assert ydbData("^LJ", @["LAND"]) == 10 # There is no value, but there is a subtree.
+  assert ydbData("^LJ", @["LAND", "ORT", "1"]) == 11 # There are both a value and a subtree.
+  assert ydbData("^LJ", @["LAND", "STRASSE"]) == 1 # There is a value, but no subtree
 
-  doAssertRaises(YottaDbError): discard ydb_data("^LJ", @[""])
+  doAssertRaises(YottaDbError): discard ydbData("^LJ", @[""])
 
 proc traverseNext(global: string, start_subscript: seq[string] = @[]) =
   var rc: int
   var subscript = start_subscript
   while true:
-    (rc, subscript) = ydb_node_next(global, subscript)
+    (rc, subscript) = ydbNextNode(global, subscript)
     if rc != YDB_OK: break
     print keysToString(global, subscript)
 
@@ -68,31 +68,31 @@ proc traversePrevious(global: string, start_subscript: seq[string] = @[]) =
   var rc: int
   var subscript = start_subscript
   while true:
-    (rc, subscript) = ydb_node_previous(global, subscript)
+    (rc, subscript) = ydbPreviousNode(global, subscript)
     if rc != YDB_OK: break
     print keysToString(global, subscript)
 
 proc nextSubscript() =
   let global = "^LL"
 
-  ydb_set(global, @["HAUS"])
-  ydb_set(global, @["HAUS", "ELEKTRIK"])
-  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN"])
-  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "1"], "Telefondose")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "2"], "Steckdose")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "3"], "IP-Dose")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "4"], "KFZ-Dose")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL"])
-  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL", "FARBEN"])
-  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL", "STAERKEN"])
-  ydb_set(global, @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
-  ydb_set(global, @["HAUS", "HEIZUNG"])
-  ydb_set(global, @["HAUS", "HEIZUNG", "MESSGERAETE"])
-  ydb_set(global, @["HAUS", "HEIZUNG", "ROHRE"])
-  ydb_set(global, @["LAND"])
-  ydb_set(global, @["LAND", "FLAECHEN"])
-  ydb_set(global, @["LAND", "NUTZUNG"])
-  ydb_set(global, @["ORT"])
+  ydbSet(global, @["HAUS"])
+  ydbSet(global, @["HAUS", "ELEKTRIK"])
+  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN"])
+  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN", "1"], "Telefondose")
+  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN", "2"], "Steckdose")
+  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN", "3"], "IP-Dose")
+  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN", "4"], "KFZ-Dose")
+  ydbSet(global, @["HAUS", "ELEKTRIK", "KABEL"])
+  ydbSet(global, @["HAUS", "ELEKTRIK", "KABEL", "FARBEN"])
+  ydbSet(global, @["HAUS", "ELEKTRIK", "KABEL", "STAERKEN"])
+  ydbSet(global, @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
+  ydbSet(global, @["HAUS", "HEIZUNG"])
+  ydbSet(global, @["HAUS", "HEIZUNG", "MESSGERAETE"])
+  ydbSet(global, @["HAUS", "HEIZUNG", "ROHRE"])
+  ydbSet(global, @["LAND"])
+  ydbSet(global, @["LAND", "FLAECHEN"])
+  ydbSet(global, @["LAND", "NUTZUNG"])
+  ydbSet(global, @["ORT"])
 
   var subscript = @["HAUS", "ELEKTRIK", ""]
   var rc = 0
@@ -108,17 +108,17 @@ proc nextSubscript() =
     print("rc=" & $rc & "keys=" & subscript)
 
 proc deleteTree() =
-  var rc = ydb_delete_node("^LJ", @["LAND", "STRASSE"])
+  var rc = ydbDeleteNode("^LJ", @["LAND", "STRASSE"])
   for i in 0..MAX:
-    rc = ydb_delete_tree("^LJ", @["LAND", "ORT", $i, $i])
+    rc = ydbDeleteTree("^LJ", @["LAND", "ORT", $i, $i])
 
 proc deleteNode() =
-    var rc = ydb_delete_node("^CNT", @["CHANNEL", "INPUT"])
-    var result = ydb_increment("^CNT", @["CHANNEL", "INPUT"], 1)
-    assert ydb_get("^CNT", @["CHANNEL", "INPUT"]) == "1"
+    var rc = ydbDeleteNode("^CNT", @["CHANNEL", "INPUT"])
+    var result = ydbIncrement("^CNT", @["CHANNEL", "INPUT"], 1)
+    assert ydbGet("^CNT", @["CHANNEL", "INPUT"]) == "1"
 
 proc deleteGlobalVar() =
-  discard ydb_delete_node("^LJ", @[])
+  discard ydbDeleteNode("^LJ", @[])
 
 proc getSpecialVariables() =
   let vars = ["$DEVICE", "$ECODE","$ESTACK", "$ETRAP", "$HOROLOG",
@@ -133,29 +133,29 @@ proc getSpecialVariables() =
               "$ZUSEDSTOR", "$ZUT", "$ZVERSION", "$ZYERROR", "$ZYINTRSIG", "$ZYRELEASE", 
               "$ZYSQLNULL"]
   for variable in vars:
-    print variable, "=", ydb_get(variable)
+    print variable, "=", ydbGet(variable)
 
-  let s = ydb_get("$XXXX")
+  let s = ydbGet("$XXXX")
 
 proc setAndGetVariable() =
   let vars = ["X"]
   for variable in vars:
-    ydb_set(variable, @[], "hello")
-    ydb_set("X", @["1"], "hello X(1)")
-    ydb_set("X", @["1","1"], "hello X(1,1)")
-    ydb_set("X", @["1","2"], "hello X(1,2)")
-    ydb_set("X", @["1","3"], "hello X(1,3)")
-    ydb_set("X", @["2"], "hello X(2)")
-    ydb_set("X", @["2","3"], "hello X(2,3)")
+    ydbSet(variable, @[], "hello")
+    ydbSet("X", @["1"], "hello X(1)")
+    ydbSet("X", @["1","1"], "hello X(1,1)")
+    ydbSet("X", @["1","2"], "hello X(1,2)")
+    ydbSet("X", @["1","3"], "hello X(1,3)")
+    ydbSet("X", @["2"], "hello X(2)")
+    ydbSet("X", @["2","3"], "hello X(2,3)")
 
-  print "X=", (ydb_get("X"))
-  print "X(1)=", (ydb_get("X", @["1"]))
-  print "X(2)=", (ydb_get("X", @["2"]))
-  print "X(1,1)=", (ydb_get("X", @["1","1"]))
+  print "X=", (ydbGet("X"))
+  print "X(1)=", (ydbGet("X", @["1"]))
+  print "X(2)=", (ydbGet("X", @["2"]))
+  print "X(1,1)=", (ydbGet("X", @["1","1"]))
   traverseNext("X")  
 
 proc testLock() =
-  var rc = ydb_lock(1000000000, @[
+  var rc = ydbLock(1000000000, @[
         @["^LL","HAUS", "1"], @["^LL","HAUS", "2"], @["^LL","HAUS", "3"],
         @["^LL","HAUS", "4"], @["^LL","HAUS", "5"], @["^LL","HAUS", "6"], 
         @["^LL","HAUS", "7"], @["^LL","HAUS", "8"], @["^LL","HAUS", "9"], @["^LL","HAUS", "10"],
@@ -172,7 +172,7 @@ proc testLock() =
   echo "locks set rc:", rc
   sleep 3000
   echo "released all locks"
-  rc = ydb_lock(1000000000, @[])
+  rc = ydbLock(1000000000, @[])
   echo "rc after release ", rc
 
 # -------------------------------------------------------------------

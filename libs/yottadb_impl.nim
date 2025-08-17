@@ -49,7 +49,7 @@ proc printArray(a: openArray[ydb_buffer_t]) =
     if item.len_used > 0 or item.len_alloc > 0:
       echo item
 
-proc ydbmsg_db*(status: cint): string =
+proc ydbMessage_db*(status: cint): string =
   if status == YDB_OK: return
   var buf = stringToYdbBuffer(BUF_1024)
   buf.len_used = cast[uint32](0)
@@ -67,9 +67,9 @@ proc ydb_set_db*(name: string, keys: seq[string] = @[], value: string = "") =
   let value = stringToYdbBuffer(value)
 
   # Save in yottadb
-  let rc = ydb_set_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
+  let rc = ydbSet_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc < YDB_OK:
-    raise newException(YottaDbError, ydbmsg_db(rc))
+    raise newException(YottaDbError, ydbMessage_db(rc))
 
 proc ydb_get_db*(name: string, keys: seq[string] = @[]): string =
   let global = stringToYdbBuffer(name)
@@ -77,12 +77,12 @@ proc ydb_get_db*(name: string, keys: seq[string] = @[]): string =
   var value = stringToYdbBuffer("")
 
   # get the length from yottadb signaled with an exception to avoid passing a huge buffer over
-  var rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
+  var rc = ydbGet_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   value = stringToYdbBuffer(zeroBuffer(value.len_used.int))
 
-  rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
+  rc = ydbGet_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
+    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
   else:
     return $value.buf_addr
 
@@ -90,9 +90,9 @@ proc ydb_data_db*(name: string, keys: seq[string]): int =
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   var value: cuint = 0
-  var rc = ydb_data_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
+  var rc = ydbData_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
+    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
   else:
     return cast[int](value) # 0,1,10,11
 
@@ -101,7 +101,7 @@ proc ydb_delete(name: string, keys: seq[string], deltype: uint): cint =
   let idxarr = initSubscripts(keys)
   var rc = ydb_delete_s(global.addr, cast[cint](keys.len), idxarr[0].addr, cast[cint](deltype))
   if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
+    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
   else:
     return rc
 
@@ -118,7 +118,7 @@ proc ydb_increment_db*(name: string, keys: seq[string], increment: int): string 
   var value = stringToYdbBuffer(zeroBuffer(32))
   var rc = ydb_incr_s(global.addr, cast[cint](keys.len), idxarr[0].addr, incr.addr, value.addr)
   if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
+    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
   else:
     return $value.buf_addr
 
@@ -149,7 +149,7 @@ proc node_traverse(direction: Direction, name: string, keys: seq[string]): (int,
       sbscr.add($item.buf_addr)
 
   if not isExpectedErrorNextNode(rc):  
-    raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
+    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
 
   return (rc: cast[int](rc), subscript: sbscr)
 
@@ -172,7 +172,7 @@ proc subscript_traverse(direction: Direction, name: string, keys: var seq[string
     rc = ydb_subscript_previous_s(varname.addr, subs_used, subsarr[0].addr,  ret_value.addr)    
   
   if not isExpectedErrorNextNode(rc):  
-    raise newException(YottaDbError, fmt"{ydbmsg_db(rc)}, Global:{name}{keys}")
+    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
 
   # update the key sequence as return value
   let level = keys.len - 1
@@ -189,7 +189,7 @@ proc ydb_subscript_previous_db*(name: string, keys: var seq[string]): int =
   return subscript_traverse(Direction.Previous, name, keys)
 
 # macro ydbLockDbVariadicMacro(timeout: culonglong; names: typed; subs: typed): untyped =
-#   result = newCall(ident("ydb_lock_s"))
+#   result = newCall(ident("ydbLock_s"))
 #   result.add newCall(ident("culonglong"), timeout)
 #   result.add newCall(ident("cint"), newDotExpr(names, ident("len")))
 #   for i in 0 ..< names.len:
@@ -201,33 +201,33 @@ proc ydb_subscript_previous_db*(name: string, keys: var seq[string]): int =
 proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]]): cint =
   var rc: cint = 0
   if names.len == 0:
-    rc = ydb_lock_s(timeout, names.len.cint) # release all locks
+    rc = ydbLock_s(timeout, names.len.cint) # release all locks
   elif names.len == 1:
-    rc = ydb_lock_s(timeout, names.len.cint, addr names[0], subs.len.cint, addr subs[0][0])  
+    rc = ydbLock_s(timeout, names.len.cint, addr names[0], subs.len.cint, addr subs[0][0])  
   elif names.len == 2:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0])
   elif names.len == 3:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0])
   elif names.len == 4:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
         addr names[3], subs[3].len.cint, addr subs[3][0])
   elif names.len == 5:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
         addr names[3], subs[3].len.cint, addr subs[3][0],
         addr names[4], subs[4].len.cint, addr subs[4][0])
   elif names.len == 6:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -235,7 +235,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[4], subs[4].len.cint, addr subs[4][0],
         addr names[5], subs[5].len.cint, addr subs[5][0])
   elif names.len == 7:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -244,7 +244,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[5], subs[5].len.cint, addr subs[5][0],
         addr names[6], subs[6].len.cint, addr subs[6][0])
   elif names.len == 8:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -254,7 +254,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[6], subs[6].len.cint, addr subs[6][0],
         addr names[7], subs[7].len.cint, addr subs[7][0])
   elif names.len == 9:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -265,7 +265,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[7], subs[7].len.cint, addr subs[7][0],
         addr names[8], subs[8].len.cint, addr subs[8][0])
   elif names.len == 10:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -277,7 +277,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[8], subs[8].len.cint, addr subs[8][0],
         addr names[9], subs[9].len.cint, addr subs[9][0])
   elif names.len == 11:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -290,7 +290,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[9], subs[9].len.cint, addr subs[9][0],
         addr names[10], subs[10].len.cint, addr subs[10][0])
   elif names.len == 12:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -304,7 +304,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[10], subs[10].len.cint, addr subs[10][0],
         addr names[11], subs[11].len.cint, addr subs[11][0])
   elif names.len == 13:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -319,7 +319,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[11], subs[11].len.cint, addr subs[11][0],
         addr names[12], subs[12].len.cint, addr subs[12][0])
   elif names.len == 14:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -335,7 +335,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[12], subs[12].len.cint, addr subs[12][0],
         addr names[13], subs[13].len.cint, addr subs[13][0])
   elif names.len == 15:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -352,7 +352,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[13], subs[13].len.cint, addr subs[13][0],
         addr names[14], subs[14].len.cint, addr subs[14][0])
   elif names.len == 16:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -370,7 +370,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[14], subs[14].len.cint, addr subs[14][0],
         addr names[15], subs[15].len.cint, addr subs[15][0])
   elif names.len == 17:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -389,7 +389,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[15], subs[15].len.cint, addr subs[15][0],
         addr names[16], subs[16].len.cint, addr subs[16][0])
   elif names.len == 18:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -409,7 +409,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[16], subs[16].len.cint, addr subs[16][0],
         addr names[17], subs[17].len.cint, addr subs[17][0])
   elif names.len == 19:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -430,7 +430,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[17], subs[17].len.cint, addr subs[17][0],
         addr names[18], subs[18].len.cint, addr subs[18][0])
   elif names.len == 20:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -452,7 +452,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[18], subs[18].len.cint, addr subs[18][0],
         addr names[19], subs[19].len.cint, addr subs[19][0])
   elif names.len == 21:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -475,7 +475,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[19], subs[19].len.cint, addr subs[19][0],
         addr names[20], subs[20].len.cint, addr subs[20][0])
   elif names.len == 22:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -499,7 +499,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[20], subs[20].len.cint, addr subs[20][0],
         addr names[21], subs[21].len.cint, addr subs[21][0])
   elif names.len == 23:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -524,7 +524,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[21], subs[21].len.cint, addr subs[21][0],
         addr names[22], subs[22].len.cint, addr subs[22][0])
   elif names.len == 24:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -550,7 +550,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[22], subs[22].len.cint, addr subs[22][0],
         addr names[23], subs[23].len.cint, addr subs[23][0])
   elif names.len == 25:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -577,7 +577,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[23], subs[23].len.cint, addr subs[23][0],
         addr names[24], subs[24].len.cint, addr subs[24][0])
   elif names.len == 26:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -605,7 +605,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[24], subs[24].len.cint, addr subs[24][0],
         addr names[25], subs[25].len.cint, addr subs[25][0])
   elif names.len == 27:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -634,7 +634,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[25], subs[25].len.cint, addr subs[25][0],
         addr names[26], subs[26].len.cint, addr subs[26][0])
   elif names.len == 28:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -664,7 +664,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[26], subs[26].len.cint, addr subs[26][0],
         addr names[27], subs[27].len.cint, addr subs[27][0])
   elif names.len == 29:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -695,7 +695,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[27], subs[27].len.cint, addr subs[27][0],
         addr names[28], subs[28].len.cint, addr subs[28][0])
   elif names.len == 30:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -727,7 +727,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[28], subs[28].len.cint, addr subs[28][0],
         addr names[29], subs[29].len.cint, addr subs[29][0])
   elif names.len == 31:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -760,7 +760,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[29], subs[29].len.cint, addr subs[29][0],
         addr names[30], subs[30].len.cint, addr subs[30][0])
   elif names.len == 32:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -794,7 +794,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[30], subs[30].len.cint, addr subs[30][0],
         addr names[31], subs[31].len.cint, addr subs[31][0])
   elif names.len == 33:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -829,7 +829,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[31], subs[31].len.cint, addr subs[31][0],
         addr names[32], subs[32].len.cint, addr subs[32][0])
   elif names.len == 34:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -865,7 +865,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
         addr names[32], subs[32].len.cint, addr subs[32][0],
         addr names[33], subs[33].len.cint, addr subs[33][0])
   elif names.len == 35:
-    rc = ydb_lock_s(timeout, names.len.cint, 
+    rc = ydbLock_s(timeout, names.len.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
