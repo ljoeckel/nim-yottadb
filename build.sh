@@ -1,0 +1,1 @@
+nimble --useSystemNim build

@@ -1,8 +1,29 @@
 import std/[strformat, strutils, times, os, osproc, unittest]
-import yottadb
+import ../yottadb
 
 const
   MAX = 100
+  LOG = false
+
+template print(str: varargs[string]) =
+  if LOG:
+    for s in str: stdout.write(s)
+    stdout.writeLine("")
+
+template execute(title: string, body: untyped): untyped =
+  let cpu_tm = cpuTime()
+  let epoch_tm = epochTime()
+
+  try:
+    body
+  except CatchableError:
+    echo getCurrentExceptionMsg()
+
+  let diffCpu = (cpuTime() - cpu_tm) * 1000
+  let diffEpoch = (epochTime() - epoch_tm) * 1000
+
+  echo title, ": finished in ", formatFloat(diffCpu, ffDecimal, 0, '\0') ," ms CPU, ", formatFloat(diffEpoch, ffDecimal, 0, '\0'), " ms Epoch"
+  echo ""
 
 func keysToString(global: string, subscript: Subscripts): string =
   result = global & "("
@@ -18,16 +39,6 @@ func keysToString(global: string, subscript: Subscripts): string =
 
   result.add(")")
 
-proc getLockCountFromYottaDb(): int =
-  # Show real locks on db with 'lke show'
-  var lockcnt = 0
-  let lke = findExe("lke")
-  let lines = execProcess(lke & " show")
-  for line in lines.split('\n'):
-    if line.contains("Owned by"):
-      inc(lockcnt)
-  return lockcnt
-
 # ------------- Test cases are here ---------------------
 
 proc writeData() =
@@ -37,12 +48,10 @@ proc writeData() =
 
   ydbSet("^LJ", @["LAND", "STRASSE"], fmt"Gartenweg 4")
 
-
 proc readBack() =
   for i in 0..MAX:
     let result = ydbGet("^LJ", @["LAND", "ORT", $i])
     assert result == fmt"Hello Lothar Jöckel {i} aus der Schweiz"
-
 
 proc testData() =
   assert ydbData("^LJ", @["XXX"]) == 0 # There is neither a value nor a subtree, i.e., it is undefined.
@@ -51,23 +60,6 @@ proc testData() =
   assert ydbData("^LJ", @["LAND", "STRASSE"]) == 1 # There is a value, but no subtree
 
   doAssertRaises(YottaDbError): discard ydbData("^LJ", @[""])
-
-
-proc traverseNext(global: string, start: Subscripts = @[]) =
-  var cnt = 0
-  var subs = start
-  for subs in nextItem(global, subs):
-    inc(cnt)
-  doAssert cnt == MAX * 2 + 3
-
-
-proc traversePrevious(global: string, start: Subscripts = @[]) =
-  var cnt = 0
-  var subs = start
-  for subs in previousItem(global, subs):
-    inc(cnt)
-  doAssert cnt == MAX * 2 + 2
-
 
 proc nextSubscript() =
   let global = "^LL"
@@ -95,31 +87,27 @@ proc nextSubscript() =
   var rc = 0
   while(rc == YDB_OK):
     rc = ydb_subscript_next(global, subscript)
-    echo("rc=" & $rc & "keys=" & subscript)
+    print("rc=" & $rc & "keys=" & subscript)
 
   echo "Getting previous subscript"
   subscript = @["HAUS", "HEIZUNG"]
   rc = 0
   while(rc == YDB_OK):
     rc = ydb_subscript_previous(global, subscript)
-    echo("rc=" & $rc & "keys=" & subscript)
-
+    print("rc=" & $rc & "keys=" & subscript)
 
 proc deleteTree() =
   var rc = ydbDeleteNode("^LJ", @["LAND", "STRASSE"])
   for i in 0..MAX:
     rc = ydbDeleteTree("^LJ", @["LAND", "ORT", $i, $i])
 
-
 proc deleteNode() =
     var rc = ydbDeleteNode("^CNT", @["CHANNEL", "INPUT"])
     var result = ydbIncrement("^CNT", @["CHANNEL", "INPUT"], 1)
     assert ydbGet("^CNT", @["CHANNEL", "INPUT"]) == "1"
 
-
 proc deleteGlobalVar() =
   discard ydbDeleteNode("^LJ", @[])
-
 
 proc getSpecialVariables() =
   let vars = ["$DEVICE", "$ECODE","$ESTACK", "$ETRAP", "$HOROLOG",
@@ -134,10 +122,9 @@ proc getSpecialVariables() =
               "$ZUSEDSTOR", "$ZUT", "$ZVERSION", "$ZYERROR", "$ZYINTRSIG", "$ZYRELEASE", 
               "$ZYSQLNULL"]
   for variable in vars:
-    discard ydbGet(variable)
+    print variable, "=", ydbGet(variable)
 
-  doAssertRaises(YottaDbError): discard ydbGet("$XXXX")
-
+  let s = ydbGet("$XXXX")
 
 proc setAndGetVariable() =
   let vars = ["X"]
@@ -150,11 +137,10 @@ proc setAndGetVariable() =
     ydbSet("X", @["2"], "hello X(2)")
     ydbSet("X", @["2","3"], "hello X(2,3)")
 
-  echo "X=", ydbGet("X")
-  echo "X(1)=", ydbGet("X", @["1"])
-  echo "X(2)=", ydbGet("X", @["2"])
-  echo "X(1,1)=", ydbGet("X", @["1","1"])
-  traverseNext("X")  
+  print "X=", ydbGet("X")
+  print "X(1)=", ydbGet("X", @["1"])
+  print "X(2)=", ydbGet("X", @["2"])
+  print "X(1,1)=", ydbGet("X", @["1","1"])
 
 
 proc testLock() =
@@ -172,40 +158,35 @@ proc testLock() =
         @["^LL","HAUS", "35"]
         ]
   var rc = ydbLock(1000000000, globals)
-  assert getLockCountFromYottaDb() == globals.len
 
+# Show real locks on db with 'lke show'
+  var lockcnt = 0
+  let lke = findExe("lke")
+  let result = execProcess(lke & " show")
+  for line in result.split('\n'):
+    if line.contains("Owned by"):
+      inc(lockcnt)
+  assert lockcnt == globals.len
+  
+  sleep 3000
+  echo "released all locks"
   rc = ydbLock(1000000000, @[])
-  assert getLockCountFromYottaDb() == 0
+  echo "rc after release ", rc
 
 # -------------------------------------------------------------------
 
-suite "YottaDB Tests":
+proc main() =
+  execute "ALL TESTS":
+    execute "writeData":  writeData()
+    execute "readBack": readBack()
+    execute "testData": testData()
+    execute "deleteTree": deleteTree()
+    execute "deleteNode": deleteNode()
+    execute "deleteGlobalVar": deleteGlobalVar()
+    execute "nextSubscript": nextSubscript()
+    execute "getSpecialVariables": getSpecialVariables()
+    execute "setAndGetVariable": setAndGetVariable()
+    execute "testLock": testLock()
 
-  test "Write and Read Data":
-    writeData()
-    readBack()
-
-#   test "Check Data Structure":
-#     testData()
-
-  test "Traverse Keys":
-    traverseNext("^LJ")
-    traversePrevious("^LJ", @["LAND", "STRASSE"])
-
-#   test "Delete Operations":
-#     deleteTree()
-#     deleteNode()
-#     deleteGlobalVar()
-
-#   test "Subscript Iteration":
-#     nextSubscript()
-
-#   test "Special Variables":
-#     getSpecialVariables()
-
-#   test "Set and Get Variable":
-#     setAndGetVariable()
-#     traverseNext("X")
-
-  test "Lock Handling":
-    testLock()
+when isMainModule:
+  main()

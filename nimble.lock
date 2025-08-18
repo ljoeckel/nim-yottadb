@@ -1,0 +1,60 @@
+{
+  "version": 2,
+  "packages": {
+    "termstyle": {
+      "version": "0.1.0",
+      "vcsRevision": "eefd9f17071df2b8c13e18537cd799acd7f41501",
+      "url": "https://github.com/PMunch/termstyle",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "4641c9f9e587d5cf04ccd3ce0bf1ef0263a16299"
+      }
+    },
+    "macroutils": {
+      "version": "1.2.0",
+      "vcsRevision": "b460c6804c97df8cfdc80c308b574ae90b30ac61",
+      "url": "https://github.com/PMunch/macroutils",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "1759c705ba1fe48426ee7ca2d0c7fa265e91806b"
+      }
+    },
+    "nimbleutils": {
+      "version": "0.3.3",
+      "vcsRevision": "84c78351486950a4d043f737be64bc7d26cc7bf9",
+      "url": "https://github.com/PMunch/nimbleutils",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "9cce152f371ed2277db0bb5853dfe7543c38ac66"
+      }
+    },
+    "futhark": {
+      "version": "0.15.0",
+      "vcsRevision": "2608a86edab0cdadda592ad6b4bfe2e515677dff",
+      "url": "https://github.com/PMunch/futhark",
+      "downloadMethod": "git",
+      "dependencies": [
+        "termstyle",
+        "macroutils",
+        "nimbleutils"
+      ],
+      "checksums": {
+        "sha1": "50ab2e44c9d5cc99ba1c85032b63c1086c71371c"
+      }
+    },
+    "nim": {
+      "version": "2.0.8",
+      "vcsRevision": "5935c3bfa9fec6505394867b23510eb5cbab3dbf",
+      "url": "https://github.com/nim-lang/Nim.git",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "46333e8f4bda41dd6d3852a3f5fa4975b96b66a2"
+      }
+    }
+  },
+  "tasks": {}
+}
