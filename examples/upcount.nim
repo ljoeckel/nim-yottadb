@@ -4,7 +4,7 @@ import ../yottadb
 proc upcount() =
     while true:
         let cnt = ydbIncrement("^COUNTERS", @["upcount"])
-        if cnt mod 1000 == 0:
+        if cnt mod 1000000 == 0:
             echo "Current counter:", cnt
 
 when isMainModule:

@@ -77,10 +77,10 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[]): string =
   var value = stringToYdbBuffer("")
 
   # get the length from yottadb signaled with an exception to avoid passing a huge buffer over
-  var rc = ydbGet_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
+  var rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   value = stringToYdbBuffer(zeroBuffer(value.len_used.int))
 
-  rc = ydbGet_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
+  rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc < YDB_OK:
     raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
   else:
@@ -122,7 +122,7 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int): string =
   else:
     return $value.buf_addr
 
-proc node_traverse(direction: Direction, name: string, keys: Subscripts): (int, Subscripts) =
+proc node_traverse(direction: Direction, name: string, keys: Subscripts): Subscripts =
   var varname = stringToYdbBuffer(name)
   var idxarr = initSubscripts(keys)
   var ret_subs_used: cint = 0
@@ -151,12 +151,12 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts): (int, 
   if not isExpectedErrorNextNode(rc):  
     raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
 
-  return (rc.int, sbscr)
+  return sbscr
 
-proc ydb_node_next_db*(name: string, keys: Subscripts): (int, Subscripts) =
+proc ydb_node_next_db*(name: string, keys: Subscripts): Subscripts =
   return node_traverse(Direction.Next, name, keys)
 
-proc ydb_node_previous_db*(name: string, keys: Subscripts): (int, Subscripts) =
+proc ydb_node_previous_db*(name: string, keys: Subscripts): Subscripts =
   return node_traverse(Direction.Previous, name, keys)
 
 proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts): int =

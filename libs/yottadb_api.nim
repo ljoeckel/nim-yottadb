@@ -29,18 +29,33 @@ proc ydbIncrement*(name: string, keys: Subscripts, increment: int = 1): int =
   except:
     raise newException(YottaDbError, "Illegal Number. Tried to parseInt(" & s & ")")
 
-proc ydbNextNode*(name: string, keys: Subscripts): (int, Subscripts) =
-  return ydb_node_next_db(name, keys)
+# ------------------ Next/Previous items -----------------
 
-proc ydbPreviousNode*(name: string, keys: Subscripts): (int, Subscripts) =
-  return ydb_node_previous_db(name, keys)
+iterator nextItem*(global: string, subscripts: var Subscripts): Subscripts =
+  var i = -1
+  while i < len(subscripts):
+    subscripts = ydb_node_next_db(global, subscripts)
+    if len(subscripts) == 0: break
+    yield subscripts
 
+iterator previousItem*(global: string, subscripts: var Subscripts): Subscripts =
+  var i = -1
+  while i < len(subscripts):
+    subscripts = ydb_node_previous_db(global, subscripts)
+    if len(subscripts) == 0: break
+    yield subscripts
+
+# ------------------ Next/Previous subscripts -----------------
 proc ydb_subscript_next*(name: string, keys: var Subscripts): int =
   return ydb_subscript_next_db(name, keys)
 
 proc ydb_subscript_previous*(name: string, keys: var Subscripts): int =
   return ydb_subscript_previous_db(name, keys)
 
+# ------------------ Locks -----------------
 # Max of 35 variable names in one call
 proc ydbLock*(timeout_nsec: culonglong, keys: seq[Subscripts] = @[]): int =
   return ydb_lock_db(timeout_nsec, keys)
+
+
+

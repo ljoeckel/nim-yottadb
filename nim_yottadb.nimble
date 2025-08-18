@@ -6,3 +6,6 @@ license = "MIT"
 
 # Dependencies
 requires "futhark"
+
+task test, "Run nim-yottadb unittests":
+  exec "nim c -r --hints:off --verbosity:0 yottadb_test.nim"
