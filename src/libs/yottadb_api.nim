@@ -57,5 +57,22 @@ proc ydb_subscript_previous*(name: string, keys: var Subscripts): int =
 proc ydbLock*(timeout_nsec: culonglong, keys: seq[Subscripts] = @[]): int =
   return ydb_lock_db(timeout_nsec, keys)
 
+# ------------------ YdbVar ----------------
+proc newYdbVar*(global: string, subscripts: Subscripts, value: string = ""): YdbVar =
+  result.global = global
+  result.subscripts = subscripts
+  result.value = value
+  # Read from / or write to DB
+  if value.isEmptyOrWhitespace:
+    result.value = ydbGet(result.global, result.subscripts)
+  else:
+    ydbSet(result.global, result.subscripts, result.value)    
+
+proc `$`*(v: YdbVar): string =
+  ydbGet(v.global, v.subscripts)
+
+proc `[]=`*(v: var YdbVar; val: string) =
+  ydbSet(v.global, v.subscripts, val)
+  v.value = val
 
 

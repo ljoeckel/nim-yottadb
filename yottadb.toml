@@ -1,0 +1,8 @@
+[nimib]
+srcDir = "book"
+homeDir = "docs"
+
+[nimibook]
+title = "Norm"
+description = "Interfacing NIM to the YottoDB NoSQL Database"
+git_repository_url = "https://github.com/moigagoo/norm"

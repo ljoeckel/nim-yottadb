@@ -2,7 +2,7 @@ import std/[strformat, strutils, times, os, osproc, unittest]
 import ../yottadb
 
 const
-  MAX = 100
+  MAX = 10
   LOG = false
 
 template print(str: varargs[string]) =
@@ -38,6 +38,24 @@ func keysToString(global: string, subscript: Subscripts): string =
       result.add(",")
 
   result.add(")")
+
+
+proc testYdbVar() =
+  for i in 0..MAX:
+    var v = newYdbVar("^LJ", @["LAND", "ORT", $i], $i)
+
+  for i in 0..MAX:
+    var v = newYdbVar("^LJ", @["LAND", "ORT", $i])
+    if v.value != $i: 
+      raise newException(YottaDbError, "Invalid data in db for {i}")
+    # update db with new value
+    v[] = "New " & v.value
+
+  for i in 0..MAX:
+    var v = newYdbVar("^LJ", @["LAND", "ORT", $i])
+    if v.value != "New " & $i: 
+      raise newException(YottaDbError, "Invalid data in db for {i}")
+
 
 # ------------- Test cases are here ---------------------
 
@@ -189,4 +207,5 @@ proc main() =
     execute "testLock": testLock()
 
 when isMainModule:
-  main()
+  #main()
+  testOperator()

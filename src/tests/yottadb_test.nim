@@ -29,6 +29,22 @@ proc getLockCountFromYottaDb(): int =
   return lockcnt
 
 # ------------- Test cases are here ---------------------
+proc testYdbVar() =
+  for i in 0..MAX:
+    var v = newYdbVar("^LJ", @["LAND", "ORT", $i], $i)
+
+  for i in 0..MAX:
+    var v = newYdbVar("^LJ", @["LAND", "ORT", $i])
+    if v.value != $i: 
+      raise newException(YottaDbError, "Invalid data in db for {i}")
+    # update db with new value
+    v[] = "New " & v.value
+
+  for i in 0..MAX:
+    var v = newYdbVar("^LJ", @["LAND", "ORT", $i])
+    if v.value != "New " & $i: 
+      raise newException(YottaDbError, "Invalid data in db for {i}")
+
 
 proc writeData() =
   for i in 0..MAX:
@@ -45,10 +61,10 @@ proc readBack() =
 
 
 proc testData() =
-  assert ydbData("^LJ", @["XXX"]) == 0 # There is neither a value nor a subtree, i.e., it is undefined.
-  assert ydbData("^LJ", @["LAND"]) == 10 # There is no value, but there is a subtree.
-  assert ydbData("^LJ", @["LAND", "ORT", "1"]) == 11 # There are both a value and a subtree.
-  assert ydbData("^LJ", @["LAND", "STRASSE"]) == 1 # There is a value, but no subtree
+  assert 0 == ydbData("^LJ", @["XXX"])  # There is neither a value nor a subtree, i.e., it is undefined.
+  assert 10 == ydbData("^LJ", @["LAND"])  # There is no value, but there is a subtree.
+  assert 11 == ydbData("^LJ", @["LAND", "ORT", "1"])  # There are both a value and a subtree.
+  assert 1 == ydbData("^LJ", @["LAND", "STRASSE"])  # There is a value, but no subtree
 
   doAssertRaises(YottaDbError): discard ydbData("^LJ", @[""])
 
@@ -181,12 +197,15 @@ proc testLock() =
 
 suite "YottaDB Tests":
 
+  test "Basic functionality":
+    testYdbVar()
+
   test "Write and Read Data":
     writeData()
     readBack()
 
-#   test "Check Data Structure":
-#     testData()
+  test "Check Data Structure":
+    testData()
 
   test "Traverse Keys":
     traverseNext("^LJ")
