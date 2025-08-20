@@ -1,6 +1,5 @@
 import strutils, std/strformat
 import yottadb_types
-import macros
 
 when defined(futhark):
   import futhark, os
@@ -43,11 +42,6 @@ proc initSubscripts(keys: Subscripts): array[32, ydb_buffer_t] =
   for idx in 0 .. keys.len-1:
     idxarr[idx] = stringToYdbBuffer(keys[idx])
   return idxarr
-
-proc printArray(a: openArray[ydb_buffer_t]) =
-  for item in a:
-    if item.len_used > 0 or item.len_alloc > 0:
-      echo item
 
 proc ydbMessage_db*(status: cint): string =
   if status == YDB_OK: return

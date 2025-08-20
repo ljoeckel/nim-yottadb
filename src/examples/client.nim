@@ -1,5 +1,18 @@
 import std/[strformat, strutils, times, os, osproc, unittest]
+import macros
 import ../yottadb
+import ../bingo
+
+type 
+  YdbBase = object of RootObj
+    id*: string
+
+  Customer* = object of YdbBase
+    #id*: string
+    name*: string
+    first_name*: string
+    dob*: int
+
 
 const
   MAX = 10
@@ -39,6 +52,50 @@ func keysToString(global: string, subscript: Subscripts): string =
 
   result.add(")")
 
+
+
+# macro fieldInfo(t: typedesc): untyped =
+#   ## Produces a const seq[(string, string)] of (fieldName, fieldType)
+#   let impl = t.getImpl()
+#   result = nnkBracket.newTree()  # this will become @[ ... ]
+#   if impl.kind == nnkTypeDef:
+#     let recList = impl[2][2]
+#     for field in recList:
+#       var fieldNameNode = field[0]
+#       if fieldNameNode.kind == nnkPostfix:  # handle exported fields
+#         fieldNameNode = fieldNameNode[1]
+#       let fieldNameLit = newLit(fieldNameNode.strVal)
+#       let fieldTypeLit = newLit(field[1].repr)
+#       result.add nnkTupleConstr.newTree(fieldNameLit, fieldTypeLit)
+
+# const customerFields = fieldInfo(Customer)
+# when isMainModule:
+#   echo customerFields
+
+
+
+
+
+proc newCustomer(id: string, name: string, first_name: string, dob: int): Customer =
+  result.id = id
+  result.name = name
+  result.first_name = first_name
+  result.dob = dob
+
+proc save(customer: Customer) =
+  for field_name, field_value in customer.fieldPairs:
+    discard newYdbVar("^CUST", @[customer.id, field_name] ,$field_value)
+  echo "saved customer ",customer
+
+  
+proc testCustomer() =
+  try:
+    let id = 4711
+    var customer = newCustomer($id,"Joeckel","Lothar", 21121958)
+    save(customer)
+  except YottaDbError: 
+    echo getCurrentExceptionMsg()
+  
 
 proc testYdbVar() =
   for i in 0..MAX:
@@ -208,4 +265,5 @@ proc main() =
 
 when isMainModule:
   #main()
-  testOperator()
+  #testOperator()
+  testCustomer()

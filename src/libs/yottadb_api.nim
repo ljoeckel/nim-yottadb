@@ -59,6 +59,8 @@ proc ydbLock*(timeout_nsec: culonglong, keys: seq[Subscripts] = @[]): int =
 
 # ------------------ YdbVar ----------------
 proc newYdbVar*(global: string, subscripts: Subscripts, value: string = ""): YdbVar =
+  if global.isEmptyOrWhitespace: raise newException(YottaDbError, "Empty 'global' param")
+
   result.global = global
   result.subscripts = subscripts
   result.value = value
