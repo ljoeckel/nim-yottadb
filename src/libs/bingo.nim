@@ -1,6 +1,6 @@
 import macros, streams, options, tables, sets
 from typetraits import supportsCopyMem
-import libs/yottadb_api
+import yottadb_api
 
 proc isCustom*(t: typedesc[bool]): bool = false
 proc isCustom*(t: typedesc[char]): bool = false
@@ -43,19 +43,12 @@ proc store[T: SomeNumber](global: string, subs: seq[string], k: string; x: T) =
   saveInYdb(global, subs, k, $x)
   
 proc store[T: enum](global: string, subs: seq[string], k: string; x: T) =
+  echo "store T:", x
   saveInYdb(global, subs, k, $x)
   
 proc store[T](global: string, subs: seq[string], k: string; x: set[T]) =
-  saveInYdb(global, subs, k, $x)
-  
-proc store(global: string, subs: seq[string], k: string; x: string) =
-  saveInYdb(global, subs, k, $x)
-
-proc store[S, T](global: string, subs: seq[string], k: string; x: array[S, T]) =
-  for elem in items(x):
-    store(global, subs, k, elem)
-
-proc store[T](global: string, subs: seq[string], k: string; x: seq[T]) =
+#  saveInYdb(global, subs, k, $x)
+  echo "store setT:", x
   var idx = 0
   for elem in x.items():
     # if its a Type
@@ -64,7 +57,33 @@ proc store[T](global: string, subs: seq[string], k: string; x: seq[T]) =
       subscpy.add($idx)
       store(global, subscpy, elem)
     else:
-      #echo "elem: ", elem
+      # it's a seq[string],...
+      var subscpy = subs
+      subscpy.add(k)
+      subscpy.add($idx)
+      ydbSet(global, subscpy, $elem)
+    
+    inc(idx)
+  
+proc store(global: string, subs: seq[string], k: string; x: string) =
+  saveInYdb(global, subs, k, $x)
+
+proc store[S, T](global: string, subs: seq[string], k: string; x: array[S, T]) =
+  echo "store array ST:", x
+  for elem in items(x):
+    store(global, subs, k, elem)
+
+proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[T] ) =
+  echo "store seq ", x
+  var idx = 0
+  for elem in x.items():
+    # if its a Type
+    when T is RootObj:
+      var subscpy = subs
+      subscpy.add($idx)
+      store(global, subscpy, elem)
+    else:
+      # it's a seq[string],...
       var subscpy = subs
       subscpy.add(k)
       subscpy.add($idx)
@@ -72,30 +91,36 @@ proc store[T](global: string, subs: seq[string], k: string; x: seq[T]) =
     
     inc(idx)
 
-proc store[T](global: string, subs: seq[string], k: string; o: SomeSet[T]) =
-  for elem in items(o):
-    store(global, subs, k, elem)
+# proc store[T](global: string, subs: seq[string], k: string; o: SomeSet[T]) =
+#   echo "store SomeSet T:", o
+#   for elem in items(o):
+#     store(global, subs, k, elem)
 
 proc store[K, V](global: string, subs: seq[string], kv: string; o: (Table[K, V]|OrderedTable[K, V])) =
+  echo "store OrderedTable KV",o
   for k, v in pairs(o):
     store(global, subs, kv, k)
     store(global, subs, kv, v)
 
 proc store[T](global: string, subs: seq[string], k: string; o: ref T) =
+  echo "store ref T:", o
   let isSome = o != nil
   if isSome:
     store(global, subs, k, o[])
 
 proc store[T](global: string, subs: seq[string], k: string; o: Option[T]) =
+  echo "store Option T:", o
   let isSome = isSome(o)
   if isSome:
     store(global, subs, k, get(o))
 
 proc store[T: tuple](global: string, subs: seq[string], k: string; o: T) =
+  echo "store global/subs T:",o
   for k,v in fieldPairs(o):
     store(global, subs, k, v)
 
 proc store*[T: object](subscripts: seq[string]; o: T) =
+  echo "store T:",o
   let gbl = "^" & $typeof(o)
   for k,v in fieldPairs(o):
     store(gbl, subscripts, k, v)

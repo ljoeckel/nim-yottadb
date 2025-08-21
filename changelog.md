@@ -1,4 +1,4 @@
-# Changelog
+# Changelog THIS IS ONLY A SAMPLE
 
 -   [!]—backward incompatible change
 -   [+]—new feature

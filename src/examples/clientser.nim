@@ -1,7 +1,7 @@
-import std/[strformat, strutils, streams, times, os, osproc, unittest]
+import std/[strformat, strutils, streams, sets, times, os, osproc, unittest]
 import macros
 import ../yottadb
-import ../bingo
+import ../libs/bingo
 
 type 
   CustomerType = enum
@@ -30,6 +30,7 @@ type
     age: int
     siblings: seq[Sibling]
     keywords: seq[string]
+    hset: HashSet[string]
   Sibling = object of RootObj
      sex: Gender
      birthYear: int
@@ -49,7 +50,7 @@ proc createCustomer(id: int) =
   save(customer)
 
   let data =
-    Responder(id: id, name: "John Smith", gender: male, occupation: "student", age: 18,
+    Responder(id: id, name: "John Smith", gender: male, occupation: "student", age: 18, hset: toHashSet(["a","b","c"]),
         siblings: @[Sibling(sex: female, birthYear: 1991, relation: biological, alive: true),
         Sibling(sex: male, birthYear: 1989, relation: step, alive: true, keywords: @["Stark", "Regen"])],
         keywords: @["Achtung", "Gefahrt"]
