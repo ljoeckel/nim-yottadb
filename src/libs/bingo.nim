@@ -1,6 +1,8 @@
-import macros, streams, options, tables, sets
+import macros, streams, strutils, options, tables, sets
 from typetraits import supportsCopyMem
 import yottadb_api
+
+type  SeqBasicTypes* = SomeInteger|SomeFloat|string|bool
 
 proc isCustom*(t: typedesc[bool]): bool = false
 proc isCustom*(t: typedesc[char]): bool = false
@@ -29,60 +31,75 @@ proc isCustom*[T: object](t: typedesc[T]): bool =
 proc saveInYdb(global: string, subs: seq[string], key: string, value: string) =
   var subscpy = subs
   subscpy.add(key)
-  #echo "global: ", global, " subs:", subscpy, " value:", value
+  #echo "saveInYdb global:", global," subs:", subs, " key:", key, " value:", value
   ydbSet(global, subscpy, value)
+
+proc loadYdb(global: string, subs: seq[string], key: string): string =
+  var subscpy = subs
+  subscpy.add(key)
+  result = ydbGet(global, subscpy)
+
 
 # serialization
 proc store(global: string, subs: seq[string], k: string; x: bool) =
   saveInYdb(global, subs, k, $x)
   
 proc store(global: string, subs: seq[string], k: string; x: char) =
+  let s:string  = $x
+  saveInYdb(global, subs, k, $x)
+
+proc store(global: string, subs: seq[string], k: string; x: string) =
   saveInYdb(global, subs, k, $x)
   
 proc store[T: SomeNumber](global: string, subs: seq[string], k: string; x: T) =
   saveInYdb(global, subs, k, $x)
   
 proc store[T: enum](global: string, subs: seq[string], k: string; x: T) =
-  echo "store T:", x
-  saveInYdb(global, subs, k, $x)
+  saveInYdb(global, subs, k, $ord(x))
   
 proc store[T](global: string, subs: seq[string], k: string; x: set[T]) =
-#  saveInYdb(global, subs, k, $x)
-  echo "store setT:", x
   var idx = 0
+  var subscpy: seq[string]
+  echo "61 store set[T]:",$T
   for elem in x.items():
-    # if its a Type
-    when T is RootObj:
-      var subscpy = subs
-      subscpy.add($idx)
+    subscpy = subs
+    subscpy.add(k)
+    subscpy.add($idx)
+    when T is enum:
+      echo "65 enum ", elem, $ord(elem)
+      ydbSet(global, subscpy, $ord(elem))
+      #store(global, subscpy, $ord(elem))
+    elif T is RootObj:
+      echo "67 RootObj ",elem
+      #var subscpy = subs
+      #subscpy.add($idx)
       store(global, subscpy, elem)
     else:
+      echo "76 else elem:", $elem
       # it's a seq[string],...
-      var subscpy = subs
-      subscpy.add(k)
-      subscpy.add($idx)
+      #var subscpy = subs
+      # subscpy = subs
+      # subscpy.add(k)
+      # subscpy.add($idx)
       ydbSet(global, subscpy, $elem)
     
     inc(idx)
   
-proc store(global: string, subs: seq[string], k: string; x: string) =
-  saveInYdb(global, subs, k, $x)
-
 proc store[S, T](global: string, subs: seq[string], k: string; x: array[S, T]) =
-  echo "store array ST:", x
   for elem in items(x):
     store(global, subs, k, elem)
 
 proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[T] ) =
-  echo "store seq ", x
   var idx = 0
   for elem in x.items():
     # if its a Type
     when T is RootObj:
       var subscpy = subs
       subscpy.add($idx)
-      store(global, subscpy, elem)
+      echo "88 store seq[T] RootObj T:", typeof(elem), " subscpy:", subscpy, " global:", global
+      store(subscpy, elem)
     else:
+      echo "91 store seq[T] | SomeSet[T] k:", k, " subs:", subs, " T:", $T
       # it's a seq[string],...
       var subscpy = subs
       subscpy.add(k)
@@ -97,196 +114,179 @@ proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[
 #     store(global, subs, k, elem)
 
 proc store[K, V](global: string, subs: seq[string], kv: string; o: (Table[K, V]|OrderedTable[K, V])) =
-  echo "store OrderedTable KV",o
   for k, v in pairs(o):
     store(global, subs, kv, k)
     store(global, subs, kv, v)
 
 proc store[T](global: string, subs: seq[string], k: string; o: ref T) =
-  echo "store ref T:", o
   let isSome = o != nil
   if isSome:
     store(global, subs, k, o[])
 
 proc store[T](global: string, subs: seq[string], k: string; o: Option[T]) =
-  echo "store Option T:", o
   let isSome = isSome(o)
   if isSome:
     store(global, subs, k, get(o))
 
 proc store[T: tuple](global: string, subs: seq[string], k: string; o: T) =
-  echo "store global/subs T:",o
   for k,v in fieldPairs(o):
     store(global, subs, k, v)
 
-proc store*[T: object](subscripts: seq[string]; o: T) =
-  echo "store T:",o
+# Type on field Customer.Adress
+proc store[T](global: string, subs: seq[string], k: string; o: T) =
+  for k,v in fieldPairs(o):
+    let gbl = "^" & $T
+    store(gbl, subs, k, v)
+
+proc store*[T: object](gbl: string, subs: seq[string]; o: T) =
+  for k,v in fieldPairs(o):
+    store(gbl, subs, k, v)
+
+proc store*[T: object](subs: seq[string]; o: T) =
   let gbl = "^" & $typeof(o)
   for k,v in fieldPairs(o):
-    store(gbl, subscripts, k, v)
+    store(gbl, subs, k, v)
 
-proc store*[T: object](global: string, subscripts: seq[string]; o: T) =
-  let gbl = "^" & $typeof(o)
+
+# Deserialisation
+# BOOL
+proc load(global: string, subs: seq[string], k: string; x: var bool) =
+  let value = loadYdb(global, subs, k)
+  if value == "true": x = true else: x = false
+
+# CHAR
+proc load(global: string, subs: seq[string], k: string; x: var char) =
+  x = loadYdb(global, subs, k)[0]
+
+# STRING
+proc load(global: string, subs: seq[string], k: string; x: var string) =
+  x = loadYdb(global, subs, k)
+
+# SOME NUMBER
+proc load[T: var SomeNumber](global: string, subs: seq[string], k: string; x: var T) =
+  let s = loadYdb(global, subs, k)
+  when T is SomeInteger:
+    x = parseInt(s).T
+  elif T is SomeFloat:
+    x = parseFloat(s).T
+  else:
+    {.error: "Unsupported type".}
+
+# ENUM
+proc load[T: enum](global: string, subs: seq[string], k: string; x: var T) =
+  #echo "enum global:",global, " subs:",subs, " k:", k
+  let value = parseInt(loadYdb(global, subs, k))
+  if value >= low(T).ord and value <= high(T).ord:
+    x = T(value)
+  else:
+    raise newException(ValueError, "Invalid enum value: " & $value)
+
+# SET 
+proc load[T](global: string, subs: seq[string], k: string; x: var set[T]) =
+  echo "169 load set[T] T:", $T
+  var idx, rc = 0
+  when T is RootObj:
+    echo "171"
+    var subscripts = subs
+    subscripts.add("")
+    let gbl = "^" & $T
+    while(rc == YDB_OK):
+      rc = ydb_subscript_next(gbl, subscripts)
+      if rc == YDB_OK:
+        var t:T = T()
+        load(gbl, subscripts, t)
+        x.add(t)
+        inc(idx)
+  else:
+    echo "184"
+    var subscripts = subs
+    subscripts.add(@[k,""])
+    while(rc == YDB_OK):
+      rc = ydb_subscript_next(global, subscripts)
+      if rc == YDB_OK:
+        let value = parseInt(ydbGet(global, subscripts))
+        echo "global:", global, " subscripts:", subscripts, " value:", value, " typeof(value):", typeof(value), " typeof(x):", typeof(x)
+        x.incl(value.T)
+    inc(idx)
+
+
+proc load[S, T](global: string, subs: seq[string], k: string; x: var array[S, T]) =
+  for elem in items(x):
+    load(global, subs, k, elem)
+
+
+proc load[T: var SomeSet](global: string, subs: seq[string], k: string; x: var SomeSet[T] ) =
+  echo "194 load SomeSet"
+  var idx = 0
+  var subscripts = subs
+  subscripts.add(k)
+  subscripts.add("")
+  var rc = 0
+  var newseq: seq[T] = @[]
+  while(rc == YDB_OK):
+    rc = ydb_subscript_next(global, subscripts)
+    if rc == YDB_OK:
+      echo("TA: ", $T, " ******* rc=", $rc, " global:", global, " subs=", subscripts)
+      #x.add(loadYdb(global, subs, k))
+      when T is string:
+        newseq.add(ydbGet(global, subscripts))      
+  echo "***************** NEWSEQ : ", newseq
+#   x = newseq
+
+
+# seq[T] | seq[T of RootObj]
+proc load[T](global: string, subs: seq[string], k: string; x: var seq[T] ) =
+  echo "214 load seq[T] ",$T
+  var idx, rc = 0
+  when T is RootObj:
+    var subscripts = subs
+    subscripts.add("")
+    let gbl = "^" & $T
+    while(rc == YDB_OK):
+      rc = ydb_subscript_next(gbl, subscripts)
+      if rc == YDB_OK:
+        var t:T = T()
+        load(gbl, subscripts, t)
+        x.add(t)
+        inc(idx)
+  else:
+    var subscripts = subs
+    subscripts.add(@[k,""])
+    while(rc == YDB_OK):
+      rc = ydb_subscript_next(global, subscripts)
+      if rc == YDB_OK:
+        x.add(ydbGet(global, subscripts))
+
+proc load[K, V](global: string, subs: seq[string], kv: string; o: var (Table[K, V]|OrderedTable[K, V])) =
+  for k, v in pairs(o):
+    load(global, subs, kv, k)
+    load(global, subs, kv, v)
+
+proc load[T](global: string, subs: seq[string], k: string; o: ref var T) =
+  let isSome = o != nil
+  if isSome:
+    load(global, subs, k, o[])
+
+proc load[T](global: string, subs: seq[string], k: string; o: var Option[T]) =
+  let isSome = isSome(o)
+  if isSome:
+    load(global, subs, k, get(o))
+
+proc load[T: var tuple](global: string, subs: seq[string], k: string; o: var T) =
   for k,v in fieldPairs(o):
-    store(gbl, subscripts, k, v)
+    load(global, subs, k, v)
 
+proc load[T](global: string, subs: seq[string], k: string; o: var T) =
+  for k,v in fieldPairs(o):
+    let gbl = "^" & $T
+    load(gbl, subs, k, v)
 
-# deserialization
-proc initFromBin*(dst: var bool; s: Stream) =
-  read(s, dst)
-proc initFromBin*(dst: var char; s: Stream) =
-  read(s, dst)
-proc initFromBin*[T: SomeNumber](dst: var T; s: Stream) =
-  read(s, dst)
-proc initFromBin*[T: enum](dst: var T; s: Stream) =
-  read(s, dst)
-proc initFromBin*[T](dst: var set[T]; s: Stream) =
-  read(s, dst)
+proc load*[T: var object](subs: seq[string]; o: var T) =
+  let gbl = "^" & $typeof(o)
+  load(gbl, subs, o)
 
-proc initFromBin*(dst: var string; s: Stream) =
-  let len = s.readInt64().int
-  dst.setLen(len)
-  if readData(s, cstring(dst), len) != len:
-    raise newException(IOError, "cannot read from stream")
+proc load*[T: var object](gbl: string, subs: seq[string]; o: var T) =
+  echo "LOAD gbl:",gbl, " subs:", subs, " o:",o
+  for k,v in fieldPairs(o):
+    load(gbl, subs, k, v)
 
-proc initFromBin*[T](dst: var seq[T]; s: Stream) =
-  let len = s.readInt64().int
-  dst.setLen(len)
-  when not isCustom(T) and supportsCopyMem(T):
-    if len > 0:
-      let bLen = len * sizeof(T)
-      if readData(s, dst[0].addr, bLen) != bLen:
-        raise newException(IOError, "cannot read from stream")
-  else:
-    for i in 0 ..< len:
-      initFromBin(dst[i], s)
-
-proc initFromBin*[S, T](dst: var array[S, T]; s: Stream) =
-  when not isCustom(T) and supportsCopyMem(T):
-    if readData(s, dst.addr, sizeof(dst)) != sizeof(dst):
-      raise newException(IOError, "cannot read from stream")
-  else:
-    for i in low(dst) .. high(dst):
-      initFromBin(dst[i], s)
-
-proc initFromBin*[T](dst: var SomeSet[T]; s: Stream) =
-  let len = s.readInt64().int
-  for i in 0 ..< len:
-    var tmp: T
-    initFromBin(tmp, s)
-    dst.incl(tmp)
-
-proc initFromBin*[K, V](dst: var (Table[K, V]|OrderedTable[K, V]); s: Stream) =
-  let len = s.readInt64().int
-  for i in 0 ..< len:
-    var key: K
-    initFromBin(key, s)
-    initFromBin(mgetOrPut(dst, key, default(V)), s)
-
-proc initFromBin*[T](dst: var ref T; s: Stream) =
-  let isSome = readBool(s)
-  if isSome:
-    new(dst)
-    initFromBin(dst[], s)
-  else:
-    dst = nil
-
-proc initFromBin*[T](dst: var Option[T]; s: Stream) =
-  let isSome = readBool(s)
-  if isSome:
-    var tmp: T
-    initFromBin(tmp, s)
-    dst = some(tmp)
-  else:
-    dst = none[T]()
-
-proc initFromBin*[T: tuple](dst: var T; s: Stream) =
-  when not isCustom(T) and supportsCopyMem(T):
-    read(s, dst)
-  else:
-    for v in fields(dst):
-      initFromBin(v, s)
-
-template getFieldValue(stream, tmpSym, fieldSym) =
-  initFromBin(tmpSym.fieldSym, stream)
-
-template getKindValue(stream, tmpSym, kindSym, kindType) =
-  var kindTmp: kindType
-  initFromBin(kindTmp, stream)
-  tmpSym = (typeof tmpSym)(kindSym: kindTmp)
-
-proc foldObjectBody(typeNode, tmpSym, stream: NimNode): NimNode =
-  case typeNode.kind
-  of nnkEmpty:
-    result = newNimNode(nnkNone)
-  of nnkRecList:
-    result = newStmtList()
-    for it in typeNode:
-      let x = foldObjectBody(it, tmpSym, stream)
-      if x.kind != nnkNone: result.add x
-  of nnkIdentDefs:
-    expectLen(typeNode, 3)
-    let fieldSym = typeNode[0]
-    result = getAst(getFieldValue(stream, tmpSym, fieldSym))
-  of nnkRecCase:
-    let kindSym = typeNode[0][0]
-    let kindType = typeNode[0][1]
-    result = getAst(getKindValue(stream, tmpSym, kindSym, kindType))
-    let inner = nnkCaseStmt.newTree(nnkDotExpr.newTree(tmpSym, kindSym))
-    for i in 1..<typeNode.len:
-      let x = foldObjectBody(typeNode[i], tmpSym, stream)
-      if x.kind != nnkNone: inner.add x
-    result.add inner
-  of nnkOfBranch, nnkElse:
-    result = copyNimNode(typeNode)
-    for i in 0..typeNode.len-2:
-      result.add copyNimTree(typeNode[i])
-    let inner = newNimNode(nnkStmtListExpr)
-    let x = foldObjectBody(typeNode[^1], tmpSym, stream)
-    if x.kind != nnkNone: inner.add x
-    result.add inner
-  of nnkObjectTy:
-    expectKind(typeNode[0], nnkEmpty)
-    expectKind(typeNode[1], {nnkEmpty, nnkOfInherit})
-    result = newNimNode(nnkNone)
-    if typeNode[1].kind == nnkOfInherit:
-      let base = typeNode[1][0]
-      var impl = getTypeImpl(base)
-      while impl.kind in {nnkRefTy, nnkPtrTy}:
-        impl = getTypeImpl(impl[0])
-      result = foldObjectBody(impl, tmpSym, stream)
-    let body = typeNode[2]
-    let x = foldObjectBody(body, tmpSym, stream)
-    if result.kind != nnkNone:
-      if x.kind != nnkNone:
-        for i in 0..<result.len: x.add(result[i])
-        result = x
-    else: result = x
-  else:
-    error("unhandled kind: " & $typeNode.kind, typeNode)
-
-macro assignObjectImpl(dst: typed; s: Stream): untyped =
-  let typeSym = getTypeInst(dst)
-  result = newStmtList()
-  let x = foldObjectBody(typeSym.getTypeImpl, dst, s)
-  if x.kind != nnkNone: result.add x
-
-proc initFromBin*[T: object](dst: var T; s: Stream) =
-  when not isCustom(T) and supportsCopyMem(T):
-    read(s, dst)
-  else:
-    assignObjectImpl(dst, s)
-
-# proc binTo*[T](global: string, subs: seq[string], t: typedesc[T]): T =
-#   ## Unmarshals the specified Stream into the type specified.
-#   ##
-#   ## Known limitations:
-#   ##
-#   ##   * Sets in object variants are not supported.
-#   ##   * Not nil annotations are not supported.
-#   ##
-#   initFromBin(result, s)
-
-# proc loadBin*[T](global: string, subs: seq[string], dst: var T) =
-#   ## Unmarshals the specified Stream into the location specified.
-#   initFromBin(dst, s)
