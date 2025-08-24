@@ -55,9 +55,9 @@ proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[
     inc(idx)
 
 proc store[K, V](global: string, subs: seq[string], kv: string; o: (Table[K, V]|OrderedTable[K, V])) =
-  for k, v in pairs(o):
-    store(global, subs, kv, k)
-    store(global, subs, kv, v)
+  for fn, fv in pairs(o):
+    store(global, subs, kv, fn)
+    store(global, subs, kv, fv)
 
 proc store[T](global: string, subs: seq[string], k: string; o: ref T) =
   let isSome = o != nil
@@ -70,19 +70,19 @@ proc store[T](global: string, subs: seq[string], k: string; o: Option[T]) =
     store(global, subs, k, get(o))
 
 proc store[T: tuple](global: string, subs: seq[string], k: string; o: T) =
-    for k,v in fieldPairs(o):
-      store(global, subs, k, v)
+    for fn, fv in fieldPairs(o):
+      store(global, subs, fn, fv)
 
 # Type on field Customer.Adress
 proc store[T](global: string, subs: seq[string], k: string, o: T) =
-  for k,v in fieldPairs(o):
+  for fn, fv in fieldPairs(o):
     let gbl = "^" & $T
-    store(gbl, subs, k, v)
+    store(gbl, subs, fn, fv)
 
 proc store*[T: object](subs: seq[string]; o: T) =
   let gbl = "^" & $typeof(o)
-  for k,v in fieldPairs(o):
-    store(gbl, subs, k, v)
+  for fn, fv in fieldPairs(o):
+    store(gbl, subs, fn, fv)
 
 
 # Deserialisation
@@ -175,9 +175,9 @@ proc load[T](global: string, subs: seq[string], k: string; x: var seq[T] ) =
 
 proc load[K, V](global: string, subs: seq[string], kv: string; o: var (Table[K, V]|OrderedTable[K, V])) =
   echo "224 gbl:", global, " subs:", subs, " kv:", kv, " o:", o      
-  for k, v in pairs(o):
-    load(global, subs, kv, k)
-    load(global, subs, kv, v)
+  for fn, fv in pairs(o):
+    load(global, subs, kv, fn)
+    load(global, subs, kv, fv)
 
 proc load[T](global: string, subs: seq[string], k: string; o: ref var T) =
   echo "234 gbl:", global, " subs:", subs, " k:", k, " o:", o    
@@ -192,15 +192,15 @@ proc load[T](global: string, subs: seq[string], k: string; o: var Option[T]) =
     load(global, subs, k, get(o))
 
 proc load[T: var tuple](global: string, subs: seq[string], k: string; o: var T) =
-  for k,v in fieldPairs(o):
-    echo "240 gbl:", global, " subs:", subs, " k:", k, " v:", v    
-    load(global, subs, k, v)
+  for fn, fv in fieldPairs(o):
+    echo "240 gbl:", global, " subs:", subs, " fn:", fn, " fv:", fv    
+    load(global, subs, fn, fv)
 
 proc load[T](global: string, subs: seq[string], k: string; o: var T) =
-  for k,v in fieldPairs(o):
+  for fn, fv in fieldPairs(o):
     let gbl = "^" & $T
-    echo "245 gbl:", gbl, " subs:", subs, " k:", k, " v:", v
-    load(gbl, subs, k, v)
+    echo "245 gbl:", gbl, " subs:", subs, " fn:", fn, " fv:", fv
+    load(gbl, subs, fn, fv)
 
 proc load*[T: var object](subs: seq[string]; o: var T) =
   let gbl = "^" & $typeof(o)
@@ -208,6 +208,6 @@ proc load*[T: var object](subs: seq[string]; o: var T) =
   load(gbl, subs, o)
 
 proc load*[T: var object](gbl: string, subs: seq[string]; o: var T) =
-  for k,v in fieldPairs(o):
-    echo "255 gbl:", gbl, " subs:", subs, " k:", k, " v:", v, " ", $typeof(v)
-    load(gbl, subs, k, v)
+  for fn, fv in fieldPairs(o):
+    echo "255 gbl:", gbl, " subs:", subs, " fn:", fn, " fv:", fv, " ", $typeof(fv)
+    load(gbl, subs, fn, fv)
