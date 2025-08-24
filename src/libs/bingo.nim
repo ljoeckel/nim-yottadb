@@ -39,7 +39,7 @@ proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[
   var idx = 0
   for elem in x.items():
     var subscpy = subs
-    when T is RootObj:
+    when T is object:
       subscpy.add($idx)
       store(subscpy, elem)
     elif T is enum:
@@ -151,11 +151,11 @@ proc load[T: var SomeSet](global: string, subs: seq[string], k: string; x: var T
       x.incl(ydbGet(global, subscripts))
     inc(idx)
 
-# seq[T] | seq[T of RootObj]
+# seq[T] | seq[T of object]
 proc load[T](global: string, subs: seq[string], k: string; x: var seq[T] ) =
   echo "202 gbl:", global, " subs:", subs, " k:", k, " o:", x      
   var rc = 0
-  when T is RootObj:
+  when T is object:
     var subscripts = subs
     subscripts.add("")
     let gbl = "^" & $T
