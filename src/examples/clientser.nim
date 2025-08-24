@@ -1,4 +1,5 @@
-import std/[strformat, strutils, streams, sets, times, os, osproc, unittest]
+#import std/[strformat, strutils, streams, sets, times, os, osproc, unittest]
+import std/sets
 import macros
 import ../yottadb
 import ../libs/bingo
@@ -20,13 +21,13 @@ type
     Good, Bad, Uggly, Stammkunde, Laufkundschaft, Firma, Sonstiges
 
   Customer* = object of RootObj
-    id*: int
-    address*: Address
+    id: int
+    address: Address
     isGoodCustomer: bool
     charX: char = 'X'
-    name*: string
-    first_name*: string
-    dob*: int
+    name: string
+    first_name: string
+    dob: int
     ct: CustomerType
     keywords: seq[string]
     int32F: int32
@@ -35,7 +36,8 @@ type
     setU: set[uint8]
     setRange: set[10.uint8..99.uint8]
     setEnum: set[CustomerType]
-
+    hset: HashSet[string]
+    custsets: CustomerSets
 type
   Gender = enum
     male, female
@@ -52,7 +54,6 @@ type
     age: int
     siblings: seq[Sibling]
     keywords: seq[string]
-    #hset: HashSet[string]
   Sibling = object of RootObj
      sex: Gender
      birthYear: int
@@ -64,14 +65,7 @@ type
      setRange: set[10.uint8..99.uint8]
      setEnum: set[CustomerType]
 
-
-proc save[T](t: T) =
-  store(@[$t.id], t)
-  
-proc load[T](t: T): T =
-  store(@[$t.id], t)
-  return t
-  
+ 
 proc newCustomer(id: int): Customer =
   result =
     Customer(id: id, int32F:456, float32F:3.456, isGoodCustomer: true, charX:'Y', 
@@ -80,10 +74,12 @@ proc newCustomer(id: int): Customer =
     setI:{1,9,4,127},
     setU:{11,99,245},
     setRange:{11, 99, 45},
-    setEnum:{Laufkundschaft, Stammkunde}
+    setEnum:{Laufkundschaft, Stammkunde},
+    hset: toHashSet(["abc","xyz","asdf"]),
+    custsets:CustomerSets(setI:{1,9,4,127}, setU:{11,99,245}, setC:{'z','t','e'}, setE:{Laufkundschaft, Stammkunde}),
     )
 
-#hset: toHashSet(["a","b","c"]),
+    
 proc newResponder(id: int): Responder =
   result =
     Responder(id: id, name: "John Smith", gender: male, occupation: "student", age: 18, 
@@ -105,12 +101,20 @@ proc newResponder(id: int): Responder =
         ],
         keywords: @["Achtung", "Gefahrt"],
         )
+
+proc save[T](t: T) =
+  store(@[$t.id], t)
   
+# proc load[T](t: T): T =
+#   store(@[$t.id], t)
+#   return t
+
 when isMainModule:
   for i in 1..1:
     save(newCustomer(i))
     save(newResponder(i))
 
+  for i in 1..1:
     var customer: Customer
     load(@[$i], customer)
     var responder: Responder
