@@ -106,7 +106,7 @@ func keysToString*(global: string, subscript: Subscripts): string =
       result.add(",")
   result.add(")")
 
-proc subscriptsToString*(global: string, subscript: Subscripts): string =
+proc subscriptsToValue*(global: string, subscript: Subscripts): string =
   var value: string
   try:
     value = ydbGet(global, subscript)
@@ -147,3 +147,12 @@ proc getGlobals*(): seq[string] =
     let exitCode = waitForExit(p) # Wait until process finishes
 
 
+proc getLockCountFromYottaDb*(): int =
+  # Show real locks on db with 'lke show'
+  var lockcnt = 0
+  let lke = findExe("lke")
+  let lines = execProcess(lke & " show")
+  for line in lines.split('\n'):
+    if line.contains("Owned by"):
+      inc(lockcnt)
+  return lockcnt

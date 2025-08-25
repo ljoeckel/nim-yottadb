@@ -1,19 +1,8 @@
-import std/[strformat, strutils, times, os, osproc, unittest]
+import std/[strformat, strutils, os, osproc, unittest]
 import ../yottadb
 
 const
   MAX = 100
-
-proc getLockCountFromYottaDb(): int =
-  # Show real locks on db with 'lke show'
-  var lockcnt = 0
-  let lke = findExe("lke")
-  let lines = execProcess(lke & " show")
-  for line in lines.split('\n'):
-    if line.contains("Owned by"):
-      inc(lockcnt)
-  return lockcnt
-
 
 proc setupLL() =
   let global = "^LL"
