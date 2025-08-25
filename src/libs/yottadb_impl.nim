@@ -142,8 +142,8 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts): Subscr
     if item.len_used > 0:
       sbscr.add($item.buf_addr)
 
-  if not isExpectedErrorNextNode(rc):  
-    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
+  #if not isExpectedErrorNextNode(rc):  
+  #  raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
 
   return sbscr
 

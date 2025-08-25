@@ -1,4 +1,4 @@
-import std/strutils 
+import std/[strutils, os, osproc, streams]
 
 import yottadb_impl
 import yottadb_types
@@ -29,16 +29,16 @@ proc ydbIncrement*(name: string, keys: Subscripts, increment: int = 1): int =
   except:
     raise newException(YottaDbError, "Illegal Number. Tried to parseInt(" & s & ")")
 
-# ------------------ Next/Previous items -----------------
+# ------------------ Iterators for Next/Previous Node -----------------
 
-iterator nextItem*(global: string, subscripts: var Subscripts): Subscripts =
+iterator nextNode*(global: string, subscripts: var Subscripts): Subscripts =
   var i = -1
   while i < len(subscripts):
     subscripts = ydb_node_next_db(global, subscripts)
     if len(subscripts) == 0: break
     yield subscripts
 
-iterator previousItem*(global: string, subscripts: var Subscripts): Subscripts =
+iterator previousNode*(global: string, subscripts: var Subscripts): Subscripts =
   var i = -1
   while i < len(subscripts):
     subscripts = ydb_node_previous_db(global, subscripts)
@@ -47,10 +47,25 @@ iterator previousItem*(global: string, subscripts: var Subscripts): Subscripts =
 
 # ------------------ Next/Previous subscripts -----------------
 proc ydb_subscript_next*(name: string, keys: var Subscripts): int =
-  return ydb_subscript_next_db(name, keys)
+  result = ydb_subscript_next_db(name, keys)
 
 proc ydb_subscript_previous*(name: string, keys: var Subscripts): int =
-  return ydb_subscript_previous_db(name, keys)
+  result = ydb_subscript_previous_db(name, keys)
+
+# ------------------ Iterators for Next/Previous Subscript-------------
+iterator nextSubscriptNode*(global: string, subscripts: var Subscripts): Subscripts =
+  var i = -1
+  while i < len(subscripts):
+    let rc = ydb_subscript_next(global, subscripts)
+    if rc != 0 or len(subscripts) == 0: break
+    yield subscripts
+
+iterator previousSubscriptNode*(global: string, subscripts: var Subscripts): Subscripts =
+  var i = -1
+  while i < len(subscripts):
+    let rc = ydb_subscript_previous(global, subscripts)
+    if rc != 0 or len(subscripts) == 0: break
+    yield subscripts
 
 # ------------------ Locks -----------------
 # Max of 35 variable names in one call
@@ -76,5 +91,59 @@ proc `$`*(v: YdbVar): string =
 proc `[]=`*(v: var YdbVar; val: string) =
   ydbSet(v.global, v.subscripts, val)
   v.value = val
+
+
+# ------- Helpers
+func keysToString*(global: string, subscript: Subscripts): string =
+  result = global & "("
+  for i, idx in subscript:
+    try:
+      let nmbr = parseInt(idx)
+      result.add($nmbr)
+    except ValueError:
+      result.add("\"" & idx & "\"")
+    if i < subscript.len - 1:
+      result.add(",")
+  result.add(")")
+
+proc subscriptsToString*(global: string, subscript: Subscripts): string =
+  var value: string
+  try:
+    value = ydbGet(global, subscript)
+  except:
+    discard
+  if value.isEmptyOrWhitespace:
+    result = keysToString(global, subscript)
+  else:
+    result = keysToString(global, subscript) & "=" & value
+
+
+# Get the global variables from the ydb ^%GD utility
+proc getGlobals*(): seq[string] =
+    result = @[]
+    var lines: seq[string]
+
+    # Start a process with stdin/stdout redirection
+    let ydb = findExe("ydb")
+    let p = startProcess(
+        ydb,
+        args = @["-run ^%GD"],
+        options = {poUsePath, poEchoCmd, poInteractive}
+    )
+
+    p.inputStream.write("\n") # Send "Enter" (newline) to the process
+    p.inputStream.flush()
+
+    var line = ""
+    while p.outputStream.readLine(line):
+        if line.startsWith("^"):
+            lines.add(line)
+    for line in lines:
+        let names = line.split('^')
+        for name in names:
+            let s = name.strip()
+            if not s.isEmptyOrWhitespace:
+                result.add("^" & s)
+    let exitCode = waitForExit(p) # Wait until process finishes
 
 

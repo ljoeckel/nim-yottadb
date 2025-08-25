@@ -4,20 +4,6 @@ import ../yottadb
 const
   MAX = 100
 
-func keysToString(global: string, subscript: Subscripts): string =
-  result = global & "("
-  for i, idx in subscript:
-    try:
-      let nmbr = parseInt(idx)
-      result.add($nmbr)
-    except ValueError:
-      result.add("\"" & idx & "\"")
-
-    if i < subscript.len - 1:
-      result.add(",")
-
-  result.add(")")
-
 proc getLockCountFromYottaDb(): int =
   # Show real locks on db with 'lke show'
   var lockcnt = 0
@@ -28,10 +14,35 @@ proc getLockCountFromYottaDb(): int =
       inc(lockcnt)
   return lockcnt
 
+
+proc setupLL() =
+  let global = "^LL"
+  ydbSet(global, @["HAUS"])
+  ydbSet(global, @["HAUS", "ELEKTRIK"])
+  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN"])
+  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN", "1"], "Telefondose")
+  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN", "2"], "Steckdose")
+  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN", "3"], "IP-Dose")
+  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN", "4"], "KFZ-Dose")
+  ydbSet(global, @["HAUS", "ELEKTRIK", "KABEL"])
+  ydbSet(global, @["HAUS", "ELEKTRIK", "KABEL", "FARBEN"])
+  ydbSet(global, @["HAUS", "ELEKTRIK", "KABEL", "STAERKEN"])
+  ydbSet(global, @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
+  ydbSet(global, @["HAUS", "FLAECHEN", "RAUM1"])
+  ydbSet(global, @["HAUS", "FLAECHEN", "RAUM2"])
+  ydbSet(global, @["HAUS", "FLAECHEN", "RAUM2"])
+  ydbSet(global, @["HAUS", "HEIZUNG"])
+  ydbSet(global, @["HAUS", "HEIZUNG", "MESSGERAETE"])
+  ydbSet(global, @["HAUS", "HEIZUNG", "ROHRE"])
+  ydbSet(global, @["LAND"])
+  ydbSet(global, @["LAND", "FLAECHEN"])
+  ydbSet(global, @["LAND", "NUTZUNG"])
+  ydbSet(global, @["ORT"])
+
 # ------------- Test cases are here ---------------------
 proc testYdbVar() =
   for i in 0..MAX:
-    var v = newYdbVar("^LJ", @["LAND", "ORT", $i], $i)
+    discard newYdbVar("^LJ", @["LAND", "ORT", $i], $i)
 
   for i in 0..MAX:
     var v = newYdbVar("^LJ", @["LAND", "ORT", $i])
@@ -46,18 +57,15 @@ proc testYdbVar() =
       raise newException(YottaDbError, "Invalid data in db for {i}")
 
 
-proc writeData() =
+proc testYdbSetGet() =
   for i in 0..MAX:
-    ydbSet("^LJ", @["LAND", "ORT", $i], fmt"Hello Lothar Jöckel {i} aus der Schweiz")
-    ydbSet("^LJ", @["LAND", "ORT", $i, $i], fmt"Hello Lothar Jöckel {i} from Switzerland")
+    let value = fmt"Hello Lothar Jöckel {i} aus der Schweiz"
+    ydbSet("^LJ", @["LAND", "ORT", $i], value)
+    assert value == ydbGet("^LJ", @["LAND", "ORT", $i])
+    ydbSet("^LJ", @["LAND", "ORT", $i, $i], value)
+    assert value == ydbGet("^LJ", @["LAND", "ORT", $i, $i])
 
   ydbSet("^LJ", @["LAND", "STRASSE"], fmt"Gartenweg 4")
-
-
-proc readBack() =
-  for i in 0..MAX:
-    let result = ydbGet("^LJ", @["LAND", "ORT", $i])
-    assert result == fmt"Hello Lothar Jöckel {i} aus der Schweiz"
 
 
 proc testData() =
@@ -69,56 +77,55 @@ proc testData() =
   doAssertRaises(YottaDbError): discard ydbData("^LJ", @[""])
 
 
-proc traverseNext(global: string, start: Subscripts = @[]) =
+proc testNextNode(global: string, start: Subscripts = @[]) =
   var cnt = 0
   var subs = start
-  for subs in nextItem(global, subs):
+  for subs in nextNode(global, subs):
     inc(cnt)
   doAssert cnt == MAX * 2 + 3
 
 
-proc traversePrevious(global: string, start: Subscripts = @[]) =
+proc testPreviousNode(global: string, start: Subscripts = @[]) =
   var cnt = 0
   var subs = start
-  for subs in previousItem(global, subs):
+  for subs in previousNode(global, subs):
     inc(cnt)
   doAssert cnt == MAX * 2 + 2
 
 
-proc nextSubscript() =
-  let global = "^LL"
-
-  ydbSet(global, @["HAUS"])
-  ydbSet(global, @["HAUS", "ELEKTRIK"])
-  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN"])
-  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN", "1"], "Telefondose")
-  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN", "2"], "Steckdose")
-  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN", "3"], "IP-Dose")
-  ydbSet(global, @["HAUS", "ELEKTRIK", "DOSEN", "4"], "KFZ-Dose")
-  ydbSet(global, @["HAUS", "ELEKTRIK", "KABEL"])
-  ydbSet(global, @["HAUS", "ELEKTRIK", "KABEL", "FARBEN"])
-  ydbSet(global, @["HAUS", "ELEKTRIK", "KABEL", "STAERKEN"])
-  ydbSet(global, @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
-  ydbSet(global, @["HAUS", "HEIZUNG"])
-  ydbSet(global, @["HAUS", "HEIZUNG", "MESSGERAETE"])
-  ydbSet(global, @["HAUS", "HEIZUNG", "ROHRE"])
-  ydbSet(global, @["LAND"])
-  ydbSet(global, @["LAND", "FLAECHEN"])
-  ydbSet(global, @["LAND", "NUTZUNG"])
-  ydbSet(global, @["ORT"])
-
-  var subscript = @["HAUS", "ELEKTRIK", ""]
+proc nextSubscript(global: string, start: Subscripts, expected: Subscripts) =
+  var subscript = start
   var rc = 0
+  var lastSubscript: Subscripts
   while(rc == YDB_OK):
     rc = ydb_subscript_next(global, subscript)
-    echo("rc=" & $rc & "keys=" & subscript)
+    if rc == YDB_OK:
+      lastSubscript = subscript
+  doAssert lastSubscript == expected
 
-  echo "Getting previous subscript"
-  subscript = @["HAUS", "HEIZUNG"]
-  rc = 0
+proc previousSubscript(global: string, start: Subscripts, expected: Subscripts) =
+  var subscript = start
+  var lastSubscript: Subscripts
+  var rc = 0
   while(rc == YDB_OK):
     rc = ydb_subscript_previous(global, subscript)
-    echo("rc=" & $rc & "keys=" & subscript)
+    if rc == YDB_OK:
+      lastSubscript = subscript
+  doAssert lastSubscript == expected
+
+proc nextSubscriptIter(global: string, start: Subscripts, expected: Subscripts) =
+  var subs = start
+  var lastSubs: Subscripts
+  for subs in nextSubscriptNode(global, subs):
+    lastSubs = subs
+  doAssert lastSubs == expected
+
+proc previousSubscriptIter(global: string, start: Subscripts, expected: Subscripts) =
+  var subs = start
+  var lastSubs: Subscripts
+  for subs in previousSubscriptNode(global, subs):
+    lastSubs = subs
+  doAssert lastSubs == expected
 
 
 proc deleteTree() =
@@ -137,7 +144,7 @@ proc deleteGlobalVar() =
   discard ydbDeleteNode("^LJ", @[])
 
 
-proc getSpecialVariables() =
+proc testSpecialVariables() =
   let vars = ["$DEVICE", "$ECODE","$ESTACK", "$ETRAP", "$HOROLOG",
               "$IO", "$JOB", "$KEY", "$PRINCIPAL", "$QUIT", "$REFERENCE", "$STACK", "$STORAGE",
               "$SYSTEM", "$TLEVEL", "$TRESTART", "$X", "$Y", "$ZA", "$ZALLOCSTOR", "$ZAUDIT",
@@ -151,11 +158,12 @@ proc getSpecialVariables() =
               "$ZYSQLNULL"]
   for variable in vars:
     discard ydbGet(variable)
-
+  
+  # Test for unknown special variable
   doAssertRaises(YottaDbError): discard ydbGet("$XXXX")
 
 
-proc setAndGetVariable() =
+proc testSetAndGetVariable() =
   let vars = ["X"]
   for variable in vars:
     ydbSet(variable, @[], "hello")
@@ -166,11 +174,9 @@ proc setAndGetVariable() =
     ydbSet("X", @["2"], "hello X(2)")
     ydbSet("X", @["2","3"], "hello X(2,3)")
 
-  echo "X=", ydbGet("X")
-  echo "X(1)=", ydbGet("X", @["1"])
-  echo "X(2)=", ydbGet("X", @["2"])
-  echo "X(1,1)=", ydbGet("X", @["1","1"])
-  traverseNext("X")  
+  doAssert ydbGet("X") == "hello"
+  doAssert ydbGet("X", @["1"]) == "hello X(1)"
+  doAssert ydbGet("X", @["1","1"]) == "hello X(1,1)"
 
 
 proc testLock() =
@@ -187,44 +193,39 @@ proc testLock() =
         @["^LL","HAUS", "31"], @["^LL","HAUS", "32"], @["^LL","HAUS", "33"], @["^LL","HAUS", "34"], 
         @["^LL","HAUS", "35"]
         ]
-  var rc = ydbLock(1000000000, globals)
+  var rc = ydbLock(10000000, globals)
   assert getLockCountFromYottaDb() == globals.len
 
-  rc = ydbLock(1000000000, @[])
+  rc = ydbLock(10000000, @[])
   assert getLockCountFromYottaDb() == 0
 
 # -------------------------------------------------------------------
 
-suite "YottaDB Tests":
+setupLL()
 
+suite "YottaDB Tests":
   test "Basic functionality":
     testYdbVar()
-
   test "Write and Read Data":
-    writeData()
-    readBack()
-
+    testYdbSetGet()
   test "Check Data Structure":
     testData()
-
-  test "Traverse Keys":
-    traverseNext("^LJ")
-    traversePrevious("^LJ", @["LAND", "STRASSE"])
-
-#   test "Delete Operations":
-#     deleteTree()
-#     deleteNode()
-#     deleteGlobalVar()
-
-#   test "Subscript Iteration":
-#     nextSubscript()
-
-#   test "Special Variables":
-#     getSpecialVariables()
-
-#   test "Set and Get Variable":
-#     setAndGetVariable()
-#     traverseNext("X")
-
+  test "next/previous Node":
+    testNextNode("^LJ")
+    testPreviousNode("^LJ", @["LAND", "STRASSE"])
+  test "next/previous Subscript":
+    nextSubscript("^LL", @["HAUS", "ELE..."], @["HAUS", "HEIZUNG"])
+    nextSubscript("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
+    previousSubscript("^LL", @["HAUS", "ELEKTRIK", "SICHERUN..."], @["HAUS", "ELEKTRIK", "DOSEN"] )
+    nextSubscriptIter("^LL", @["HAUS", "ELEKT..."], @["HAUS", "HEIZUNG"])
+    previousSubscriptIter("^LL", @["HAUS", "HEIZUNG"], @["HAUS", "ELEKTRIK"])
+  test "Delete Operations":
+    deleteTree()
+    deleteNode()
+    deleteGlobalVar()
+  test "Special Variables":
+    testSpecialVariables()
+  test "Set and Get Variable":
+    testSetAndGetVariable()
   test "Lock Handling":
     testLock()
