@@ -5,37 +5,46 @@ import yottadb_api
 proc saveInYdb(global: string, subs: seq[string], key: string, value: string) =
   var subscpy = subs
   subscpy.add(key)
-  #echo "saveInYdb global:", global," subs:", subs, " key:", key, " value:", value
+  echo "8 saveInYdb global:", global," subs:", subs, " key:", key, " value:", value
   ydbSet(global, subscpy, value)
 
 proc loadFromYdb(global: string, subs: seq[string], key: string): string =
   var subscpy = subs
   subscpy.add(key)
-  result = ydbGet(global, subscpy)
+  try:
+    result = ydbGet(global, subscpy)
+  except:
+    echo "ERROR: " & getCurrentExceptionMsg()
 
 
 # serialization
 proc store(global: string, subs: seq[string], k: string; x: bool) =
+  echo "19 store bool"
   saveInYdb(global, subs, k, $x)
   
 proc store(global: string, subs: seq[string], k: string; x: char) =
+  echo "22 store char"
   saveInYdb(global, subs, k, $x)
 
 proc store(global: string, subs: seq[string], k: string; x: string) =
+  echo "25 store string"
   saveInYdb(global, subs, k, $x)
   
 proc store[T: SomeNumber](global: string, subs: seq[string], k: string; x: T) =
+  echo "28 store somenumber"
   saveInYdb(global, subs, k, $x)
   
 proc store[T: enum](global: string, subs: seq[string], k: string; x: T) =
+  echo "31 store enum"
   saveInYdb(global, subs, k, $ord(x))
   
 proc store[S, T](global: string, subs: seq[string], k: string; x: array[S, T]) =
+  echo "34 store s,t"
   for elem in items(x):
     store(global, subs, k, elem)
 
 proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[T] | set[T]) =
-  echo "82 set seq T ", $typeof(T), " k:", k
+  echo "38 set seq T ", $typeof(T), " k:", k
   var idx = 0
   for elem in x.items():
     var subscpy = subs
@@ -55,31 +64,42 @@ proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[
     inc(idx)
 
 proc store[K, V](global: string, subs: seq[string], kv: string; o: (Table[K, V]|OrderedTable[K, V])) =
+  echo "58 store KV"
   for fn, fv in pairs(o):
     store(global, subs, kv, fn)
     store(global, subs, kv, fv)
 
-proc store[T](global: string, subs: seq[string], k: string; o: ref T) =
-  let isSome = o != nil
-  if isSome:
-    store(global, subs, k, o[])
-
 proc store[T](global: string, subs: seq[string], k: string; o: Option[T]) =
+  echo "63 Option(T)"
   let isSome = isSome(o)
   if isSome:
     store(global, subs, k, get(o))
 
 proc store[T: tuple](global: string, subs: seq[string], k: string; o: T) =
-    for fn, fv in fieldPairs(o):
-      store(global, subs, fn, fv)
-
-# Type on field Customer.Adress
-proc store[T](global: string, subs: seq[string], k: string, o: T) =
+  echo "68 store T: tuple"
   for fn, fv in fieldPairs(o):
-    let gbl = "^" & $T
+    store(global, subs, fn, fv)
+
+# Need forward declaration for "ref object" cases
+#proc store[T](global: string, subs: seq[string], k: string; o: T)
+
+# For references to objects (e.g. Foo)
+#proc store[T: object](global: string, subs: seq[string], k: string; o: ref T) =
+#  echo "76 ref T typeof(o):", $typeof(o)
+#  if o != nil:
+#    store[T](global, subs, k, o[])  # unwrap and call object version
+
+# For plain objects
+proc store[T](global: string, subs: seq[string], k: string; o: T) =
+  echo "91 store T"
+  let gbl = "^" & $T
+  for fn, fv in fieldPairs(o):
+    echo "81 typeof(o):", $typeof(fv)
     store(gbl, subs, fn, fv)
 
+
 proc store*[T: object](subs: seq[string]; o: T) =
+  echo "98 type:", $typeof(o)
   let gbl = "^" & $typeof(o)
   for fn, fv in fieldPairs(o):
     store(gbl, subs, fn, fv)
@@ -102,11 +122,14 @@ proc load(global: string, subs: seq[string], k: string; x: var string) =
 # SOME NUMBER
 proc load[T: var SomeNumber](global: string, subs: seq[string], k: string; x: var T) =
   echo "148 gbl:", global, " subs:", subs, " k:", k, " o:", x
-  let s = loadFromYdb(global, subs, k)
-  when T is SomeInteger:
-    x = parseInt(s).T
-  else:
-    x = parseFloat(s).T
+  try:
+    let s = loadFromYdb(global, subs, k)
+    when T is SomeInteger:
+      x = parseInt(s).T
+    else:
+      x = parseFloat(s).T
+  except:
+    echo "ERROR: " & getCurrentExceptionMsg()
 
 # ENUM
 proc load[T: enum](global: string, subs: seq[string], k: string; x: var T) =
@@ -179,11 +202,16 @@ proc load[K, V](global: string, subs: seq[string], kv: string; o: var (Table[K, 
     load(global, subs, kv, fn)
     load(global, subs, kv, fv)
 
-proc load[T](global: string, subs: seq[string], k: string; o: ref var T) =
-  echo "234 gbl:", global, " subs:", subs, " k:", k, " o:", o    
-  let isSome = o != nil
-  if isSome:
-    load(global, subs, k, o[])
+#proc load[T](global: string, subs: seq[string], k: string; o: var T)
+
+# proc load[T](global: string, subs: seq[string], k: string; o: var ref T) =
+#   #echo "234 gbl:", global, " subs:", subs, " k:", k, " o:", o    
+#   #let isSome = o != nil
+#   #if isSome:
+#   if o.isNil:
+#     new(o)
+#   echo "190 o=", o[]
+#   load[T](global, subs, k, o[])
 
 proc load[T](global: string, subs: seq[string], k: string; o: var Option[T]) =
   echo "234 gbl:", global, " subs:", subs, " k:", k, " o:", o    
@@ -197,10 +225,12 @@ proc load[T: var tuple](global: string, subs: seq[string], k: string; o: var T) 
     load(global, subs, fn, fv)
 
 proc load[T](global: string, subs: seq[string], k: string; o: var T) =
+  echo "232 T gbl:", global, " subs:", subs, " k:", k, " o:", $typeof(o)
   for fn, fv in fieldPairs(o):
-    let gbl = "^" & $T
-    echo "245 gbl:", gbl, " subs:", subs, " fn:", fn, " fv:", fv
-    load(gbl, subs, fn, fv)
+      echo "fn:", fn, " fv:", repr(fv)
+      var gbl = "^" & $T
+      #if gbl.contains(':'): gbl = gbl.split(':')[0]
+      load(gbl, subs, fn, fv)
 
 proc load*[T: var object](subs: seq[string]; o: var T) =
   let gbl = "^" & $typeof(o)
@@ -209,5 +239,5 @@ proc load*[T: var object](subs: seq[string]; o: var T) =
 
 proc load*[T: var object](gbl: string, subs: seq[string]; o: var T) =
   for fn, fv in fieldPairs(o):
-    echo "255 gbl:", gbl, " subs:", subs, " fn:", fn, " fv:", fv, " ", $typeof(fv)
+    #echo "255 gbl:", gbl, " subs:", subs, " fn:", fn, " fv:", fv, " ", $typeof(fv)
     load(gbl, subs, fn, fv)

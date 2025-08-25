@@ -63,7 +63,7 @@ proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
   # Save in yottadb
   let rc = ydbSet_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   if rc < YDB_OK:
-    raise newException(YottaDbError, ydbMessage_db(rc))
+    raise newException(YottaDbError, ydbMessage_db(rc) & " name:" & name & " keys:" & $keys & " value:" & $value)
 
 proc ydb_get_db*(name: string, keys: Subscripts = @[]): string =
   let global = stringToYdbBuffer(name)

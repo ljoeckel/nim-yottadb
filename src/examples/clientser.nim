@@ -5,6 +5,7 @@ import ../yottadb
 import ../libs/bingo
 
 type 
+
   Address* = object of RootObj
     street*: string
     zip*: uint
@@ -38,11 +39,13 @@ type
     setEnum: set[CustomerType]
     hset: HashSet[string]
     custsets: CustomerSets
-type
+
   Gender = enum
     male, female
+
   Relation = enum
     biological, step
+    
   Responder = object of RootObj
     id: int
     isCustomer: bool = true
@@ -54,18 +57,19 @@ type
     age: int
     siblings: seq[Sibling]
     keywords: seq[string]
-  Sibling = object of RootObj
-     sex: Gender
-     birthYear: int
-     relation: Relation
-     alive: bool
-     keywords: seq[string]
-     setI: set[int8]
-     setU: set[uint8]
-     setRange: set[10.uint8..99.uint8]
-     setEnum: set[CustomerType]
 
- 
+  Sibling = object of RootObj
+    sex: Gender
+    birthYear: int
+    relation: Relation
+    alive: bool
+    keywords: seq[string]
+    setI: set[int8]
+    setU: set[uint8]
+    setRange: set[10.uint8..99.uint8]
+    setEnum: set[CustomerType]
+
+
 proc newCustomer(id: int): Customer =
   result =
     Customer(id: id, int32F:456, float32F:3.456, isGoodCustomer: true, charX:'Y', 
@@ -117,13 +121,8 @@ when isMainModule:
   for i in 1..1:
     var customer: Customer
     load(@[$i], customer)
+    echo "customer after load:", customer
+
     var responder: Responder
     load(@[$i], responder)
-
-    echo "customer after load:", customer
     echo "responder after load:", responder
-    
-    # echo "siblings:", responder.siblings
-    # let sibling = Sibling(sex: male, birthYear: 1958, relation: step, alive: true, keywords: @["Lothar", "Joeckel"])
-    # responder.siblings.add(sibling)
-    # save(responder)
