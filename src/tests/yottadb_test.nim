@@ -185,7 +185,7 @@ proc testSetAndGetVariable() =
 
 
 proc testLock() =
-  let globals = @[
+  let globals :seq[seq[string]]= @[
         @["^LL","HAUS", "1"], @["^LL","HAUS", "2"], @["^LL","HAUS", "3"],
         @["^LL","HAUS", "4"], @["^LL","HAUS", "5"], @["^LL","HAUS", "6"], 
         @["^LL","HAUS", "7"], @["^LL","HAUS", "8"], @["^LL","HAUS", "9"], @["^LL","HAUS", "10"],
@@ -198,10 +198,14 @@ proc testLock() =
         @["^LL","HAUS", "31"], @["^LL","HAUS", "32"], @["^LL","HAUS", "33"], @["^LL","HAUS", "34"], 
         @["^LL","HAUS", "35"]
         ]
-  var rc = ydbLock(10000000, globals)
-  assert getLockCountFromYottaDb() == globals.len
+        
+  var toLock:seq[seq[string]] = @[@[]]
+  for global in  globals:
+    toLock.add(global)
+    let rc = ydbLock(100000, globals)
+    assert getLockCountFromYottaDb() == globals.len
 
-  rc = ydbLock(10000000, @[])
+  let rc = ydbLock(100000, @[])
   assert getLockCountFromYottaDb() == 0
 
 # -------------------------------------------------------------------
