@@ -1,4 +1,4 @@
-import std/[strformat, strutils, os, osproc, unittest]
+import std/[strformat, strutils, unittest]
 import ../yottadb
 
 const
@@ -45,6 +45,22 @@ proc testYdbVar() =
     if v.value != "New " & $i: 
       raise newException(YottaDbError, "Invalid data in db for {i}")
 
+# Test the maximum record length of 1MB
+proc testMaxValueSize() =
+  for i in 1..1024:
+    let value = "0".repeat(i*1024)
+    ydbSet("^VARSIZE", @[$i], value)
+    assert value == ydbGet("^VARSIZE", @[$i])
+
+  # Illegal size > 1MB
+  let i = 1024
+  let value = "0".repeat(i*1024+1)
+  doAssertRaises(YottaDbError): ydbSet("^VARSIZE", @[$i], value)
+
+  var subs = @[""]
+  for subs in nextNodeIter("^VARSIZE", subs):
+    assert YDB_OK == ydbDeleteNode("^VARSIZE", subs)
+
 
 proc testYdbSetGet() =
   for i in 0..MAX:
@@ -69,7 +85,7 @@ proc testData() =
 proc testNextNode(global: string, start: Subscripts = @[]) =
   var cnt = 0
   var subs = start
-  for subs in nextNode(global, subs):
+  for subs in nextNodeIter(global, subs):
     inc(cnt)
   doAssert cnt == MAX * 2 + 3
 
@@ -77,7 +93,7 @@ proc testNextNode(global: string, start: Subscripts = @[]) =
 proc testPreviousNode(global: string, start: Subscripts = @[]) =
   var cnt = 0
   var subs = start
-  for subs in previousNode(global, subs):
+  for subs in previousNodeIter(global, subs):
     inc(cnt)
   doAssert cnt == MAX * 2 + 2
 
@@ -197,6 +213,7 @@ suite "YottaDB Tests":
     testYdbVar()
   test "Write and Read Data":
     testYdbSetGet()
+    testMaxValueSize()
   test "Check Data Structure":
     testData()
   test "next/previous Node":

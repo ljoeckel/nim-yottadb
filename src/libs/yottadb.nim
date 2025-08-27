@@ -50,12 +50,12 @@ type
     length*: culong          ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:293:9
     address*: cstring
   ydb_string_t* = struct_ydb_string_t ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:297:3
+  ydb_tid_t* = intptr_t      ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:309:18
   struct_ydb_buffer_t* {.pure, inheritable, bycopy.} = object
     len_alloc*: cuint        ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:302:9
     len_used*: cuint
     buf_addr*: cstring
   ydb_buffer_t* = struct_ydb_buffer_t ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:307:3
-  ydb_tid_t* = intptr_t      ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:309:18
   ydb_fileid_ptr_t* = pointer ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:310:16
   struct_ci_name_descriptor* {.pure, inheritable, bycopy.} = object
     rtn_name*: ydb_string_t  ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:316:9

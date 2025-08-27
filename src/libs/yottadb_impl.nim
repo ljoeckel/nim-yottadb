@@ -10,8 +10,24 @@ when defined(futhark):
 else:
   include "yottadb.nim"
 
+proc allocCString*(s: string): cstring =
+  let len = s.len
+  let buf = cast[ptr UncheckedArray[char]](alloc(len + 1))
+  if len > 0:
+    copyMem(buf, s[0].addr, len)
+  buf[len] = '\0'
+  result = cast[cstring](buf)
+
+proc deallocBuffer(buffer: ydb_buffer_t) =
+  if buffer.buf_addr != nil:
+    #echo "dealloc ", buffer
+    dealloc(buffer.buf_addr)
+proc deallocBuffer(bufferArr: openArray[ydb_buffer_t]) =
+  for i in 0..<len(bufferArr):
+    deallocBuffer(bufferArr[i])
+
 proc zeroBuffer(size: int): string =
-  '\0'.repeat(size)
+  '\0'.repeat(size) 
 
 var 
   BUF_1024 = zeroBuffer(1024)
@@ -28,13 +44,21 @@ proc isExpectedErrorNextNode(rc: cint): bool =
   return false
 
 proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t =
+  #echo "stringToYdbBuffer name:", name, " len_used:", len_used
   result = ydb_buffer_t()
   result.len_alloc = name.len.uint32
   if len_used != -1:
     result.len_used = len_used.uint32
   else:
     result.len_used = name.len.uint32
-  result.buf_addr = name.cstring
+  
+  #result.buf_addr = name.cstring
+  result.buf_addr = allocCString(name)
+
+
+var
+  ERRMSG = stringToYdbBuffer(zeroBuffer(256))
+  DATABUF = stringToYdbBuffer(zeroBuffer(1024*1024))
 
 proc initSubscripts(keys: Subscripts): array[32, ydb_buffer_t] =
   # setup index array (max 31)
@@ -46,24 +70,35 @@ proc initSubscripts(keys: Subscripts): array[32, ydb_buffer_t] =
 proc ydbMessage_db*(status: cint): string =
   if status == YDB_OK: return
   var buf = stringToYdbBuffer(BUF_1024)
+  defer:
+    deallocBuffer(buf)
+
   buf.len_used = cast[uint32](0)
   let rc = ydb_message(status, buf.addr)
   if rc == YDB_OK:
     return fmt"{status}, " & strip($buf.buf_addr)
   else:
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
+  
 
 # ------------ YottaDB internal API calls -----------------------
 
 proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
+  var rc: cint
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   let value = stringToYdbBuffer(value)
-  var rc: cint
+  defer:
+      deallocBuffer(global)
+      deallocBuffer(idxarr)
+      deallocBuffer(value)
 
   when compileOption("threads"):
     var tptoken: uint64 = 0
     var errmsg = stringToYdbBuffer(zeroBuffer(256))
+    defer:
+      deallocBuffer(errmsg)
+
     rc = ydbSet_st(tptoken, errmsg.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   else:
     rc = ydbSet_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
@@ -71,28 +106,27 @@ proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
   if rc < YDB_OK:
     raise newException(YottaDbError, ydbMessage_db(rc) & " name:" & name & " keys:" & $keys & " value:" & $value)
 
+
 proc ydb_get_db*(name: string, keys: Subscripts = @[]): string =
+  var rc: cint
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
-  var value = stringToYdbBuffer("")
-  var rc: cint
-
+  defer:
+    deallocBuffer(global)
+    deallocBuffer(idxarr)
+  
   when compileOption("threads"):
     var tptoken: uint64 = 0
-    var errmsg = stringToYdbBuffer(zeroBuffer(256))
-    rc = ydb_get_st(tptoken, errmsg.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
-    value = stringToYdbBuffer(zeroBuffer(value.len_used.int))
-    rc = ydb_get_st(tptoken, errmsg.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
+    rc = ydb_get_st(tptoken, ERRMSG.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, DATABUF.addr)
   else:
-    # get the length from yottadb signaled with an exception to avoid passing a huge buffer over
-    rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
-    value = stringToYdbBuffer(zeroBuffer(value.len_used.int))
-    rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
+    rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, DATABUF.addr)
 
-  if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
+  if rc == YDB_OK:
+    result = $DATABUF.buf_addr
+    return result.substr(0,DATABUF.len_used.int-1)
   else:
-    return $value.buf_addr
+    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
+
 
 proc ydb_data_db*(name: string, keys: Subscripts): int =
   let global = stringToYdbBuffer(name)
@@ -160,23 +194,25 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts): Subscr
   var ret_subs_used: cint = 0
   var tmp = stringToYdbBuffer()
   var rc: cint = YDB_OK
+  var ret_subsarray: array[0..31, ydb_buffer_t]
 
   when compileOption("threads"):
     var tptoken: uint64 = 0
-    var errmsg = stringToYdbBuffer(zeroBuffer(256))
+  
     # 1. call to get ret_subs_used
     if direction == Direction.Next:
-      rc = ydb_node_next_st(tptoken, errmsg.addr, varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
+      rc = ydb_node_next_st(tptoken, ERRMSG.addr, varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
     else:
-      rc = ydb_node_previous_st(tptoken, errmsg.addr, varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
-    var ret_subsarray: array[0..31, ydb_buffer_t]
+      rc = ydb_node_previous_st(tptoken, ERRMSG.addr, varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
+  
     for i in 0..cast[int](ret_subs_used) - 1:
       ret_subsarray[i] = stringToYdbBuffer(zeroBuffer(64), len_used=0) # TODO: max length of index
+    
     # 2. call to get the data
     if direction == Direction.Next:
-      rc = ydb_node_next_st(tptoken, errmsg.addr, varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
+      rc = ydb_node_next_st(tptoken, ERRMSG.addr, varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
     else:
-      rc = ydb_node_previous_st(tptoken, errmsg.addr, varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
+      rc = ydb_node_previous_st(tptoken, ERRMSG.addr, varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
 
   else:
     # 1. call to get ret_subs_used
@@ -184,9 +220,10 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts): Subscr
       rc = ydb_node_next_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
     else:
       rc = ydb_node_previous_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
-    var ret_subsarray: array[0..31, ydb_buffer_t]
-    for i in 0..cast[int](ret_subs_used) - 1:
+
+    for i in 0..<cast[int](ret_subs_used):
       ret_subsarray[i] = stringToYdbBuffer(zeroBuffer(64), len_used=0) # TODO: max length of index
+
     # 2. call to get the data
     if direction == Direction.Next:
       rc = ydb_node_next_s(varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, ret_subsarray[0].addr)
@@ -199,8 +236,10 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts): Subscr
     if item.len_used > 0:
       sbscr.add($item.buf_addr)
 
-  #if not isExpectedErrorNextNode(rc):  
-  #  raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}{keys}")
+  deallocBuffer(varname)
+  deallocBuffer(idxarr)
+  deallocBuffer(tmp)
+  deallocBuffer(ret_subsarray)
 
   return sbscr
 
@@ -241,6 +280,7 @@ proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts
     keys.add($ret_value.buf_addr)
   else:
     keys[level] = $ret_value.buf_addr
+
   return rc.int
 
 proc ydb_subscript_next_db*(name: string, keys: var Subscripts): int =

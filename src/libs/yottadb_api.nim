@@ -30,15 +30,18 @@ proc ydbIncrement*(name: string, keys: Subscripts, increment: int = 1): int =
     raise newException(YottaDbError, "Illegal Number. Tried to parseInt(" & s & ")")
 
 # ------------------ Iterators for Next/Previous Node -----------------
+proc nextNode*(global: string, subscripts: var Subscripts): Subscripts =
+  result = ydb_node_next_db(global, subscripts)
+  
 
-iterator nextNode*(global: string, subscripts: var Subscripts): Subscripts =
+iterator nextNodeIter*(global: string, subscripts: var Subscripts): Subscripts =
   var i = -1
   while i < len(subscripts):
     subscripts = ydb_node_next_db(global, subscripts)
     if len(subscripts) == 0: break
     yield subscripts
 
-iterator previousNode*(global: string, subscripts: var Subscripts): Subscripts =
+iterator previousNodeIter*(global: string, subscripts: var Subscripts): Subscripts =
   var i = -1
   while i < len(subscripts):
     subscripts = ydb_node_previous_db(global, subscripts)
