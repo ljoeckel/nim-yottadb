@@ -2,7 +2,7 @@ import std/[strformat, strutils, unittest]
 import ../yottadb
 
 const
-  MAX = 100
+  MAX = 1000
 
 proc setupLL() =
   let global = "^LL"
@@ -29,6 +29,30 @@ proc setupLL() =
   ydbSet(global, @["ORT"])
 
 # ------------- Test cases are here ---------------------
+# Write ^X(0..1000000) in 730ms. 
+proc simpleSet(global: string, cnt: int) =
+  var subs:seq[string] = @[]
+  for i in 0..cnt:
+    subs.add($i)
+    ydbSet(global, subs, $i)
+    discard subs.pop()
+
+# Read ^X(0..100000000) in 550ms. 
+proc simpleGet(global: string, cnt: int) =
+  var subs:seq[string] = @[]
+  for i in 0..cnt:
+    subs.add($i)
+    assert $i == ydbGet(global, subs)
+    discard subs.pop()
+
+# Delete ^X(0..100000000) in 550ms. 
+proc simpleDelete(global: string, cnt: int) =
+  var subs:seq[string] = @[]
+  for i in 0..cnt:
+    subs.add($i)
+    assert YDB_OK == ydbDeleteNode(global, subs)
+    discard subs.pop()
+
 proc testYdbVar() =
   for i in 0..MAX:
     discard newYdbVar("^LJ", @["LAND", "ORT", $i], $i)
@@ -138,15 +162,17 @@ proc deleteTree() =
   for i in 0..MAX:
     rc = ydbDeleteTree("^LJ", @["LAND", "ORT", $i, $i])
 
+# Delete all globals from ^LJ, ^LJ will be removed from %GD
+proc testDeleteTree() =
+  assert YDB_OK == ydbDeleteTree("^LJ", @["LAND"])
+  let globals = getGlobals()
+  assert globals.find("^LJ") == -1
 
 proc deleteNode() =
     var rc = ydbDeleteNode("^CNT", @["CHANNEL", "INPUT"])
     var result = ydbIncrement("^CNT", @["CHANNEL", "INPUT"], 1)
-    assert ydbGet("^CNT", @["CHANNEL", "INPUT"]) == "1"
+    let value = ydbGet("^CNT", @["CHANNEL", "INPUT"]) == "1"
 
-
-proc deleteGlobalVar() =
-  discard ydbDeleteNode("^LJ", @[])
 
 
 proc testSpecialVariables() =
@@ -169,15 +195,13 @@ proc testSpecialVariables() =
 
 
 proc testSetAndGetVariable() =
-  let vars = ["X"]
-  for variable in vars:
-    ydbSet(variable, @[], "hello")
-    ydbSet("X", @["1"], "hello X(1)")
-    ydbSet("X", @["1","1"], "hello X(1,1)")
-    ydbSet("X", @["1","2"], "hello X(1,2)")
-    ydbSet("X", @["1","3"], "hello X(1,3)")
-    ydbSet("X", @["2"], "hello X(2)")
-    ydbSet("X", @["2","3"], "hello X(2,3)")
+  ydbSet("X", @[], "hello")
+  ydbSet("X", @["1"], "hello X(1)")
+  ydbSet("X", @["1","1"], "hello X(1,1)")
+  ydbSet("X", @["1","2"], "hello X(1,2)")
+  ydbSet("X", @["1","3"], "hello X(1,3)")
+  ydbSet("X", @["2"], "hello X(2)")
+  ydbSet("X", @["2","3"], "hello X(2,3)")
 
   doAssert ydbGet("X") == "hello"
   doAssert ydbGet("X", @["1"]) == "hello X(1)"
@@ -212,30 +236,42 @@ proc testLock() =
 
 setupLL()
 
-suite "YottaDB Tests":
-  test "Basic functionality":
-    testYdbVar()
-  test "Write and Read Data":
-    testYdbSetGet()
-    testMaxValueSize()
-  test "Check Data Structure":
-    testData()
-  test "next/previous Node":
-    testNextNode("^LJ")
-    testPreviousNode("^LJ", @["LAND", "STRASSE"])
-  test "next/previous Subscript":
-    nextSubscript("^LL", @["HAUS", "ELE..."], @["HAUS", "HEIZUNG"])
-    nextSubscript("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
-    previousSubscript("^LL", @["HAUS", "ELEKTRIK", "SICHERUN..."], @["HAUS", "ELEKTRIK", "DOSEN"] )
-    nextSubscriptIter("^LL", @["HAUS", "ELEKT..."], @["HAUS", "HEIZUNG"])
-    previousSubscriptIter("^LL", @["HAUS", "HEIZUNG"], @["HAUS", "ELEKTRIK"])
-  test "Delete Operations":
-    deleteTree()
-    deleteNode()
-    deleteGlobalVar()
-  test "Special Variables":
-    testSpecialVariables()
-  test "Set and Get Variable":
-    testSetAndGetVariable()
-  test "Lock Handling":
-    testLock()
+proc test() =
+  suite "YottaDB Tests":
+    test "Basic functionality":
+      test "simpleSet": simpleSet("^X", MAX)
+      test "simpleGet": simpleGet("^X", MAX)
+      test "simpleDelete": simpleDelete("^X", MAX)
+      test "testYdbVar": testYdbVar()
+    test "Write and Read Data":
+      test "testYdbSetGet": testYdbSetGet()
+      test "testMaxValueSize": testMaxValueSize()
+    test "Check Data Structure":
+      test "testData": testData()
+    test "next/previous Node":
+      test "testNextNode ^LJ": testNextNode("^LJ")
+      test "testPreviousNode": testPreviousNode("^LJ", @["LAND", "STRASSE"])
+    test "next/previous Subscript":
+      test "nextSubscript": nextSubscript("^LL", @["HAUS", "ELE..."], @["HAUS", "HEIZUNG"])
+      test "nextSubscript":nextSubscript("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
+      test "previousSubscript":previousSubscript("^LL", @["HAUS", "ELEKTRIK", "SICHERUN..."], @["HAUS", "ELEKTRIK", "DOSEN"] )
+      test "nextSubscriptIter":nextSubscriptIter("^LL", @["HAUS", "ELEKT..."], @["HAUS", "HEIZUNG"])
+      test "previousSubscriptIter":previousSubscriptIter("^LL", @["HAUS", "HEIZUNG"], @["HAUS", "ELEKTRIK"])
+    test "Delete Operations":
+      test "deleteTree": deleteTree()
+      test "deleteNode": deleteNode()
+      test "deleteGlobalVar": testDeleteTree()
+    test "Special Variables":
+      test "testSpecialVariables": testSpecialVariables()
+    test "Set and Get Variable":
+      test "testSetAndGetVariable": testSetAndGetVariable()
+    test "Lock Handling":
+      test "testLock": testLock()
+
+proc testB() =
+  testYdbVar()
+  testDeleteTree()
+
+when isMainModule:
+  test()
+  #testB()

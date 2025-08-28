@@ -59,23 +59,18 @@ proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t =
   
   result.buf_addr = allocCString(name)
 
-when compileOption("threads"):
-  var
-    buf_initialized {.threadvar.}: bool
-    ERRMSG {.threadvar.}: ydb_buffer_t
-    DATABUF {.threadvar.}: ydb_buffer_t
-else:
-  var
+var
+  buf_initialized {.threadvar.}: bool
+  ERRMSG {.threadvar.}: ydb_buffer_t
+  DATABUF {.threadvar.}: ydb_buffer_t
+  tptoken {.threadvar.}: uint64
+  rc {.threadvar.}: cint
+
+proc check() =
+  if not buf_initialized:
     ERRMSG = stringToYdbBuffer(zeroBuffer(256))
     DATABUF = stringToYdbBuffer(zeroBuffer(1024*1024))
-
-when compileOption("threads"):
-  proc check() =
-    if not buf_initialized:
-      echo "initializing buffers"
-      ERRMSG = stringToYdbBuffer(zeroBuffer(256))
-      DATABUF = stringToYdbBuffer(zeroBuffer(1024*1024))
-      buf_initialized = true
+    buf_initialized = true
 
 proc initSubscripts(keys: Subscripts): array[32, ydb_buffer_t] =
   # setup index array (max 31)
@@ -96,7 +91,6 @@ proc ydbMessage_db*(status: cint): string =
 # ------------ YottaDB internal API calls -----------------------
 
 proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
-  var rc: cint
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   let value = stringToYdbBuffer(value)
@@ -105,9 +99,8 @@ proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
       deallocBuffer(idxarr)
       deallocBuffer(value)
 
+  check()
   when compileOption("threads"):
-    check()
-    var tptoken: uint64 = 0
     var errmsg = stringToYdbBuffer(zeroBuffer(256))
     defer:
       deallocBuffer(errmsg)
@@ -121,16 +114,14 @@ proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
 
 
 proc ydb_get_db*(name: string, keys: Subscripts = @[]): string =
-  var rc: cint
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   defer:
     deallocBuffer(global)
     deallocBuffer(idxarr)
   
+  check()
   when compileOption("threads"):
-    check()
-    var tptoken: uint64 = 0
     rc = ydb_get_st(tptoken, ERRMSG.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, DATABUF.addr)
   else:
     rc = ydb_get_s(global.addr, cast[cint](keys.len), idxarr[0].addr, DATABUF.addr)
@@ -143,14 +134,12 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[]): string =
 
 
 proc ydb_data_db*(name: string, keys: Subscripts): int =
-  var rc: cint
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   var value: cuint = 0
 
+  check()
   when compileOption("threads"):
-    check()
-    var tptoken: uint64 = 0
     rc = ydbData_st(tptoken, ERRMSG.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   else:
     rc = ydbData_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
@@ -161,13 +150,11 @@ proc ydb_data_db*(name: string, keys: Subscripts): int =
     return cast[int](value) # 0,1,10,11
 
 proc ydb_delete(name: string, keys: Subscripts, deltype: uint): int =
-  var rc: cint
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
 
+  check()
   when compileOption("threads"):
-    check()
-    var tptoken: uint64 = 0
     rc = ydb_delete_st(tptoken, ERRMSG.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, cast[cint](deltype))
   else:
     rc = ydb_delete_s(global.addr, cast[cint](keys.len), idxarr[0].addr, cast[cint](deltype))
@@ -184,7 +171,6 @@ proc ydb_delete_tree_db*(name: string, keys: Subscripts): int =
   return ydb_delete(name, keys, YDB_DEL_TREE)
 
 proc ydb_increment_db*(name: string, keys: Subscripts, increment: int): string =
-  var rc: cint = 0
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
   let incr = stringToYdbBuffer($increment)
@@ -195,9 +181,8 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int): string =
     deallocBuffer(incr)
     deallocBuffer(value)
 
+  check()
   when compileOption("threads"):
-    check()
-    var tptoken: uint64 = 0
     rc = ydb_incr_st(tptoken, ERRMSG.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, incr.addr, value.addr)
   else:
     rc = ydb_incr_s(global.addr, cast[cint](keys.len), idxarr[0].addr, incr.addr, value.addr)
@@ -208,7 +193,6 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int): string =
     return $value.buf_addr
 
 proc node_traverse(direction: Direction, name: string, keys: Subscripts): Subscripts =
-  var rc: cint = YDB_OK
   var varname = stringToYdbBuffer(name)
   var idxarr = initSubscripts(keys)
   var ret_subs_used: cint = 0
@@ -220,9 +204,8 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts): Subscr
     deallocBuffer(tmp)
     deallocBuffer(ret_subsarray)
 
+  check()
   when compileOption("threads"):
-    check()
-    var tptoken: uint64 = 0
       # 1. call to get ret_subs_used
     if direction == Direction.Next:
       rc = ydb_node_next_st(tptoken, ERRMSG.addr, varname.addr, cast[cint](keys.len), idxarr[0].addr, ret_subs_used.addr, tmp.addr)
@@ -269,7 +252,6 @@ proc ydb_node_previous_db*(name: string, keys: Subscripts): Subscripts =
   return node_traverse(Direction.Previous, name, keys)
 
 proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts): int =
-  var rc: cint = YDB_OK
   var varname = stringToYdbBuffer(name)
   var subsarr = initSubscripts(keys)
   let subs_used = cast[cint](keys.len)
@@ -279,9 +261,8 @@ proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts
     deallocBuffer(subsarr)
     deallocBuffer(ret_value)
 
+  check()
   when compileOption("threads"):
-    check()
-    var tptoken: uint64 = 0
     # 1. call to get ret_subs_used
     if direction == Direction.Next:
       rc = ydb_subscript_next_st(tptoken, ERRMSG.addr, varname.addr, subs_used, subsarr[0].addr,  ret_value.addr)
@@ -323,11 +304,8 @@ proc ydb_subscript_previous_db*(name: string, keys: var Subscripts): int =
 
 
 proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]]): cint =
-  when compileOption("threads"):
-    check()
-    var tptoken: uint64 = 0
-
-  var rc: cint = 0
+  check()
+  
   if names.len == 0:
     when compileOption("threads"):
       rc = ydbLock_st(tptoken, ERRMSG.addr, timeout, names.len.cint) # release all locks
