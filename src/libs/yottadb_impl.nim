@@ -59,6 +59,13 @@ proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t =
   
   result.buf_addr = allocCString(name)
 
+proc setYdbBuffer(buffer: var ydb_buffer_t, name: string = "") =
+  let len = name.len
+  if len > 0:
+    buffer.len_used = len.uint32
+    copyMem(buffer.buf_addr, name[0].addr, len)
+    buffer.buf_addr[len] = '\0'
+
 var
   buf_initialized {.threadvar.}: bool
   ERRMSG {.threadvar.}: ydb_buffer_t
@@ -93,11 +100,12 @@ proc ydbMessage_db*(status: cint): string =
 proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
   let global = stringToYdbBuffer(name)
   let idxarr = initSubscripts(keys)
-  let value = stringToYdbBuffer(value)
+  #let value = stringToYdbBuffer(value)
+  setYdbBuffer(DATABUF, value)
   defer:
       deallocBuffer(global)
       deallocBuffer(idxarr)
-      deallocBuffer(value)
+      #deallocBuffer(value)
 
   check()
   when compileOption("threads"):
@@ -105,9 +113,9 @@ proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
     defer:
       deallocBuffer(errmsg)
 
-    rc = ydbSet_st(tptoken, errmsg.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
+    rc = ydbSet_st(tptoken, errmsg.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, DATABUF.addr)
   else:
-    rc = ydbSet_s(global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
+    rc = ydbSet_s(global.addr, cast[cint](keys.len), idxarr[0].addr, DATABUF.addr)
 
   if rc < YDB_OK:
     raise newException(YottaDbError, ydbMessage_db(rc) & " name:" & name & " keys:" & $keys & " value:" & $value)

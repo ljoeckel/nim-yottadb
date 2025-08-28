@@ -28,8 +28,9 @@ proc setupLL() =
   ydbSet(global, @["LAND", "NUTZUNG"])
   ydbSet(global, @["ORT"])
 
+
 # ------------- Test cases are here ---------------------
-# Write ^X(0..1000000) in 730ms. 
+# Write ^X(0..1000000) in 800ms. 
 proc simpleSet(global: string, cnt: int) =
   var subs:seq[string] = @[]
   for i in 0..cnt:
@@ -37,7 +38,7 @@ proc simpleSet(global: string, cnt: int) =
     ydbSet(global, subs, $i)
     discard subs.pop()
 
-# Read ^X(0..100000000) in 550ms. 
+# Read ^X(0..100000000) in 600ms. 
 proc simpleGet(global: string, cnt: int) =
   var subs:seq[string] = @[]
   for i in 0..cnt:
@@ -268,6 +269,12 @@ proc test() =
     test "Lock Handling":
       test "testLock": testLock()
 
+proc testA() =
+  # ^X(0..1000000)=i total 2300ms
+  test "simpleSet": simpleSet("^X", MAX)
+  test "simpleGet": simpleGet("^X", MAX)
+  test "simpleDel": simpleDelete("^X", MAX)
+
 proc testB() =
   testYdbVar()
   testDeleteTree()
@@ -275,3 +282,4 @@ proc testB() =
 when isMainModule:
   test()
   #testB()
+  #testA()
