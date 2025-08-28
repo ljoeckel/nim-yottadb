@@ -233,6 +233,12 @@ proc testLock() =
   let rc = ydbLock(100000, @[])
   assert getLockCountFromYottaDb() == 0
 
+proc testIncrement() =
+  ydbSet("^COUNTERS", @["upcount"], "0")
+  for i in 0..<1000000:
+    let cnt = ydbIncrement("^COUNTERS", @["upcount"])
+  assert ydbGet("^COUNTERS", @["upcount"]) == "1000000"
+
 # -------------------------------------------------------------------
 
 setupLL()
@@ -264,6 +270,7 @@ proc test() =
       test "deleteGlobalVar": testDeleteTree()
     test "Special Variables":
       test "testSpecialVariables": testSpecialVariables()
+      test "increment": testIncrement()
     test "Set and Get Variable":
       test "testSetAndGetVariable": testSetAndGetVariable()
     test "Lock Handling":
