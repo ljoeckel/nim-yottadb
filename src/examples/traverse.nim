@@ -1,31 +1,39 @@
 import ../yottadb
-import ../tui_widget
+import tui_widget
 
-proc createList(): seq[ListRow] =
+const header = @["Key","Value"]
+
+proc getGlobalRows(): seq[ListRow] =
   result = newSeq[ListRow]()
   for global in getGlobals():
     var lr = newListRow(0, global, global, bgColor=bgCyan)
     result.add(lr)
-        
-var rows = createList()
-var contentDisplay = newDisplay(31, 1, consoleWidth(), consoleHeight(), title = "")
-var dirView = newListView(1, 1, 30, consoleHeight(), title="", rows = rows, bgColor = bgBlue, selectionStyle=Highlight)
 
-dirView.onEnter = proc (lv: ListView, args: varargs[string]) =
-  let global = args[0]
-  contentDisplay.title = " " & global & " " 
-  contentDisplay.show(resetCursor=true)
+var globalRows = getGlobalRows()
 
+var globalsView = newListView(1, 1, 30, consoleHeight(), title="", rows = globalRows, bgColor = bgBlue, selectionStyle=Highlight, statusBar=false)
+var dataView = newTable(31, 1, consoleWidth(), consoleHeight(), title="", selectionStyle=Highlight, enableHelp=true)
+dataView.headerFromArray(header)
+
+globalsView.onEnter = proc (lv: ListView, args: varargs[string]) =
+  let global = args[0]  
+  dataView.title = " " & global & " " 
+  dataView.clearRows()
+  
+  var tableRows = newSeq[newSeq[string]()]()
   var subs:Subscripts = @[""]
-  var content = ""
   for subs in nextNodeIter(global, subs):
-    let value = subscriptsToValue(global, subs)
-    content = content & value & "\n"
-  contentDisplay.text = content
-  contentDisplay.show(resetCursor=true)
+    let value = ydbGet(global, subs)
+    tableRows.add(@[keysToString(subs), value])
 
-var tuiapp = newTerminalApp(title = "Globals", border=false, rpms=20)
-tuiapp.addWidget(dirView)
-tuiapp.addWidget(contentDisplay)
-tuiapp.run(nonBlocking=true)
+  dataView.loadFromSeq(tableRows)
+  dataView.show(resetCursor=true)
 
+proc main() =
+  var tuiapp = newTerminalApp(title = "Globals", border=false, rpms=100)
+  tuiapp.addWidget(globalsView)
+  tuiapp.addWidget(dataView)
+  tuiapp.run(nonBlocking=true)
+
+when isMainModule:
+  main()

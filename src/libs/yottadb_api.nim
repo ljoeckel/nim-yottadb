@@ -97,8 +97,7 @@ proc `[]=`*(v: var YdbVar; val: string) =
 
 
 # ------- Helpers
-func keysToString*(global: string, subscript: Subscripts): string =
-  result = global & "("
+func keysToString*(subscript: Subscripts): string =
   for i, idx in subscript:
     try:
       let nmbr = parseInt(idx)
@@ -107,6 +106,10 @@ func keysToString*(global: string, subscript: Subscripts): string =
       result.add("\"" & idx & "\"")
     if i < subscript.len - 1:
       result.add(",")
+
+func keysToString*(global: string, subscript: Subscripts): string =
+  result = global & "("
+  result.add(keysToString(subscript))
   result.add(")")
 
 proc subscriptsToValue*(global: string, subscript: Subscripts): string =
@@ -147,7 +150,8 @@ proc getGlobals*(): seq[string] =
             let s = name.strip()
             if not s.isEmptyOrWhitespace:
                 result.add("^" & s)
-    let exitCode = waitForExit(p) # Wait until process finishes
+
+    discard waitForExit(p)  # Wait until process finishes
 
 
 proc getLockCountFromYottaDb*(): int =

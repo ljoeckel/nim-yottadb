@@ -38,10 +38,8 @@ proc zeroBuffer(size: int): string =
   '\0'.repeat(size) 
 
 # var 
-#   BUF_1024 = zeroBuffer(1024)
 # const 
 #   EXPECTED_ERRORS_NEXT_NODE: array[0..4, int] = [YDB_ERR_INSUFFSUBS, YDB_ERR_INVSTRLEN, YDB_ERR_NODEEND, YDB_ERR_PARAMINVALID, YDB_OK]
-
 
 # # Helper to test for a unexpected error condition when traversing with ydb_next_node etc.
 # proc isExpectedErrorNextNode(rc: cint): bool =
@@ -52,7 +50,6 @@ proc zeroBuffer(size: int): string =
 #   return false
 
 proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t =
-  #echo "stringToYdbBuffer name:", name, " len_used:", len_used
   result = ydb_buffer_t()
   result.len_alloc = name.len.uint32
   if len_used != -1:
@@ -62,10 +59,23 @@ proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t =
   
   result.buf_addr = allocCString(name)
 
+when compileOption("threads"):
+  var
+    buf_initialized {.threadvar.}: bool
+    ERRMSG {.threadvar.}: ydb_buffer_t
+    DATABUF {.threadvar.}: ydb_buffer_t
+else:
+  var
+    ERRMSG = stringToYdbBuffer(zeroBuffer(256))
+    DATABUF = stringToYdbBuffer(zeroBuffer(1024*1024))
 
-var
-  ERRMSG = stringToYdbBuffer(zeroBuffer(256))
-  DATABUF = stringToYdbBuffer(zeroBuffer(1024*1024))
+when compileOption("threads"):
+  proc check() =
+    if not buf_initialized:
+      echo "initializing buffers"
+      ERRMSG = stringToYdbBuffer(zeroBuffer(256))
+      DATABUF = stringToYdbBuffer(zeroBuffer(1024*1024))
+      buf_initialized = true
 
 proc initSubscripts(keys: Subscripts): array[32, ydb_buffer_t] =
   # setup index array (max 31)
@@ -96,6 +106,7 @@ proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
       deallocBuffer(value)
 
   when compileOption("threads"):
+    check()
     var tptoken: uint64 = 0
     var errmsg = stringToYdbBuffer(zeroBuffer(256))
     defer:
@@ -118,6 +129,7 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[]): string =
     deallocBuffer(idxarr)
   
   when compileOption("threads"):
+    check()
     var tptoken: uint64 = 0
     rc = ydb_get_st(tptoken, ERRMSG.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, DATABUF.addr)
   else:
@@ -137,6 +149,7 @@ proc ydb_data_db*(name: string, keys: Subscripts): int =
   var value: cuint = 0
 
   when compileOption("threads"):
+    check()
     var tptoken: uint64 = 0
     rc = ydbData_st(tptoken, ERRMSG.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, value.addr)
   else:
@@ -153,6 +166,7 @@ proc ydb_delete(name: string, keys: Subscripts, deltype: uint): int =
   let idxarr = initSubscripts(keys)
 
   when compileOption("threads"):
+    check()
     var tptoken: uint64 = 0
     rc = ydb_delete_st(tptoken, ERRMSG.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, cast[cint](deltype))
   else:
@@ -182,6 +196,7 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int): string =
     deallocBuffer(value)
 
   when compileOption("threads"):
+    check()
     var tptoken: uint64 = 0
     rc = ydb_incr_st(tptoken, ERRMSG.addr, global.addr, cast[cint](keys.len), idxarr[0].addr, incr.addr, value.addr)
   else:
@@ -206,6 +221,7 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts): Subscr
     deallocBuffer(ret_subsarray)
 
   when compileOption("threads"):
+    check()
     var tptoken: uint64 = 0
       # 1. call to get ret_subs_used
     if direction == Direction.Next:
@@ -264,6 +280,7 @@ proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts
     deallocBuffer(ret_value)
 
   when compileOption("threads"):
+    check()
     var tptoken: uint64 = 0
     # 1. call to get ret_subs_used
     if direction == Direction.Next:
@@ -307,6 +324,7 @@ proc ydb_subscript_previous_db*(name: string, keys: var Subscripts): int =
 
 proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]]): cint =
   when compileOption("threads"):
+    check()
     var tptoken: uint64 = 0
 
   var rc: cint = 0
