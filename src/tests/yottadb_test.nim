@@ -303,7 +303,7 @@ proc testC() =
 
 
 when isMainModule:
-  #test() # threads:off=31s, threads:on=33s
+  test() # threads:off=31s, threads:on=33s
   #testB()
-  testA()
+  #testA()
   #testC()

@@ -97,17 +97,21 @@ proc ydbMessage_db*(status: cint): string =
 
 # ------------ YottaDB internal API calls -----------------------
 
+proc ydb_tp_start*(myTxn: ydb_tpfnptr_t, param:string, transid:string): int =
+  setYdbBuffer(GLOBAL)
+  result = ydb_tp_s(myTxn, cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
+
 proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
   check()
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF, value)
   setIdxArr(keys)
 
+  var rc:cint
   when compileOption("threads"):
     rc = ydbSet_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
   else:
     rc = ydbSet_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
-
   if rc < YDB_OK:
     raise newException(YottaDbError, ydbMessage_db(rc) & " name:" & name & " keys:" & $keys & " value:" & $value)
 

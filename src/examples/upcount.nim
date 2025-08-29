@@ -1,10 +1,12 @@
 import std/[strformat, strutils, times, os]
 import ../yottadb
 
+const MAX = 1000
+
 proc upcount() =
-    while true:
-        let cnt = ydbIncrement("^COUNTERS", @["upcount"])
-        if cnt mod 1000000 == 0:
+    for cnt in 0..MAX:
+        let cnt = ydbIncrement("^CNT", @["upcount"])
+        if cnt mod 100 == 0:
             echo "Current counter:", cnt
 
 when isMainModule:

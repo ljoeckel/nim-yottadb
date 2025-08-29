@@ -7,7 +7,7 @@ export yottadb_types
 proc ydbMessage*(status: cint): string =
   return ydbMessage_db(status)
 
-proc ydbSet*(name: string, keys: Subscripts = @[], value: string = "") =
+proc ydbSet*(name: string, keys: Subscripts = @[]; value: string = "") =
   ydb_set_db(name, keys, value)
 
 proc ydbGet*(name: string, keys: Subscripts = @[]): string =
@@ -28,6 +28,10 @@ proc ydbIncrement*(name: string, keys: Subscripts, increment: int = 1): int =
     result = parseInt(s)
   except:
     raise newException(YottaDbError, "Illegal Number. Tried to parseInt(" & s & ")")
+
+proc TxStart*(myTxnProc: ydb_tpfnptr_t, param:string, transid:string): int =
+  result = ydb_tp_start(myTxnProc, param, transid)
+
 
 # ------------------ Iterators for Next/Previous Node -----------------
 proc nextNode*(global: string, subscripts: var Subscripts): Subscripts =
