@@ -2,7 +2,7 @@ import std/[strformat, strutils, unittest]
 import ../yottadb
 
 const
-  MAX = 1000000
+  MAX = 1000
 
 proc setupLL() =
   let global = "^LL"
@@ -237,6 +237,18 @@ proc testIncrement() =
     let cnt = ydbIncrement("^COUNTERS", @["upcount"])
   assert ydbGet("^COUNTERS", @["upcount"]) == "1000000"
 
+proc testMaxSubscripts() =
+  for i in 0..<33:
+    var keys:seq[string] = @[]
+    for j in 0..<i:
+      keys.add($j)
+
+    if i < 32:
+      ydbSet("^SUBS", keys, $i)
+      assert $i == ydbget("^SUBS", keys)
+    else:
+      doAssertRaises(YottaDbError): ydbSet("^SUBS", keys, $i)
+
 # -------------------------------------------------------------------
 
 setupLL()
@@ -266,9 +278,10 @@ proc test() =
       test "deleteTree": deleteTree()
       test "deleteNode": deleteNode()
       test "deleteGlobalVar": testDeleteTree()
-    test "Special Variables":
+    test "Misc":
       test "testSpecialVariables": testSpecialVariables()
       test "increment": testIncrement()
+      test "maxSubscripts": testMaxSubscripts()
     test "Set and Get Variable":
       test "testSetAndGetVariable": testSetAndGetVariable()
     test "Lock Handling":
@@ -284,8 +297,15 @@ proc testA() =
 proc testB() =
   testYdbVar()
   testDeleteTree()
+  
+
+proc testC() =
+  setupLL()
+  testNextNode("^LL", @[""])
+
 
 when isMainModule:
   test() # threads:off=31s, threads:on=33s
   #testB()
   #testA()
+  #testC()

@@ -10,6 +10,9 @@ when defined(futhark):
 else:
   include "yottadb.nim"
 
+proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t
+proc zeroBuffer(size: int): string
+
 var
   buf_initialized {.threadvar.}: bool
   ERRMSG {.threadvar.}: ydb_buffer_t
@@ -18,6 +21,15 @@ var
   IDXARR {.threadvar.}: array[0..31, ydb_buffer_t]
   tptoken {.threadvar.}: uint64
   rc {.threadvar.}: cint
+
+proc check() =
+  if not buf_initialized:
+    ERRMSG = stringToYdbBuffer(zeroBuffer(1024))
+    DATABUF = stringToYdbBuffer(zeroBuffer(1024*1024))
+    GLOBAL = stringToYdbBuffer(zeroBuffer(256))
+    buf_initialized = true
+    for idx in 0..<IDXARR.len:
+      IDXARR[idx] = stringToYdbBuffer(zeroBuffer(32))
 
 
 proc allocCString*(s: string): cstring =
@@ -63,32 +75,16 @@ proc setYdbBuffer(buffer: var ydb_buffer_t, name: string = "") =
     buffer.len_used = len.uint32
     copyMem(buffer.buf_addr, name[0].addr, len)
     buffer.buf_addr[len] = '\0'
+  else:
+    buffer.len_used = 0.uint32
+
 
 proc setIdxArr(keys: seq[string]) =
-  if keys.len > 0:
-    for idx in 0..<keys.len:
-      setYdbBuffer(IDXARR[idx], keys[idx])
-  else:
-    for idx in 0..<keys.len:
-      IDXARR[idx].len_used = 0
+  for idx in 0..<keys.len:
+    setYdbBuffer(IDXARR[idx], keys[idx])
+  for idx in keys.len..<IDXARR.len:
+    IDXARR[idx].len_used = 0.uint32
     
-
-proc check() =
-  if not buf_initialized:
-    ERRMSG = stringToYdbBuffer(zeroBuffer(256))
-    DATABUF = stringToYdbBuffer(zeroBuffer(1024*1024))
-    GLOBAL = stringToYdbBuffer(zeroBuffer(256))
-    buf_initialized = true
-    for idx in 0..<IDXARR.len:
-      IDXARR[idx] = stringToYdbBuffer(zeroBuffer(32))
-
-
-proc initSubscripts(keys: Subscripts): array[32, ydb_buffer_t] =
-  # setup index array (max 31)
-  var idxarr: array[0..31, ydb_buffer_t]
-  for idx in 0 .. keys.len-1:
-    idxarr[idx] = stringToYdbBuffer(keys[idx])
-  return idxarr
 
 proc ydbMessage_db*(status: cint): string =
   if status == YDB_OK: return
@@ -207,7 +203,7 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts): Subscr
     else:
       rc = ydb_node_previous_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, ret_subs_used.addr, tmp.addr)
   
-    for i in 0..cast[int](ret_subs_used) - 1:
+    for i in 0..<cast[int](ret_subs_used):
       ret_subsarray[i] = stringToYdbBuffer(zeroBuffer(64), len_used=0) # TODO: max length of index
     
     # 2. call to get the data
