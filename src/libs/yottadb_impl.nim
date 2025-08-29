@@ -10,8 +10,8 @@ when defined(futhark):
 else:
   include "yottadb.nim"
 
-proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t
-proc zeroBuffer(size: int): string
+proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t {.gcsafe.}
+proc zeroBuffer(size: int): string {.gcsafe.}
 
 var
   buf_initialized {.threadvar.}: bool

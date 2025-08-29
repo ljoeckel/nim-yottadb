@@ -13,3 +13,4 @@ src/examples/clientser
 src/examples/traverse
 src/examples/table_test
 src/examples/upcount
+src/tests/yottadb_test_threaded
