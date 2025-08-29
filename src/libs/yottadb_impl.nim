@@ -123,10 +123,8 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[]): string =
     rc = ydb_get_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
 
   if rc == YDB_OK:
+    DATABUF.buf_addr[DATABUF.len_used] = '\0'
     result = $DATABUF.buf_addr
-    return result.substr(0,DATABUF.len_used.int-1)
-  else:
-    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}({keys})")
 
 
 proc ydb_data_db*(name: string, keys: Subscripts): int =

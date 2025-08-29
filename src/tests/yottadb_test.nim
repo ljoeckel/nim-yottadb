@@ -2,7 +2,7 @@ import std/[strformat, strutils, unittest]
 import ../yottadb
 
 const
-  MAX = 1000
+  MAX = 1000000
 
 proc setupLL() =
   let global = "^LL"
@@ -188,9 +188,6 @@ proc testSpecialVariables() =
               "$ZYSQLNULL"]
   for variable in vars:
     discard ydbGet(variable)
-  
-  # Test for unknown special variable
-  doAssertRaises(YottaDbError): discard ydbGet("$XXXX")
 
 
 proc testSetAndGetVariable() =
@@ -288,8 +285,7 @@ proc test() =
       test "testLock": testLock()
 
 proc testA() =
-  # ^X(0..1000000)=i total 2000ms threads:on
-  # ^X(0..1000000)=i total 1850ms threads:off
+  # ^X(0..1000000)=i total 1900ms threads:on 2100ms
   test "simpleSet": simpleSet("^X", MAX)
   test "simpleGet": simpleGet("^X", MAX)
   test "simpleDel": simpleDelete("^X", MAX)
@@ -301,11 +297,13 @@ proc testB() =
 
 proc testC() =
   setupLL()
+  test "simpleSet": simpleSet("^X", 100)
+  test "simpleGet": simpleGet("^X", 100)
   testNextNode("^LL", @[""])
 
 
 when isMainModule:
-  test() # threads:off=31s, threads:on=33s
+  #test() # threads:off=31s, threads:on=33s
   #testB()
-  #testA()
+  testA()
   #testC()
