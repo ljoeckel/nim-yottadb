@@ -1,6 +1,6 @@
 import std/[strutils, unittest]
 import std/[times]
-import std/threadpool
+import malebolgia
 import std/sets
 
 import ../yottadb
@@ -9,7 +9,9 @@ import ../yottadb
 
 const
   MAX = 1000
-  NUM_OF_THREADS = 2
+  NUM_OF_THREADS = 4
+  GLOBAL = "^COUNTERS"
+  MAX_FIBONACCI_NUMBER = 32
 
 template timed(body: untyped): untyped =
   let t1 = getTime()
@@ -17,47 +19,68 @@ template timed(body: untyped): untyped =
   echo getTime() - t1
 
 proc initDB() =
-  for i in 0..<NUM_OF_THREADS:
-    assert YDB_OK == ydbDeleteTree("^COUNTERS", @[$i])
+  ## Clean the database
+  var keys:Subscripts = @[]
+  for keys in nextNodeIter(GLOBAL, keys):
+    assert YDB_OK == ydbDeleteNode(GLOBAL, keys)
 
-  assert YDB_OK == ydbDeleteNode("^COUNTERS", @["cnt"])
+proc fibonacci_recursive(n: int): int =
+  ## Simulate some CPU intense work
+  if n <= 1:
+    result = n
+  else:
+    result = fibonacci_recursive(n - 1) + fibonacci_recursive(n - 2)
 
-proc testIncrement(tn: int): int =
-  timed:
-    let key = @["cnt"]
-    #ydbSet("^COUNTERS", key, "0")
-    for i in 0..<MAX:
-      result = ydbIncrement("^COUNTERS", key)
-      ydbSet("^COUNTERS", @[$tn, $i], $result)
+proc calcFinonacciSum(): int =
+  for j in 0..<MAX_FIBONACCI_NUMBER:
+    let x = fibonacci_recursive(j)
+    result += x
+
+proc testIncrement(tn: int) =
+  ## For each thread iterate to MAX and calculate the fibonacci and save in db
+  let key = @["cnt"]
+  for i in 0..<MAX:
+    let result = ydbIncrement(GLOBAL, key)
+    let sum = calcFinonacciSum()
+    ydbSet(GLOBAL, @[$tn, $result], $sum)
 
 proc validateCounters() =
+  ## Validate if all data is correctly saved in the db
+  
+  # Check increment in db
+  assert MAX * NUM_OF_THREADS == parseInt(ydbGet(GLOBAL, @["cnt"]))
+
   var results = initHashSet[int](MAX*NUM_OF_THREADS+1)
   var key = @[""]
-  for key in nextNodeIter("^COUNTERS", key):
-    let value = parseInt(ydbGet("^COUNTERS", key))
-    results.incl(value)
+  var cntidx = 0
+  let fibo = calcFinonacciSum()
 
-  # Test the number of entries (must be 2xMAX)
-  assert results.len == MAX * NUM_OF_THREADS
+  for key in nextNodeIter(GLOBAL, key):
+    if key[0] == "cnt": continue
+    results.incl(parseInt(key[1])) # 1..max*num_of_threads
+    inc(cntidx)
+    let value = parseInt(ydbGet(GLOBAL, key))
+    assert value == fibo
+
+  # check the number of results in the db
+  assert cntidx == MAX * NUM_OF_THREADS
+
   # Test if each number is found in the set
   for i in 1..MAX*NUM_OF_THREADS:
     assert results.contains(i) == true
-  
+
 # -------------------------------------------------------------------
 
-proc incrementTest() =
-  echo "incrementTest"
-  var results = newSeq[FlowVar[int]](NUM_OF_THREADS)
-  for i in 0..<NUM_OF_THREADS:
-    results[i] = spawn testIncrement(i)
-
-  for i in 0..<NUM_OF_THREADS:
-    let res = ^results[i]
-    echo "result ",i, $res
+proc fibonacciTest() =
+  ## Main test that starts NUM_OF_THREADS to calculate and save result in db
+  var m = createMaster()
+  m.awaitAll:
+    for i in 0..<NUM_OF_THREADS:
+      m.spawn testIncrement(i)
 
   validateCounters()
 
+  
 when isMainModule:
-  initDB()
-  incrementTest()
-
+  timed: test "initdb": initDB()
+  timed: test "fibonacci": fibonacciTest()

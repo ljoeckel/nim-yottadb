@@ -14,6 +14,11 @@ type
     value*: string
 
 const
+  BUFFER_ERRMSG_SIZE* = 1024
+  BUFFER_DATABUF_SIZE* = 1024*1024
+  BUFFER_GLOBAL_SIZE* = 256
+  BUFFER_IDX_SIZE* = 64
+
   YDB_INT_MAX* = ((int)0x7fffffff)
   YDB_TP_RESTART* = (YDB_INT_MAX - 1)
   YDB_TP_ROLLBACK* = (YDB_INT_MAX - 2)

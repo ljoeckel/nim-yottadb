@@ -10,9 +10,6 @@ when defined(futhark):
 else:
   include "yottadb.nim"
 
-proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t {.gcsafe.}
-proc zeroBuffer(size: int): string {.gcsafe.}
-
 var
   buf_initialized {.threadvar.}: bool
   ERRMSG {.threadvar.}: ydb_buffer_t
@@ -22,15 +19,13 @@ var
   tptoken {.threadvar.}: uint64
   rc {.threadvar.}: cint
 
-proc check() =
-  if not buf_initialized:
-    ERRMSG = stringToYdbBuffer(zeroBuffer(1024))
-    DATABUF = stringToYdbBuffer(zeroBuffer(1024*1024))
-    GLOBAL = stringToYdbBuffer(zeroBuffer(256))
-    buf_initialized = true
-    for idx in 0..<IDXARR.len:
-      IDXARR[idx] = stringToYdbBuffer(zeroBuffer(32))
+# atexit for buffer cleanup
+{.push header: "<stdlib.h>".}
+proc atexit(f: proc() {.noconv.}) {.importc.}
+{.pop.}
 
+#proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t {.gcsafe.}
+#proc zeroBuffer(size: int): string {.gcsafe.}
 
 proc allocCString*(s: string): cstring =
   let len = s.len
@@ -94,6 +89,24 @@ proc ydbMessage_db*(status: cint): string =
   else:
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
   
+
+proc check() =
+  if not buf_initialized:
+    ERRMSG = stringToYdbBuffer(zeroBuffer(BUFFER_ERRMSG_SIZE))
+    DATABUF = stringToYdbBuffer(zeroBuffer(BUFFER_DATABUF_SIZE))
+    GLOBAL = stringToYdbBuffer(zeroBuffer(BUFFER_GLOBAL_SIZE))
+    buf_initialized = true
+    for idx in 0..<IDXARR.len:
+      IDXARR[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
+
+proc cleanupBuffers() {.noconv} =
+  deallocBuffer(ERRMSG)
+  deallocBuffer(DATABUF)
+  deallocBuffer(GLOBAL)
+  deallocBuffer(IDXARR)
+
+# Register atexit hook
+atexit(cleanupBuffers)
 
 # ------------ YottaDB internal API calls -----------------------
 
