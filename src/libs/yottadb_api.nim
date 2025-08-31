@@ -1,8 +1,6 @@
 import std/[strutils, os, osproc, streams]
-
-import yottadb_impl
 import yottadb_types
-export yottadb_types
+import yottadb_impl
 
 proc ydbMessage*(status: cint): string =
   return ydbMessage_db(status)
@@ -29,9 +27,12 @@ proc ydbIncrement*(name: string, keys: Subscripts, increment: int = 1): int =
   except:
     raise newException(YottaDbError, "Illegal Number. Tried to parseInt(" & s & ")")
 
-proc TxStart*(myTxnProc: ydb_tpfnptr_t, param:string, transid:string): int =
-  result = ydb_tp_start(myTxnProc, param, transid)
-
+when compileOption("threads"):
+  proc ydbTxRun*[T: YDB_tp2fnptr_t](myTxnProc: T, param: auto, transid: string = ""): int =
+    result = ydb_tp2_start(myTxnProc, param, transid)
+else:
+  proc ydbTxRun*(myTxnProc: ydb_tpfnptr_t, param: string, transid:string = ""): int =
+    result = ydb_tp_start(myTxnProc, param, transid)
 
 # ------------------ Iterators for Next/Previous Node -----------------
 proc nextNode*(global: string, subscripts: var Subscripts): Subscripts =

@@ -1,7 +1,6 @@
 #import std/[strformat, strutils, streams, sets, times, os, osproc, unittest]
 import std/sets
 import macros
-import ../yottadb
 import ../libs/bingo
 
 type 
