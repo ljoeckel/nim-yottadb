@@ -4,6 +4,9 @@ import ../libs/libyottadb
 import ../libs/yottadb_api
 import utils
 
+when compileOption("threads"):
+  {.fatal: "Must be compiled with --threads:off".}
+
 const
   THS = "S"
   GLOBAL = "^TX" & THS

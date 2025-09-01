@@ -81,14 +81,6 @@ proc setIdxArr(keys: seq[string]) =
   for idx in keys.len..<IDXARR.len:
     IDXARR[idx].len_used = 0.uint32
 
-proc ydbMessage_db*(status: cint): string =
-  if status == YDB_OK: return
-  let rc = ydb_message(status, ERRMSG.addr)
-  if rc == YDB_OK:
-    return fmt"{status}, " & strip($ERRMSG.buf_addr)
-  else:
-    return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
-
 proc check() =
   if not buf_initialized:
     ERRMSG = stringToYdbBuffer(zeroBuffer(BUFFER_ERRMSG_SIZE))
@@ -118,6 +110,20 @@ proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:string, transid:string, tptoken
   setYdbBuffer(ERRMSG)
   result = ydb_tp_st(tptoken, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
 
+proc ydbMessage_db*(status: cint, tptoken:uint64 = 0): string =
+  if status == YDB_OK: return
+  var rc:cint
+  setYdbBuffer(ERRMSG)
+
+  when compileOption("threads"):
+    rc = ydb_message_t(tptoken, ERRMSG.addr, status, ERRMSG.addr)
+  else:
+    rc = ydb_message(status, ERRMSG.addr)
+  if rc == YDB_OK:
+    return fmt"{status}, " & strip($ERRMSG.buf_addr)
+  else:
+    return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
+
 proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "", tptoken:uint64 = 0) =
   check()
   setYdbBuffer(GLOBAL, name)
@@ -130,7 +136,7 @@ proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "", tptok
   else:
     rc = ydbSet_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
   if rc < YDB_OK:
-    raise newException(YottaDbError, ydbMessage_db(rc) & " name:" & name & " keys:" & $keys & " value:" & $value)
+    raise newException(YottaDbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys & " value:" & $value)
 
 proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
   check()
@@ -148,7 +154,7 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): stri
     DATABUF.buf_addr[DATABUF.len_used] = '\0'
     result = $DATABUF.buf_addr
   else:
-    raise newException(YottaDbError, ydbMessage_db(rc) & " name:" & name & " keys:" & $keys)
+    raise newException(YottaDbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys)
 
 proc ydb_data_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
   check()
@@ -162,7 +168,7 @@ proc ydb_data_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
     rc = ydbData_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, value.addr)
 
   if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}({keys})")
+    raise newException(YottaDbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
   else:
     return cast[int](value) # 0,1,10,11
 
@@ -177,7 +183,7 @@ proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64 =
     rc = ydb_delete_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, cast[cint](deltype))
 
   if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}({keys})")
+    raise newException(YottaDbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
   else:
     return rc.int
 
@@ -202,7 +208,7 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken:u
     rc = ydb_incr_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr, value.addr)
 
   if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}({keys})")
+    raise newException(YottaDbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
   else:
     return $value.buf_addr
 
@@ -236,7 +242,7 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken
     case rc
       of YDB_OK, YDB_ERR_NODEEND: discard
       else:
-        raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}({keys})")
+        raise newException(YottaDbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
 
   else:
     # 1. call to get ret_subs_used
@@ -257,7 +263,7 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken
     case rc:
     of YDB_OK, YDB_ERR_NODEEND: discard
     else:
-      raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}({keys})")
+      raise newException(YottaDbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
   
   # construct the return key sequence
   var sbscr = newSeq[string]()
@@ -299,7 +305,7 @@ proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts
     case rc:
     of YDB_OK, YDB_ERR_NODEEND: discard
     else:
-      raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, Global:{name}({keys})")
+      raise newException(YottaDbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
 
   # update the key sequence as return value
   let level = keys.len - 1
@@ -1774,7 +1780,7 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
 
   return rc
 
-proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts]): int =
+proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken:uint64 = 0): int =
   var locknames: seq[ydb_buffer_t] = newSeq[ydb_buffer_t]()
   var locksubs: seq[seq[ydb_buffer_t]] = newSeq[newSeq[ydb_buffer_t]()]()
   defer:
@@ -1791,7 +1797,7 @@ proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts]): int =
 
   let rc = ydb_lock_db_variadic(timeout_nsec, locknames, locksubs)
   if rc < YDB_OK:
-    raise newException(YottaDbError, fmt"{ydbMessage_db(rc)}, {keys})")
+    raise newException(YottaDbError, fmt"{ydbMessage_db(rc, tptoken)}, {keys})")
 
   #TODO: Use macro instead! return ydbLockDbVariadicMacro(timeout_nsec, locknames, locksubs)
 
