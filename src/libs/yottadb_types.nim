@@ -2,8 +2,7 @@ import libyottadb
 
 type
   # Helper type for Multi-Threaded transaction processing
-  # TODO: solve import problem with ydb_tp2fnptr_t
-  YDB_tp2fnptr_t* = proc (a0: uint64, a1: ptr struct_ydb_buffer_t, a2: pointer): cint {.cdecl, gcsafe.}
+  YDB_tp2fnptr_t* = proc (tptoken: uint64, buff: ptr struct_ydb_buffer_t, param: pointer): cint {.cdecl, gcsafe.}
   
   Direction* = enum
     Next,

@@ -5,51 +5,50 @@ import yottadb_impl
 proc ydbMessage*(status: cint): string =
   return ydbMessage_db(status)
 
-proc ydbSet*(name: string, keys: Subscripts = @[]; value: string = "") =
-  ydb_set_db(name, keys, value)
+proc ydbSet*(name: string, keys: Subscripts = @[]; value: string = "", tptoken:uint64 = 0) =
+  ydb_set_db(name, keys, value, tptoken)
 
-proc ydbGet*(name: string, keys: Subscripts = @[]): string =
-  return ydb_get_db(name, keys)
+proc ydbGet*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
+  return ydb_get_db(name, keys, tptoken)
 
-proc ydbData*(name: string, keys: Subscripts): int =
-  return ydb_data_db(name, keys)
+proc ydbData*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
+  return ydb_data_db(name, keys, tptoken)
 
-proc ydbDeleteNode*(name: string, keys: Subscripts): int =
-  return ydb_delete_node_db(name, keys)
+proc ydbDeleteNode*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
+  return ydb_delete_node_db(name, keys, tptoken)
 
-proc ydbDeleteTree*(name: string, keys: Subscripts): int =
-  return ydb_delete_tree_db(name, keys)
+proc ydbDeleteTree*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
+  return ydb_delete_tree_db(name, keys, tptoken)
 
-proc ydbIncrement*(name: string, keys: Subscripts, increment: int = 1): int =
-  let s = ydb_increment_db(name, keys, increment)
+proc ydbIncrement*(name: string, keys: Subscripts, increment: int = 1, tptoken:uint64 = 0): int =
+  let s = ydb_increment_db(name, keys, increment, tptoken)
   try:
     result = parseInt(s)
   except:
     raise newException(YottaDbError, "Illegal Number. Tried to parseInt(" & s & ")")
 
-when compileOption("threads"):
-  proc ydbTxRun*[T: YDB_tp2fnptr_t](myTxnProc: T, param: auto, transid: string = ""): int =
-    result = ydb_tp2_start(myTxnProc, param, transid)
-else:
-  proc ydbTxRun*(myTxnProc: ydb_tpfnptr_t, param: string, transid:string = ""): int =
-    result = ydb_tp_start(myTxnProc, param, transid)
+proc ydbTxRunMT*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string, transid: string = ""): int =
+  result = ydb_tp2_start(myTxnProc, param, transid)
+
+proc ydbTxRun*(myTxnProc: ydb_tpfnptr_t, param: string, transid:string = ""): int =
+  result = ydb_tp_start(myTxnProc, param, transid)
 
 # ------------------ Iterators for Next/Previous Node -----------------
-proc nextNode*(global: string, subscripts: var Subscripts): Subscripts =
-  result = ydb_node_next_db(global, subscripts)
+proc nextNode*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
+  result = ydb_node_next_db(global, subscripts, tptoken)
   
 
-iterator nextNodeIter*(global: string, subscripts: var Subscripts): Subscripts =
+iterator nextNodeIter*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
   var i = -1
   while i < len(subscripts):
-    subscripts = ydb_node_next_db(global, subscripts)
+    subscripts = ydb_node_next_db(global, subscripts, tptoken)
     if len(subscripts) == 0: break
     yield subscripts
 
-iterator previousNodeIter*(global: string, subscripts: var Subscripts): Subscripts =
+iterator previousNodeIter*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
   var i = -1
   while i < len(subscripts):
-    subscripts = ydb_node_previous_db(global, subscripts)
+    subscripts = ydb_node_previous_db(global, subscripts, tptoken)
     if len(subscripts) == 0: break
     yield subscripts
 

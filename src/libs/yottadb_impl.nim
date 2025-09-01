@@ -22,9 +22,7 @@ var
   DATABUF {.threadvar.}: ydb_buffer_t
   GLOBAL {.threadvar.}: ydb_buffer_t
   IDXARR {.threadvar.}: array[0..31, ydb_buffer_t]
-  tptoken {.threadvar.}: uint64
   rc {.threadvar.}: cint
-
 
 # atexit for buffer cleanup
 {.push header: "<stdlib.h>".}
@@ -73,9 +71,9 @@ proc setYdbBuffer(buffer: var ydb_buffer_t, name: string = "") =
   if len > 0:
     buffer.len_used = len.uint32
     copyMem(buffer.buf_addr, name[0].addr, len)
-    buffer.buf_addr[len] = '\0'
   else:
     buffer.len_used = 0.uint32
+  buffer.buf_addr[len] = '\0'
 
 proc setIdxArr(keys: seq[string]) =
   for idx in 0..<keys.len:
@@ -115,12 +113,12 @@ proc ydb_tp_start*(myTxn: ydb_tpfnptr_t, param:string, transid:string): int =
   setYdbBuffer(GLOBAL)
   result = ydb_tp_s(myTxn, cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
 
-# Multithreaded version
-proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:string, transid:string): int =
+proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:string, transid:string, tptoken:uint64 = 0): int =
   setYdbBuffer(GLOBAL)
+  setYdbBuffer(ERRMSG)
   result = ydb_tp_st(tptoken, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
 
-proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
+proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "", tptoken:uint64 = 0) =
   check()
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF, value)
@@ -134,12 +132,14 @@ proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "") =
   if rc < YDB_OK:
     raise newException(YottaDbError, ydbMessage_db(rc) & " name:" & name & " keys:" & $keys & " value:" & $value)
 
-proc ydb_get_db*(name: string, keys: Subscripts = @[]): string =
+proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
   check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(keys)
-  
+
   when compileOption("threads"):
+    setYdbBuffer(ERRMSG)
+    setYdbBuffer(DATABUF)
     rc = ydb_get_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
   else:
     rc = ydb_get_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
@@ -150,7 +150,7 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[]): string =
   else:
     raise newException(YottaDbError, ydbMessage_db(rc) & " name:" & name & " keys:" & $keys)
 
-proc ydb_data_db*(name: string, keys: Subscripts): int =
+proc ydb_data_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
   check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(keys)
@@ -166,7 +166,7 @@ proc ydb_data_db*(name: string, keys: Subscripts): int =
   else:
     return cast[int](value) # 0,1,10,11
 
-proc ydb_delete(name: string, keys: Subscripts, deltype: uint): int =
+proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64 = 0): int =
   check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(keys)
@@ -181,13 +181,13 @@ proc ydb_delete(name: string, keys: Subscripts, deltype: uint): int =
   else:
     return rc.int
 
-proc ydb_delete_node_db*(name: string, keys: Subscripts): int =
-  return ydb_delete(name, keys, YDB_DEL_NODE)
+proc ydb_delete_node_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
+  return ydb_delete(name, keys, YDB_DEL_NODE, tptoken)
 
-proc ydb_delete_tree_db*(name: string, keys: Subscripts): int =
-  return ydb_delete(name, keys, YDB_DEL_TREE)
+proc ydb_delete_tree_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
+  return ydb_delete(name, keys, YDB_DEL_TREE, tptoken)
 
-proc ydb_increment_db*(name: string, keys: Subscripts, increment: int): string =
+proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken:uint64 = 0): string =
   check()
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF, $increment)
@@ -206,7 +206,7 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int): string =
   else:
     return $value.buf_addr
 
-proc node_traverse(direction: Direction, name: string, keys: Subscripts): Subscripts =
+proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken: uint64): Subscripts =
   check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(keys)
@@ -267,13 +267,13 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts): Subscr
 
   return sbscr
 
-proc ydb_node_next_db*(name: string, keys: Subscripts): Subscripts =
-  return node_traverse(Direction.Next, name, keys)
+proc ydb_node_next_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): Subscripts =
+  return node_traverse(Direction.Next, name, keys, tptoken)
 
-proc ydb_node_previous_db*(name: string, keys: Subscripts): Subscripts =
-  return node_traverse(Direction.Previous, name, keys)
+proc ydb_node_previous_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): Subscripts =
+  return node_traverse(Direction.Previous, name, keys, tptoken)
 
-proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts): int =
+proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts, tptoken: uint64): int =
   check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(keys)
@@ -310,11 +310,11 @@ proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts
 
   return rc.int
 
-proc ydb_subscript_next_db*(name: string, keys: var Subscripts): int =
-  return subscript_traverse(Direction.Next, name, keys)
+proc ydb_subscript_next_db*(name: string, keys: var Subscripts, tptoken:uint64 = 0): int =
+  return subscript_traverse(Direction.Next, name, keys, tptoken)
 
-proc ydb_subscript_previous_db*(name: string, keys: var Subscripts): int =
-  return subscript_traverse(Direction.Previous, name, keys)
+proc ydb_subscript_previous_db*(name: string, keys: var Subscripts, tptoken:uint64 = 0): int =
+  return subscript_traverse(Direction.Previous, name, keys, tptoken)
 
 # macro ydbLockDbVariadicMacro(timeout: culonglong; names: typed; subs: typed): untyped =
 #   result = newCall(ident("ydbLock_s"))
@@ -326,7 +326,7 @@ proc ydb_subscript_previous_db*(name: string, keys: var Subscripts): int =
 #     result.add newCall(ident("addr"), newTree(nnkBracketExpr, newTree(nnkBracketExpr, subs, newLit(i)), newLit(0)))
 
 
-proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]]): cint =
+proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]], tptoken: uint64 = 0): cint =
   check()
   
   if names.len == 0:
