@@ -17,3 +17,4 @@ src/tests/yottadb_test_threaded
 src/examples/tx
 src/examples/tx_thread
 src/examples/ydbSet_thread
+src/examples/caret

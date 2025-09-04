@@ -1,4 +1,5 @@
 import posix
+import std/times
 
 template timed*(body: untyped): auto =
   #[
