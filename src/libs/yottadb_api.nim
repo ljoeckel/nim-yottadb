@@ -25,7 +25,7 @@ proc ydbIncrement*(name: string, keys: Subscripts, increment: int = 1, tptoken:u
   try:
     result = parseInt(s)
   except:
-    raise newException(YottaDbError, "Illegal Number. Tried to parseInt(" & s & ")")
+    raise newException(YdbDbError, "Illegal Number. Tried to parseInt(" & s & ")")
 
 proc ydbTxRunMT*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string, transid: string = ""): int =
   result = ydb_tp2_start(myTxnProc, param, transid)
@@ -76,12 +76,12 @@ iterator previousSubscriptNode*(global: string, subscripts: var Subscripts): Sub
 
 # ------------------ Locks -----------------
 # Max of 35 variable names in one call
-proc ydbLock*(timeout_nsec: culonglong, keys: seq[Subscripts] = @[]): int =
-  return ydb_lock_db(timeout_nsec, keys)
+proc ydbLock*(timeout_nsec: culonglong, keys: seq[Subscripts] = @[]) =
+  ydb_lock_db(timeout_nsec, keys)
 
 # ------------------ YdbVar ----------------
 proc newYdbVar*(global: string, subscripts: Subscripts, value: string = ""): YdbVar =
-  if global.isEmptyOrWhitespace: raise newException(YottaDbError, "Empty 'global' param")
+  if global.isEmptyOrWhitespace: raise newException(YdbDbError, "Empty 'global' param")
 
   result.global = global
   result.subscripts = subscripts

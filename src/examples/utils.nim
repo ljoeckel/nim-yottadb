@@ -1,7 +1,7 @@
 import posix
 import std/times
 
-template timed*(body: untyped): auto =
+template timed*(body: untyped, show: bool = true): auto =
   #[
     let (ms, fibresult) = timed:
       let fib = rand(30..44)
@@ -10,9 +10,12 @@ template timed*(body: untyped): auto =
   ]#
 
   let t1 = getTime()
-  let bodyResult = body
-  let duration = getTime() - t1
-  (ms: duration.inMilliseconds, result: bodyResult)
+  let rc = body
+  let durationMs = (getTime() - t1).inMilliseconds
+  if show:
+    echo "rc: ",rc, " duration: ", durationMs," ms."
+  (ms: durationMs, rc: rc)
+
 
 
 proc nimSleep*(ms: int) =

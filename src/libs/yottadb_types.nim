@@ -8,7 +8,13 @@ type
     Next,
     Previous
 
-  YottaDbError* = object of CatchableError
+  YdbData* = enum 
+    NO_DATA_NO_SUBTREE = 0,
+    DATA_NO_SUBTREE = 1,
+    NO_DATA_WITH_SUBTREE = 10,
+    DATA_AND_SUBTREE = 11
+
+  YdbDbError* = object of CatchableError
 
   Subscripts* = seq[string]
 

@@ -61,14 +61,14 @@ proc testYdbVar() =
   for i in 0..MAX:
     var v = newYdbVar("^LJ", @["LAND", "ORT", $i])
     if v.value != $i: 
-      raise newException(YottaDbError, "Invalid data in db for {i}")
+      raise newException(YdbDbError, "Invalid data in db for {i}")
     # update db with new value
     v[] = "New " & v.value
 
   for i in 0..MAX:
     var v = newYdbVar("^LJ", @["LAND", "ORT", $i])
     if v.value != "New " & $i: 
-      raise newException(YottaDbError, "Invalid data in db for {i}")
+      raise newException(YdbDbError, "Invalid data in db for {i}")
 
 # Test the maximum record length of 1MB
 proc testMaxValueSize() =
@@ -80,7 +80,7 @@ proc testMaxValueSize() =
   # Illegal size > 1MB
   let i = 1024
   let value = "0".repeat(i*1024+1)
-  doAssertRaises(YottaDbError): ydbSet("^VARSIZE", @[$i], value)
+  doAssertRaises(YdbDbError): ydbSet("^VARSIZE", @[$i], value)
 
   var subs = @[""]
   for subs in nextNodeIter("^VARSIZE", subs):
@@ -244,7 +244,7 @@ proc testMaxSubscripts() =
       ydbSet("^SUBS", keys, $i)
       assert $i == ydbget("^SUBS", keys)
     else:
-      doAssertRaises(YottaDbError): ydbSet("^SUBS", keys, $i)
+      doAssertRaises(YdbDbError): ydbSet("^SUBS", keys, $i)
 
 # -------------------------------------------------------------------
 
