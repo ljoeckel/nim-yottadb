@@ -1,8 +1,7 @@
-import ../yottadb
-import std/strutils
 import std/times
 import std/unittest
-import utils
+import ../yottadb
+import ../libs/utils
 
 # ------------ Test procs ------------
 

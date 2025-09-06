@@ -2,7 +2,7 @@ import std/[random, strformat, strutils, times]
 import ../libs/yottadb_types
 import ../libs/libyottadb
 import ../libs/yottadb_api
-import utils
+import ../libs/utils
 
 when compileOption("threads"):
   {.fatal: "Must be compiled with --threads:off".}

@@ -1,17 +1,16 @@
 import std/[times]
 import ../yottadb
-import utils
+import ../libs/utils
 
-const MAX = 1000
+const MAX = 1000000
 
-proc upcount(): int =
+proc upcount(): int = # Duration 1319 ms.
     var counter:int
     for cnt in 0..MAX:
         counter = ydbIncrement("^CNT", @["upcount"])
     echo "counter: ", counter
 
-# Is approx 10 times faster
-proc upcount_dsl: int =
+proc upcount_dsl: int = # Duration 1324 ms.
     var counter:int
     for cnt in 0..MAX:
         counter = incr: ^CNT("upcount")

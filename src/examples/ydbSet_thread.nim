@@ -2,28 +2,34 @@ import std/[random, strformat, strutils, times]
 import ../libs/yottadb_types
 import ../libs/libyottadb
 import ../libs/yottadb_api
-import utils
+import ../libs/dsl
+import ../libs/utils
 import malebolgia
 
 when not compileOption("threads"):
   {.fatal: "Must be compiled with --threads:on".}
 
-const
-  GLOBAL = "^ydbSet"
-
-proc worker(tn: int, iterations: int) =
+proc worker(tn: int, iterations: int) = # Duration 25264 ms.
   var counter = iterations
   while counter > 0:
     try:
       let txid = ydbIncrement("^CNT", @["ydbSet"])
-      #echo "tn:", tn, " tx:", txid, " cnt:", counter
-      ydbSet(GLOBAL, @[$txid], "This is some test from thread " & $tn)
+      ydbSet("^ydbSet", @[$txid], "This is some test from thread " & $tn)
     except:
       echo "Exception: ", getCurrentExceptionMsg()
     dec(counter)
 
+proc worker_dsl(tn: int, iterations: int) = # Duration 24606 ms.
+  var counter = iterations
+  while counter > 0:
+    try:
+      let txid = incr: ^CNT("ydbSet")
+      set: ^ydbSet(txid) = "This is some test from thread " & $tn
+    except:
+      echo "Exception: ", getCurrentExceptionMsg()
+    dec(counter)
 
-when isMainModule:
+proc main(): int =
   const NUM_OF_THREADS = 4
   const ITERATIONS = 1000000
   var m = createMaster()
@@ -31,4 +37,18 @@ when isMainModule:
     for tn in 0..<NUM_OF_THREADS:
       m.spawn worker(tn, ITERATIONS)
 
-  echo "all finished"
+proc main_dsl(): int =
+  const NUM_OF_THREADS = 4
+  const ITERATIONS = 1000000
+  var m = createMaster()
+  m.awaitAll:
+    for tn in 0..<NUM_OF_THREADS:
+      m.spawn worker_dsl(tn, ITERATIONS)
+
+
+when isMainModule:
+  var (ms, rc) = timed:
+    main()
+
+  (ms, rc) = timed:
+    main_dsl()
