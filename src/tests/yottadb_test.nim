@@ -222,10 +222,10 @@ proc testLock() =
   var toLock:seq[seq[string]] = @[@[]]
   for global in  globals:
     toLock.add(global)
-    let rc = ydbLock(100000, globals)
+    ydbLock(100000, globals)
     assert getLockCountFromYottaDb() == globals.len
 
-  let rc = ydbLock(100000, @[])
+  ydbLock(100000, @[])
   assert getLockCountFromYottaDb() == 0
 
 proc testIncrement() =
