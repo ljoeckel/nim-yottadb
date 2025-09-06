@@ -6,7 +6,10 @@ proc ydbMessage*(status: cint): string =
   return ydbMessage_db(status)
 
 proc ydbSet*(name: string, keys: Subscripts = @[]; value: string = "", tptoken:uint64 = 0) =
-  ydb_set_db(name, keys, value, tptoken)
+  if keys.len > 31:
+    raise newException(YdbDbError, "Too many subscript levels. Valid [0..31])")
+  else:
+    ydb_set_db(name, keys, value, tptoken)
 
 proc ydbGet*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
   return ydb_get_db(name, keys, tptoken)

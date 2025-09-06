@@ -1,8 +1,8 @@
 import macros
 import ../yottadb
-import std/strformat
 import std/strutils
 import std/times
+import std/unittest
 
 template t1(body: untyped): untyped =
   static:
@@ -28,6 +28,49 @@ proc transformCallNode(node: NimNode): seq[NimNode] =
         result.add newCall(ident"$", callNode[i])
   else:
     echo "unsupported node node.kind=", node.kind
+
+proc transformCallNodeGET(node: NimNode): NimNode =
+  ## Handles ^, $ and '' prefixes
+  doAssert node.kind == nnkPrefix
+  let prefix = node[0].strVal   # "^", "$", or ""
+  let rhs = node[1]
+
+  # helper to build args
+  proc makeArgs(callPart: NimNode): seq[NimNode] =
+    let tableIdent = callPart[0]
+    result = @[ newLit(prefix & tableIdent.strVal) ]
+    for i in 1 ..< callPart.len:
+      result.add newCall(ident"$", callPart[i])
+
+  if rhs.kind == nnkCall:
+    # ^CUST(id,1) or $USER(id)
+    return newCall(ident"getstring", makeArgs(rhs))
+
+  elif rhs.kind == nnkDotExpr:
+    # ^CUST(id,1).float or $USER(id).int
+    let callPart = rhs[0]
+    let fieldPart = rhs[1]
+
+    if callPart.kind != nnkCall:
+      error("Expected a call on left side of dotExpr")
+
+    let args = makeArgs(callPart)
+    let suffix = fieldPart.strVal
+    let procName =
+      case suffix
+      of "float": "getfloat"
+      of "int": "getint"
+      of "string": "getstring"
+      else: error("Unsupported suffix: " & suffix)
+
+    return newCall(ident(procName), args)
+
+  elif rhs.kind == nnkIdent:
+    # plain ^NAME or $NAME
+    return newCall(ident"getstring", @[newLit(prefix & rhs.strVal)])
+
+  else:
+    error("Unsupported rhs of prefix: " & $rhs.kind)
 
 macro set*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
@@ -63,8 +106,11 @@ macro incr*(body: untyped): untyped =
 macro get*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
-      var args = transformCallNode(node)
-      return newCall(ident"getxxx", args)
+      return transformCallNodeGET(node)
+    elif node.kind == nnkStmtList:
+      result = newStmtList()
+      for ch in node:
+        result.add transform(ch)
     else:
       return node
 
@@ -80,30 +126,25 @@ macro data*(body: untyped): untyped =
 
   transformBody body
 
-# Case 1: Single Global      
-# StmtList
-#   Prefix
-#     Ident "^"
-#     Call
-#       Ident "LL"
-#       StrLit "HAUS"
-#       StrLit "11"
-#
-# Case 2: Multiple Globals in Curly braces
-# StmtList
-#   Curly
-#     Prefix
-#       Ident "^"
-#       Call
-#         Ident "LL"
-#         StrLit "HAUS"
-#         StrLit "11"
-#     Prefix
-#       Ident "^"
-#       Call
-#         Ident "LL"
-#         StrLit "HAUS"
-#         StrLit "12"
+macro delnode*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      var args = transformCallNode(node)
+      return newCall(ident"delnodexxx", args)
+    else:
+      return node
+
+  transformBody body
+
+macro deltree*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      var args = transformCallNode(node)
+      return newCall(ident"deltreexxx", args)
+    else:
+      return node
+
+  transformBody body
 
 macro lock*(body: untyped): untyped =
   var args:seq[NimNode] = @[]
@@ -123,12 +164,18 @@ macro lock*(body: untyped): untyped =
 
 
 # Proc^s that implement the ydb call's
+# ---------------------
+# set proc
+# ---------------------
 proc setxxx(args: varargs[string]) =
   let global = args[0]
   let subscripts = args[1..^2]
   let value = args[^1]
   ydbSet(global, subscripts, value)
 
+# ----------------------
+# incr (increment) procs
+# ----------------------
 proc incr1xxx(args: varargs[string]): int =
   let global = args[0]
   let subscripts = args[1..^1]
@@ -140,16 +187,48 @@ proc incrxxx(args: varargs[string]): int =
   let value = parseInt(args[^1])
   return ydbIncrement(global, subscripts, value)
 
-proc getxxx(args: varargs[string]): string =
+# -------------------
+# get* procs
+# -------------------
+proc getstring(args: varargs[string]): string =
   let global = args[0]
   let subscripts = args[1..^1]
-  result = ydbGet(global, subscripts)
+  result = ydbGet(global, subscripts)  
 
+proc getfloat(args: varargs[string]): float =
+  let global = args[0]
+  let subscripts = args[1..^1]
+  result = parseFloat(ydbGet(global, subscripts))
+
+proc getint(args: varargs[string]): int =
+  let global = args[0]
+  let subscripts = args[1..^1]
+  result = parseInt(ydbGet(global, subscripts))
+
+# -------------------
+# data proc
+# -------------------
 proc dataxxx(args: varargs[string]): int =
   let global = args[0]
   let subscripts = args[1..^1]
   result = ydbData(global, subscripts)
 
+# -------------------
+# del Node/Tree procs
+# -------------------
+proc delnodexxx(args: varargs[string]): int =
+  let global = args[0]
+  let subscripts = args[1..^1]
+  result = ydbDeleteNode(global, subscripts)
+
+proc deltreexxx(args: varargs[string]): int =
+  let global = args[0]
+  let subscripts = args[1..^1]
+  result = ydbDeleteTree(global, subscripts)
+
+# ---------------------
+# lock proc
+# ---------------------
 proc lockxxx(args: varargs[string]) =
   # Convert 
   # args=["^LL", "HAUS", "11", "^LL", "HAUS", "12"] ->
@@ -170,55 +249,104 @@ proc lockxxx(args: varargs[string]) =
     echo getCurrentExceptionMsg()
 
 
-proc main() =
-  let id = 1
-  # Data
-  let raw = data: ^CUST(id)
-  case YdbData(raw):
-  of NO_DATA_NO_SUBTREE: echo "No data, no subtree"
-  of NO_DATA_WITH_SUBTREE: echo "No data, but has subtree"
-  of DATA_NO_SUBTREE: echo "Has data but no subtree"
-  of DATA_AND_SUBTREE: echo "Has data and subtree"
+# ------------ Test procs ------------
 
-  # Set
+proc testDelNode() =
+  set: ^X(1)="hello"
+  let s = get: ^X(1)
+  assert "hello" == s
+  var rc = delnode: ^X(1) # delete node
+  doAssertRaises(YdbDbError): # expect exception because node removed
+    let v = get: ^X(1)
+  
+  # create a tree
+  set: ^X(1,1)="hello"
+  set: ^X(1,2)="world"
+  let dta = data: ^X(1) 
+  assert 10 == dta # Expect no data but subtree
+  rc = deltree: ^X(1)
+  doAssertRaises(YdbDbError): # expect exception because node removed
+    let v = get: ^X(1)
+  
+
+proc testData() =
   set:
-      ^CUST(id, 1) = 3.1414
+    ^X(1, "A")="1.A"
+    ^X(3)=3
+    ^X(4)="B"
+    ^X(5)="F"
+    ^X(5,1)="D"
+    ^X(5,2)="E"
+    ^X(6)="G"
+    ^X(7,3)="H"
+  
+  var dta = data: ^X(0)
+  assert YdbData(dta) == NO_DATA_NO_SUBTREE
+  dta = data: ^X(6)
+  assert YdbData(dta) == DATA_NO_SUBTREE
+  dta = data: ^X(5)
+  assert YdbData(dta) == DATA_AND_SUBTREE
+  dta = data: ^X(7)
+  assert YdbData(dta) == NO_DATA_WITH_SUBTREE
 
+proc testSetGet() =
+  let id = 1
+  # Set
+  set: ^X(id, "s") = "pi"
+  let s = get: ^X(id, "s")
+  assert s == "pi"
+
+  set: ^X(id, "i") = 3
+  let i = get: ^X(id, "i").int
+  assert i == 3
+
+  set: ^X(id, "f") = 3.1414
+  let f = get: ^X(id, "f").float
+  assert f == 3.1414
+  
   # Set multiple items
   set:
-      ^CUST(id, 2) = 3.1414
-      ^CUST(id, 3) = 3.1414
-      ^CUST(id, 4) = 3.1414
-      ^CUST(id, 5) = 3.1414
+      ^X(id, 1) = "pi"
+      ^X(id, 2) = "pi"
+      ^X(id, 3) = "pi"
+
+  for i in 1..<3:
+    let s = get: ^X(id, i)
+    assert "pi" == s
 
   # Set loop
   for id in 0..<5:
-    set:
-      ^CUST(id, "Timestamp") = cpuTime()
+    let tm = cpuTime()
+    set: ^CUST(id, "Timestamp") = tm
+    let s = get: ^CUST(id, "Timestamp").float
+    assert s == tm
 
-  # Get
-  let val = get:
-      ^CUST(id, 1)
-  echo "id:", id, " val:", val
+  # Set with exception
+  doAssertRaises(YdbDbError):
+    set: ^CUST(id, 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31)="xxx"
+  # Should work without exception
+  set: ^CUST(id, 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30)="xxx"
+  let s2 = get: ^CUST(id, 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30)
+  assert "xxx" == s2
 
-  for id in 0..<5:
-    let ts = get:
-      ^CUST(id, "Timestamp")
-    echo fmt"^CUST({id},'Timestamp')={ts}"
-
-  # Update
-  var fval = parseFloat(val)
-  fval += 1
-  set:
-    ^CUST(id, 1) = fval
-
+proc testIncrement() =  
   # Increment
-  var txid = get: ^CNT("TXID")
-  echo fmt"TXID before increment is {txid}"
+  let rc = delnode: ^CNT("TXID")
   var incrval = incr: ^CNT("TXID")
-  echo fmt"TXID incremented by 1: {incrval}" 
+  assert 1 == incrval
   incrval = incr: ^CNT("TXID") = 10
-  echo fmt"TXID incremented by 10: {incrval}" 
+  assert 11 == incrval
+
+proc testGetUpdate() =
+  # Get
+  let subs = @["4711", "Acc123"]
+  set: ^CUST(subs) = 1500
+  var amount = get: ^CUST(subs).int
+  inc(amount, 1500)
+  set: ^CUST(subs) = amount
+  let dbamount = get: ^CUST(subs).int  # read from db
+  assert dbamount == amount
+
 
 proc testLock() =
   # Set Locks
@@ -230,14 +358,24 @@ proc testLock() =
     }
 
   var numOfLocks = getLockCountFromYottaDb()
-  echo "Number of locks set: ", numOfLocks
   assert 3 == numOfLocks
 
-  lock: {}
+  lock: {} # release all locks
   numOfLocks = getLockCountFromYottaDb()
-  echo "Number of locks set: ", numOfLocks
   assert 0 == getLockCountFromYottaDb()
   
 
-main()
-testLock()
+proc test() =
+  suite "YottaDB DSL Tests":
+    test "Basic functionality":
+      test "set": testSetGet()
+      test "increment": testIncrement()
+      test "data": testData()
+      test "testDelNode": testDelNode()
+      test "locks": testLock()
+
+
+#main()
+
+when isMainModule:
+  test()
