@@ -3,6 +3,31 @@ import std/unittest
 import ../yottadb
 import ../libs/utils
 
+proc setupLL() =
+  set:
+    ^LL("HAUS")=""
+    ^LL("HAUS", "ELEKTRIK")=""
+    ^LL("HAUS", "ELEKTRIK", "DOSEN")=""
+    ^LL("HAUS", "ELEKTRIK", "DOSEN", "1") = "Telefondose"
+    ^LL("HAUS", "ELEKTRIK", "DOSEN", "2") = "Steckdose"
+    ^LL("HAUS", "ELEKTRIK", "DOSEN", "3") = "IP-Dose"
+    ^LL("HAUS", "ELEKTRIK", "DOSEN", "4") = "KFZ-Dose"
+    ^LL("HAUS", "ELEKTRIK", "KABEL")=""
+    ^LL("HAUS", "ELEKTRIK", "KABEL", "FARBEN")=""
+    ^LL("HAUS", "ELEKTRIK", "KABEL", "STAERKEN")=""
+    ^LL("HAUS", "ELEKTRIK", "SICHERUNGEN")=""
+    ^LL("HAUS", "FLAECHEN", "RAUM1")=""
+    ^LL("HAUS", "FLAECHEN", "RAUM2")=""
+    ^LL("HAUS", "FLAECHEN", "RAUM2")=""
+    ^LL("HAUS", "HEIZUNG")=""
+    ^LL("HAUS", "HEIZUNG", "MESSGERAETE")=""
+    ^LL("HAUS", "HEIZUNG", "ROHRE")=""
+    ^LL("LAND")=""
+    ^LL("LAND", "FLAECHEN")=""
+    ^LL("LAND", "NUTZUNG")=""
+    ^LL("ORT")=""
+
+
 # ------------ Test procs ------------
 
 proc testDel() =
@@ -20,8 +45,8 @@ proc testDel() =
   assert 10 == dta # Expect no data but subtree
   rc = deltree: ^X(1)
   doAssertRaises(YdbDbError): # expect exception because node removed
-    let v = get: ^X(1)
-  
+    discard  get: ^X(1)
+
 
 proc testData() =
   set:
@@ -42,6 +67,7 @@ proc testData() =
   assert YdbData(dta) == DATA_AND_SUBTREE
   dta = data: ^X(7)
   assert YdbData(dta) == NO_DATA_WITH_SUBTREE
+
 
 proc testSetGet() =
   let id = 1
@@ -84,6 +110,7 @@ proc testSetGet() =
   let s2 = get: ^CUST(id, 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30)
   assert "xxx" == s2
 
+
 proc testIncrement() =  
   # Increment
   let rc = delnode: ^CNT("TXID")
@@ -91,6 +118,7 @@ proc testIncrement() =
   assert 1 == incrval
   incrval = incr: ^CNT("TXID") = 10
   assert 11 == incrval
+
 
 proc testGetUpdate() =
   # Get
@@ -120,6 +148,33 @@ proc testLock()  =
   assert 0 == getLockCountFromYottaDb()
   
 
+proc testNextNode1() =
+  var node = nextn: ^LL()
+  assert node[0] == "HAUS"
+  node = nextn: ^LL(node)
+  assert (node[0] == "HAUS" and node[1] == "ELEKTRIK")
+
+proc testNextNode2() =
+  var node = nextn: ^LL("HAUS")
+  assert (node[0] == "HAUS" and node[1] == "ELEKTRIK")
+  node = nextn: ^LL(node)
+  assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN")
+
+proc testNextNode3() =
+  var node = nextn: ^LL("HAUS", "ELEKTRIK")
+  assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN")
+  node = nextn: ^LL(node)  
+  assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN" and node[3] == "1")
+
+proc testNextNode4() =
+  var node:Subscripts = @["0"]
+  while true:
+    node = nextn: ^LL(node)
+    if node.len == 0: break
+    let val = get: ^LL(node)
+    echo node, " ", val
+
+
 proc test(): int =
   suite "YottaDB DSL Tests":
     test "set": testSetGet()
@@ -127,7 +182,13 @@ proc test(): int =
     test "data": testData()
     test "testDel": testDel()
     test "locks": testLock()
+    test "nextNode empty": testNextNode1()
+    test "nextNode one element": testNextNode2()
+    test "nextNode two elements": testNextNode3()
+    test "nextNode Access value with :get": testNextNode4()
+
 
 when isMainModule:
+  setupLL()
   let (ms, rc) = timed:
     test()

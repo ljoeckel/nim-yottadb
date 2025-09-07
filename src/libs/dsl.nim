@@ -1,7 +1,9 @@
 import macros
 import yottadb_api
+import yottadb_types
 import std/strutils
 import std/times
+
 
 template transformBody(body: untyped): untyped =
   if body.kind == nnkStmtList:
@@ -24,7 +26,45 @@ proc transformCallNode(node: NimNode): seq[NimNode] =
   else:
     echo "unsupported node node.kind=", node.kind
 
+
+proc transformCallNodeNext(node: NimNode): NimNode =
+  ## Special version for nextnode macro
+  echo "transformCallNode in dls_test"
+  if node.kind == nnkPrefix:
+    let prefix = node[0].strVal
+    let callNode = node[1]
+    if callNode.kind == nnkCall:
+      let tableIdent = callNode[0]
+      let globalArg = newLit(prefix & $tableIdent)
+
+      var transformedArgs: seq[NimNode] = @[]
+      for i in 1 ..< callNode.len:
+        let arg = callNode[i]
+        case arg.kind
+        of nnkStrLit, nnkRStrLit, nnkIntLit:
+          # literals → wrap with `$`
+          transformedArgs.add newCall(ident"$", arg)
+        else:
+          # identifiers, symbols, exprs → pass directly
+          transformedArgs.add(arg)
+
+      if transformedArgs.len == 1 and
+         transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit}:
+        # one non-literal arg → call overload (string, seq[string])
+        result = newCall(ident"nextnodeyyy1", globalArg, transformedArgs[0])
+      else:
+        # multiple args (or literals) → call overload (varargs[string])
+        result = newCall(ident"nextnodeyyy", globalArg)
+        for a in transformedArgs:
+          result.add a
+    else:
+      error "unsupported callNode kind: " & $callNode.kind
+  else:
+    error "unsupported node kind: " & $node.kind
+
+
 proc transformCallNodeGET(node: NimNode): NimNode =
+  ## Special version for Get with .int, .float conversion
   ## Handles ^, $ and '' prefixes
   doAssert node.kind == nnkPrefix
   let prefix = node[0].strVal   # "^", "$", or ""
@@ -67,6 +107,7 @@ proc transformCallNodeGET(node: NimNode): NimNode =
   else:
     error("Unsupported rhs of prefix: " & $rhs.kind)
 
+
 macro set*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkAsgn:
@@ -80,6 +121,7 @@ macro set*(body: untyped): untyped =
       return node
 
   transformBody body
+
 
 macro incr*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
@@ -98,6 +140,7 @@ macro incr*(body: untyped): untyped =
   
   transformBody body
 
+
 macro get*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
@@ -111,6 +154,7 @@ macro get*(body: untyped): untyped =
 
   transformBody body
 
+
 macro data*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
@@ -120,6 +164,7 @@ macro data*(body: untyped): untyped =
       return node
 
   transformBody body
+
 
 macro delnode*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
@@ -131,6 +176,7 @@ macro delnode*(body: untyped): untyped =
 
   transformBody body
 
+
 macro deltree*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
@@ -140,6 +186,7 @@ macro deltree*(body: untyped): untyped =
       return node
 
   transformBody body
+
 
 macro lock*(body: untyped): untyped =
   var args:seq[NimNode] = @[]
@@ -158,6 +205,17 @@ macro lock*(body: untyped): untyped =
   transformBody body
 
 
+macro nextn*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      var args = transformCallNodeNext(node)
+      return args
+    else:
+      return node
+
+  transformBody body
+
+
 # Proc^s that implement the ydb call's
 # ---------------------
 # set proc
@@ -167,6 +225,7 @@ proc setxxx*(args: varargs[string]) =
   let subscripts = args[1..^2]
   let value = args[^1]
   ydbSet(global, subscripts, value)
+
 
 # ----------------------
 # incr (increment) procs
@@ -181,6 +240,7 @@ proc incrxxx*(args: varargs[string]): int =
   let subscripts = args[1..^2]
   let value = parseInt(args[^1])
   return ydbIncrement(global, subscripts, value)
+
 
 # -------------------
 # get* procs
@@ -200,6 +260,7 @@ proc getint*(args: varargs[string]): int =
   let subscripts = args[1..^1]
   result = parseInt(ydbGet(global, subscripts))
 
+
 # -------------------
 # data proc
 # -------------------
@@ -207,6 +268,7 @@ proc dataxxx*(args: varargs[string]): int =
   let global = args[0]
   let subscripts = args[1..^1]
   result = ydbData(global, subscripts)
+
 
 # -------------------
 # del Node/Tree procs
@@ -220,6 +282,7 @@ proc deltreexxx*(args: varargs[string]): int =
   let global = args[0]
   let subscripts = args[1..^1]
   result = ydbDeleteTree(global, subscripts)
+
 
 # ---------------------
 # lock proc
@@ -242,3 +305,17 @@ proc lockxxx*(args: varargs[string]) =
     ydbLock(100000, subs)
   except:
     echo getCurrentExceptionMsg()
+
+
+# -------------------
+# nextnode procs
+# -------------------
+proc nextnodeyyy*(args: varargs[string]): Subscripts =
+  let global = args[0]
+  var subscripts = args[1..^1]
+  result = nextNode(global, subscripts)
+proc nextnodeyyy1*(global: string, subscripts: var seq[string]): Subscripts =
+  result = nextNode(global, subscripts)
+proc nextnodeyyy1*(global: string, sub: string): Subscripts =
+  var subscripts:seq[string] = @[sub]
+  result = nextNode(global, subscripts)
