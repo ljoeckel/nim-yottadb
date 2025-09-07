@@ -119,6 +119,13 @@ func keysToString*(global: string, subscript: Subscripts): string =
   result.add(keysToString(subscript))
   result.add(")")
 
+func keysToString*(global: string, subscript: Subscripts, value:string): string =
+  result = global & "("
+  result.add(keysToString(subscript))
+  result.add(")")
+  if not value.isEmptyOrWhitespace:
+    result.add("=" & value)
+
 proc subscriptsToValue*(global: string, subscript: Subscripts): string =
   var value: string
   try:

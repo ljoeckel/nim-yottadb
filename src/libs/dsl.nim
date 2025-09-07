@@ -2,8 +2,8 @@ import macros
 import yottadb_api
 import yottadb_types
 import std/strutils
-import std/times
 
+# Consolidated transformation logic for DSL macros
 
 template transformBody(body: untyped): untyped =
   if body.kind == nnkStmtList:
@@ -13,100 +13,125 @@ template transformBody(body: untyped): untyped =
   else:
     result = transform(body)
 
-proc transformCallNode(node: NimNode): seq[NimNode] = 
-  ## tablePrefix '^' for yottadb global variables, '$' for Special variables, '' empty for variables
-  if node.kind == nnkPrefix:
-    let prefix = node[0].strVal # get ^, $, or ''
-    let callNode = node[1]
-    if callNode.kind == nnkCall:
-      let tableIdent = callNode[0]
-      result.add newLit(prefix & $tableIdent)      # turn Ident into string "CUSTOMER"
-      for i in 1 ..< callNode.len:
-        result.add newCall(ident"$", callNode[i])
-  else:
-    echo "unsupported node node.kind=", node.kind
 
+type
+  TransformKind = enum
+    tkDefault,    # Default transformation
+    tkNext,       # Next node transformation 
+    tkGet        # Get transformation
 
-proc transformCallNodeNext(node: NimNode): NimNode =
-  ## Special version for nextnode macro
-  echo "transformCallNode in dls_test"
-  if node.kind == nnkPrefix:
-    let prefix = node[0].strVal
-    let callNode = node[1]
-    if callNode.kind == nnkCall:
-      let tableIdent = callNode[0]
-      let globalArg = newLit(prefix & $tableIdent)
+proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault): NimNode =
+  ## Consolidated transform procedure that handles all cases
+  if node.kind != nnkPrefix:
+    error "unsupported node kind: " & $node.kind
+    return node
 
-      var transformedArgs: seq[NimNode] = @[]
-      for i in 1 ..< callNode.len:
-        let arg = callNode[i]
+  let prefix = node[0].strVal   # get ^, $, or ''
+  let rhs = node[1]
+
+  # Helper to build basic args
+  proc makeBaseArgs(callPart: NimNode): seq[NimNode] =
+    let tableIdent = callPart[0]
+    result = @[newLit(prefix & tableIdent.strVal)]
+    for i in 1 ..< callPart.len:
+      let arg = callPart[i]
+      # Handle literals vs other expressions differently for Next transformation
+      if kind == tkNext or kind == tkGet:
         case arg.kind
         of nnkStrLit, nnkRStrLit, nnkIntLit:
-          # literals → wrap with `$`
-          transformedArgs.add newCall(ident"$", arg)
+          result.add newCall(ident"$", arg)
         else:
-          # identifiers, symbols, exprs → pass directly
-          transformedArgs.add(arg)
-
-      if transformedArgs.len == 1 and
-         transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit}:
-        # one non-literal arg → call overload (string, seq[string])
-        result = newCall(ident"nextnodeyyy1", globalArg, transformedArgs[0])
+          #result.add arg
+          result.add newCall(ident"$", arg)
       else:
-        # multiple args (or literals) → call overload (varargs[string])
+        result.add newCall(ident"$", arg)
+
+  # Helper to build basic args
+  proc makeBaseArgsNext(callPart: NimNode): seq[NimNode] =
+    let tableIdent = callPart[0]
+    result = @[newLit(prefix & tableIdent.strVal)]
+    for i in 1 ..< callPart.len:
+      let arg = callPart[i]
+      # Handle literals vs other expressions differently for Next transformation
+      if kind == tkNext or kind == tkGet:
+        case arg.kind
+        of nnkStrLit, nnkRStrLit, nnkIntLit:
+          result.add newCall(ident"$", arg)
+        else:
+          result.add arg
+      else:
+        result.add newCall(ident"$", arg)
+
+  case kind
+  of tkDefault:
+    # Handle basic transformation
+    if rhs.kind == nnkCall:
+      var args = makeBaseArgs(rhs)
+      return newStmtList(args)
+
+  of tkNext:
+    # Handle next node transformation
+    if rhs.kind == nnkCall:
+      let args = makeBaseArgsNext(rhs)
+      let globalArg = args[0]
+      let transformedArgs = args[1..^1]
+      
+      if transformedArgs.len == 1 and 
+         transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit}:
+        return newCall(ident"nextnodeyyy1", globalArg, transformedArgs[0])
+      else:
         result = newCall(ident"nextnodeyyy", globalArg)
         for a in transformedArgs:
           result.add a
-    else:
-      error "unsupported callNode kind: " & $callNode.kind
-  else:
-    error "unsupported node kind: " & $node.kind
 
+  of tkGet:
+    # Handle get transformation with type conversion
+    if rhs.kind == nnkCall:
+      #return newCall(ident"getstring", makeBaseArgs(rhs))
+      let args = makeBaseArgsNext(rhs)
+      let globalArg = args[0]
+      let transformedArgs = args[1..^1]
+      if transformedArgs.len == 1 and transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit}:
+        return newCall(ident"getstring1", globalArg, transformedArgs[0])
+      else:
+        result = newCall(ident"getstring", globalArg)
+        for a in transformedArgs:
+          #result.add a
+          result.add newCall(ident"$", a)
 
-proc transformCallNodeGET(node: NimNode): NimNode =
-  ## Special version for Get with .int, .float conversion
-  ## Handles ^, $ and '' prefixes
-  doAssert node.kind == nnkPrefix
-  let prefix = node[0].strVal   # "^", "$", or ""
-  let rhs = node[1]
+    elif rhs.kind == nnkDotExpr:
+      let callPart = rhs[0]
+      let fieldPart = rhs[1]
+      
+      if callPart.kind != nnkCall:
+        error("Expected a call on left side of dotExpr")
+        return node
 
-  # helper to build args
-  proc makeArgs(callPart: NimNode): seq[NimNode] =
-    let tableIdent = callPart[0]
-    result = @[ newLit(prefix & tableIdent.strVal) ]
-    for i in 1 ..< callPart.len:
-      result.add newCall(ident"$", callPart[i])
+      let args = makeBaseArgs(callPart)
+      let suffix = fieldPart.strVal
+      let procName = case suffix
+        of "float": "getfloat"
+        of "int": "getint"
+        of "string": "getstring"
+        else: error("Unsupported suffix: " & suffix)
+                   
+      return newCall(ident(procName), args)
+    elif rhs.kind == nnkIdent:
+      return newCall(ident"getstring", @[newLit(prefix & rhs.strVal)])
 
-  if rhs.kind == nnkCall:
-    # ^CUST(id,1) or $USER(id)
-    return newCall(ident"getstring", makeArgs(rhs))
+# Update existing transform procs to use the base version
+proc transformCallNode(node: NimNode): seq[NimNode] =
+  let transformed = transformCallNodeBase(node, tkDefault)
+  if transformed.kind == nnkStmtList:
+    for stmt in transformed: result.add stmt
 
-  elif rhs.kind == nnkDotExpr:
-    # ^CUST(id,1).float or $USER(id).int
-    let callPart = rhs[0]
-    let fieldPart = rhs[1]
+proc transformCallNodeNext(node: NimNode): NimNode =
+  transformCallNodeBase(node, tkNext)
 
-    if callPart.kind != nnkCall:
-      error("Expected a call on left side of dotExpr")
+proc transformCallNodeGET(node: NimNode): NimNode = 
+  transformCallNodeBase(node, tkGet)
 
-    let args = makeArgs(callPart)
-    let suffix = fieldPart.strVal
-    let procName =
-      case suffix
-      of "float": "getfloat"
-      of "int": "getint"
-      of "string": "getstring"
-      else: error("Unsupported suffix: " & suffix)
-
-    return newCall(ident(procName), args)
-
-  elif rhs.kind == nnkIdent:
-    # plain ^NAME or $NAME
-    return newCall(ident"getstring", @[newLit(prefix & rhs.strVal)])
-
-  else:
-    error("Unsupported rhs of prefix: " & $rhs.kind)
-
+# ------------------- DSL macros -------------------
 
 macro set*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
@@ -154,6 +179,15 @@ macro get*(body: untyped): untyped =
 
   transformBody body
 
+macro nextn*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      var args = transformCallNodeNext(node)
+      return args
+    else:
+      return node
+
+  transformBody body
 
 macro data*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
@@ -205,18 +239,46 @@ macro lock*(body: untyped): untyped =
   transformBody body
 
 
-macro nextn*(body: untyped): untyped =
-  proc transform(node: NimNode): NimNode =
-    if node.kind == nnkPrefix:
-      var args = transformCallNodeNext(node)
-      return args
-    else:
-      return node
-
-  transformBody body
-
-
 # Proc^s that implement the ydb call's
+
+# -------------------
+# get* procs
+# -------------------
+proc getstring*(args: varargs[string]): string =
+  let global = args[0]
+  let subscripts = args[1..^1]
+  result = ydbGet(global, subscripts)  
+proc getstring1*(global: string, args: seq[string]): string =
+  let subscripts = args[0..^1]
+  result = ydbGet(global, subscripts)
+proc getstring1*(global: string, args: string): string =
+  let subscripts: seq[string] = @[args]
+  result = ydbGet(global, subscripts)
+
+proc getfloat*(args: varargs[string]): float =
+  let global = args[0]
+  let subscripts = args[1..^1]
+  result = parseFloat(ydbGet(global, subscripts))
+
+proc getint*(args: varargs[string]): int =
+  let global = args[0]
+  let subscripts = args[1..^1]
+  result = parseInt(ydbGet(global, subscripts))
+
+# -------------------
+# nextnode procs
+# -------------------
+proc nextnodeyyy*(args: varargs[string]): Subscripts =
+  let global = args[0]
+  var subscripts = args[1..^1]
+  result = nextNode(global, subscripts)
+proc nextnodeyyy1*(global: string, subscripts: var seq[string]): Subscripts =
+  result = nextNode(global, subscripts)
+proc nextnodeyyy1*(global: string, sub: string): Subscripts =
+  var subscripts:seq[string] = @[sub]
+  result = nextNode(global, subscripts)
+
+
 # ---------------------
 # set proc
 # ---------------------
@@ -240,25 +302,6 @@ proc incrxxx*(args: varargs[string]): int =
   let subscripts = args[1..^2]
   let value = parseInt(args[^1])
   return ydbIncrement(global, subscripts, value)
-
-
-# -------------------
-# get* procs
-# -------------------
-proc getstring*(args: varargs[string]): string =
-  let global = args[0]
-  let subscripts = args[1..^1]
-  result = ydbGet(global, subscripts)  
-
-proc getfloat*(args: varargs[string]): float =
-  let global = args[0]
-  let subscripts = args[1..^1]
-  result = parseFloat(ydbGet(global, subscripts))
-
-proc getint*(args: varargs[string]): int =
-  let global = args[0]
-  let subscripts = args[1..^1]
-  result = parseInt(ydbGet(global, subscripts))
 
 
 # -------------------
@@ -305,17 +348,3 @@ proc lockxxx*(args: varargs[string]) =
     ydbLock(100000, subs)
   except:
     echo getCurrentExceptionMsg()
-
-
-# -------------------
-# nextnode procs
-# -------------------
-proc nextnodeyyy*(args: varargs[string]): Subscripts =
-  let global = args[0]
-  var subscripts = args[1..^1]
-  result = nextNode(global, subscripts)
-proc nextnodeyyy1*(global: string, subscripts: var seq[string]): Subscripts =
-  result = nextNode(global, subscripts)
-proc nextnodeyyy1*(global: string, sub: string): Subscripts =
-  var subscripts:seq[string] = @[sub]
-  result = nextNode(global, subscripts)

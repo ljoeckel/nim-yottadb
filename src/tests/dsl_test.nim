@@ -121,14 +121,24 @@ proc testIncrement() =
 
 
 proc testGetUpdate() =
-  # Get
   let subs = @["4711", "Acc123"]
-  set: ^CUST(subs) = 1500
-  var amount = get: ^CUST(subs).int
-  inc(amount, 1500)
-  set: ^CUST(subs) = amount
-  let dbamount = get: ^CUST(subs).int  # read from db
-  assert dbamount == amount
+  block:
+    # Get and Update .int
+    set: ^CUST(subs) = 1500
+    var amount = get: ^CUST(subs).int
+    amount += 1500
+    set: ^CUST(subs) = amount
+    let dbamount = get: ^CUST(subs).int  # read from db
+    assert dbamount == amount
+
+  block:
+    # Get and Update .float
+    set: ^CUST(subs) = 1500.50
+    var amount = get: ^CUST(subs).float
+    amount += 1500.50
+    set: ^CUST(subs) = amount
+    let dbamount = get: ^CUST(subs).float  # read from db
+    assert dbamount == amount
 
 
 proc testLock()  =
@@ -167,18 +177,28 @@ proc testNextNode3() =
   assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN" and node[3] == "1")
 
 proc testNextNode4() =
-  var node:Subscripts = @["0"]
+  var node:Subscripts = @["HAUS", "ELEKTRIK", "DOSEN"]
+  node = nextn: ^LL(node)
+  let val = get: ^LL(node)
+  assert val == "Telefondose"
+  let val2 = get: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
+  assert val2 == "Telefondose"
+
+
+proc testTXS() =
+  var node:Subscripts = @[]
   while true:
     node = nextn: ^LL(node)
     if node.len == 0: break
     let val = get: ^LL(node)
-    echo node, " ", val
+    echo keysToString("^LL", node, val)
 
 
 proc test(): int =
   suite "YottaDB DSL Tests":
     test "set": testSetGet()
     test "increment": testIncrement()
+    test "getUpdate": testGetUpdate()
     test "data": testData()
     test "testDel": testDel()
     test "locks": testLock()
@@ -186,6 +206,7 @@ proc test(): int =
     test "nextNode one element": testNextNode2()
     test "nextNode two elements": testNextNode3()
     test "nextNode Access value with :get": testNextNode4()
+    test "nextNode TXS :get": testTXS()
 
 
 when isMainModule:
