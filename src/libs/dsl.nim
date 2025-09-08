@@ -201,6 +201,17 @@ macro prevn*(body: untyped): untyped =
 
   transformBody body
 
+
+macro nextsub*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      var args = transformCallNodeNext(node, "nextsub")
+      return args
+    else:
+      return node
+
+  transformBody body
+
 macro data*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
@@ -280,28 +291,54 @@ proc getint*(args: varargs[string]): int =
 # -------------------
 # nextnode procs
 # -------------------
-proc nextnodeyyy*(args: varargs[string]): Subscripts =
+proc nextnodeyyy*(args: varargs[string]): (int, Subscripts) =
   let global = args[0]
   var subscripts = args[1..^1]
-  result = nextNode(global, subscripts)
-proc nextnodeyyy1*(global: string, subscripts: var seq[string]): Subscripts =
-  result = nextNode(global, subscripts)
-proc nextnodeyyy1*(global: string, sub: string): Subscripts =
+  return nextNode(global, subscripts)
+
+proc nextnodeyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
+  return nextNode(global, subscripts)
+
+proc nextnodeyyy1*(global: string, sub: string): (int, Subscripts) =
   var subscripts:seq[string] = @[sub]
-  result = nextNode(global, subscripts)
+  return nextNode(global, subscripts)
+
+
+# -------------------
+# nextsub procs
+# -------------------
+proc nextsubyyy*(args: varargs[string]): (int, Subscripts) =
+  let global = args[0]
+  var subscripts = args[1..^1]
+  var rc:int
+  (rc, subscripts) = ydb_subscript_next(global, subscripts)
+  result = ydb_subscript_next(global, subscripts)
+  return (rc, subscripts)
+
+proc nextsubyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
+  var rc:int
+  (rc, subscripts) = ydb_subscript_next(global, subscripts)
+  return (rc, subscripts)
+
+proc nextsubyyy1*(global: string, sub: string): (int, Subscripts) =
+  var rc:int
+  var subscripts:seq[string] = @[sub]
+  (rc, subscripts) = ydb_subscript_next(global, subscripts)
+  return (rc, subscripts)
+
 
 # -------------------
 # prevnode procs
 # -------------------
-proc prevnodeyyy*(args: varargs[string]): Subscripts =
+proc prevnodeyyy*(args: varargs[string]): (int, Subscripts) =
   let global = args[0]
   var subscripts = args[1..^1]
-  result = prevNode(global, subscripts)
-proc prevnodeyyy1*(global: string, subscripts: var seq[string]): Subscripts =
-  result = prevNode(global, subscripts)
-proc prevnodeyyy1*(global: string, sub: string): Subscripts =
+  return prevNode(global, subscripts)
+proc prevnodeyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
+  return prevNode(global, subscripts)
+proc prevnodeyyy1*(global: string, sub: string): (int, Subscripts) =
   var subscripts:seq[string] = @[sub]
-  result = prevNode(global, subscripts)
+  return prevNode(global, subscripts)
 
 
 # ---------------------

@@ -148,7 +148,7 @@ proc load[T](global: string, subs: seq[string], k: string; x: var set[T]) =
   var subscripts = subs
   subscripts.add( @[k, ""] )
   while(rc == YDB_OK):
-    rc = ydb_subscript_next(global, subscripts)
+    (rc, subscripts) = ydb_subscript_next(global, subscripts)
     if rc == YDB_OK:
       let value = ydbGet(global, subscripts)
       when typeof(x) is set[char]:
@@ -170,7 +170,7 @@ proc load[T: var SomeSet](global: string, subs: seq[string], k: string; x: var T
   var subscripts = subs
   subscripts.add(@[k, ""])
   while(rc == YDB_OK):
-    rc = ydb_subscript_next(global, subscripts)
+    (rc, subscripts) = ydb_subscript_next(global, subscripts)
     if rc == YDB_OK:
       x.incl(ydbGet(global, subscripts))
     inc(idx)
@@ -184,7 +184,7 @@ proc load[T](global: string, subs: seq[string], k: string; x: var seq[T] ) =
     subscripts.add("")
     let gbl = "^" & $T
     while(rc == YDB_OK):
-      rc = ydb_subscript_next(gbl, subscripts)
+      (rc, subscripts) = ydb_subscript_next(gbl, subscripts)
       if rc == YDB_OK:
         var t:T = T()
         load(gbl, subscripts, t)
@@ -193,7 +193,7 @@ proc load[T](global: string, subs: seq[string], k: string; x: var seq[T] ) =
     var subscripts = subs
     subscripts.add(@[k,""])
     while(rc == YDB_OK):
-      rc = ydb_subscript_next(global, subscripts)
+      (rc, subscripts) = ydb_subscript_next(global, subscripts)
       if rc == YDB_OK:
         x.add(ydbGet(global, subscripts))
 

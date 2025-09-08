@@ -30,25 +30,39 @@ proc worker_dsl(tn: int, iterations: int) = # Duration 24606 ms.
     dec(counter)
 
 proc main(): int =
-  const NUM_OF_THREADS = 4
-  const ITERATIONS = 1000000
+  const NUM_OF_THREADS = 2
+  const ITERATIONS = 2000000
   var m = createMaster()
   m.awaitAll:
     for tn in 0..<NUM_OF_THREADS:
       m.spawn worker(tn, ITERATIONS)
+  echo "main done"
 
 proc main_dsl(): int =
-  const NUM_OF_THREADS = 4
-  const ITERATIONS = 1000000
+  const NUM_OF_THREADS = 2
+  const ITERATIONS = 2000000
   var m = createMaster()
   m.awaitAll:
     for tn in 0..<NUM_OF_THREADS:
       m.spawn worker_dsl(tn, ITERATIONS)
+  echo "main_dsl done"
+
+
+proc count_data(): int =
+  var cnt = 0
+  var rc = YDB_OK
+  var node:Subscripts = @[]
+  while rc == YDB_OK:
+    (rc, node) = nextn: ^ydbSet(node)
+    if rc == YDB_OK:
+      inc(cnt)
 
 
 when isMainModule:
-  var (ms, rc) = timed:
-    main()
+  # Reset counter
+  discard delnode: ^CNT("ydbSet")
 
-  (ms, rc) = timed:
-    main_dsl()
+  var ms, rc:int
+  (ms, rc) = timed: main()
+  (ms, rc) = timed: main_dsl()
+  (ms, rc) = timed: count_data()  

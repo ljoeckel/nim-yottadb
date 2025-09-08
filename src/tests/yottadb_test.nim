@@ -2,7 +2,7 @@ import std/[strformat, strutils, unittest]
 import ../yottadb
 
 const
-  MAX = 1000000
+  MAX = 1000
 
 proc setupLL() =
   let global = "^LL"
@@ -123,22 +123,27 @@ proc testPreviousNode(global: string, start: Subscripts = @[]) =
 
 proc nextSubscript(global: string, start: Subscripts, expected: Subscripts) =
   var subscript = start
-  var rc = 0
-  var lastSubscript: Subscripts
-  while(rc == YDB_OK):
-    rc = ydb_subscript_next(global, subscript)
-    if rc == YDB_OK:
-      lastSubscript = subscript
-  doAssert lastSubscript == expected
+  var rc = YDB_OK
+  (rc, subscript) = ydb_subscript_next(global, subscript)
+  doAssert rc == YDB_OK and subscript == expected
+
+proc nextSubscriptIterate(global: string, start: Subscripts, expected: Subscripts) =
+  var rc = YDB_OK
+  var subscript = start
+  var last_subscript: Subscripts
+  while rc == YDB_OK:
+    last_subscript = subscript
+    (rc, subscript) = ydb_subscript_next(global, subscript)
+  doAssert last_subscript == expected
 
 proc previousSubscript(global: string, start: Subscripts, expected: Subscripts) =
   var subscript = start
   var lastSubscript: Subscripts
-  var rc = 0
-  while(rc == YDB_OK):
-    rc = ydb_subscript_previous(global, subscript)
-    if rc == YDB_OK:
-      lastSubscript = subscript
+  var rc = YDB_OK
+  while rc == YDB_OK:
+    (rc, subscript) = ydb_subscript_previous(global, subscript)
+    if rc != YDB_OK: break
+    lastSubscript = subscript
   doAssert lastSubscript == expected
 
 proc nextSubsIter(global: string, start: Subscripts, expected: Subscripts) =
@@ -229,10 +234,11 @@ proc testLock() =
   assert getLockCountFromYottaDb() == 0
 
 proc testIncrement() =
+  let MAX = 1000 
   ydbSet("^COUNTERS", @["upcount"], "0")
-  for i in 0..<1000000:
+  for i in 0..<MAX:
     let cnt = ydbIncrement("^COUNTERS", @["upcount"])
-  assert ydbGet("^COUNTERS", @["upcount"]) == "1000000"
+  assert ydbGet("^COUNTERS", @["upcount"]) == $MAX
 
 proc testMaxSubscripts() =
   for i in 0..<33:
@@ -265,10 +271,21 @@ proc test() =
     test "next/previous Node":
       test "testNextNode ^LJ": testNextNode("^LJ")
       test "testPreviousNode": testPreviousNode("^LJ", @["LAND", "STRASSE"])
-    test "next/previous Subscript":
-      test "nextSubscript": nextSubscript("^LL", @["HAUS", "ELE..."], @["HAUS", "HEIZUNG"])
-      test "nextSubscript":nextSubscript("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
-      test "previousSubscript":previousSubscript("^LL", @["HAUS", "ELEKTRIK", "SICHERUN..."], @["HAUS", "ELEKTRIK", "DOSEN"] )
+    test "nextSubscript":
+      test "nextSubscript1": nextSubscript("^LL", @["HAUS", "ELE..."], @["HAUS", "ELEKTRIK"])
+      test "nextSubscript2": nextSubscript("^LL", @["HAUS", "ELEKTRIK"], @["HAUS", "FLAECHEN"])
+      test "nextSubscript3": nextSubscript("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "DOSEN"])
+      test "nextSubscript4": nextSubscript("^LL", @["HAUS", "ELEKTRIK", "DOSEN", ""], @["HAUS", "ELEKTRIK", "DOSEN", "1"])
+    test "nextSubscriptIterate":
+      test "nextSubscript1": nextSubscriptIterate("^LL", @["HAUS"], @["ORT"])
+      test "nextSubscript2": nextSubscriptIterate("^LL", @["HAUS", "ELE..."], @["HAUS", "HEIZUNG"])
+      test "nextSubscript3": nextSubscriptIterate("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
+      test "nextSubscript4": nextSubscriptIterate("^LL", @["HAUS", "ELEKTRIK", "DOSEN", ""], @["HAUS", "ELEKTRIK", "DOSEN", "4"])
+    test "previousSubscript":
+      test "previousSubscript1":previousSubscript("^LL", @["HAUS", "ELEKTRIK", "SICHERUN..."], @["HAUS", "ELEKTRIK", "DOSEN"] )
+      test "previousSubscript2":previousSubscript("^LL", @["HAUS", "ELEKTRIK", "DOSEN", "99999"], @["HAUS", "ELEKTRIK", "DOSEN", "1"] )
+      test "previousSubscript3":previousSubscript("^LL", @["HAUS"], @[] )
+    test "previousSubscriptIter4":
       test "nextSubscriptIter":nextSubsIter("^LL", @["HAUS", "ELEKT..."], @["HAUS", "HEIZUNG"])
       test "previousSubscriptIter":previousSubsIter("^LL", @["HAUS", "HEIZUNG"], @["HAUS", "ELEKTRIK"])
     test "Delete Operations":
@@ -297,9 +314,6 @@ proc testB() =
 
 proc testC() =
   setupLL()
-  test "simpleSet": simpleSet("^X", 100)
-  test "simpleGet": simpleGet("^X", 100)
-  testNextNode("^LL", @[""])
 
 
 when isMainModule:

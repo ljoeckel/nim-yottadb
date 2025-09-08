@@ -14,6 +14,7 @@ proc setupLL() =
     ^LL("HAUS", "ELEKTRIK", "DOSEN", "4") = "KFZ-Dose"
     ^LL("HAUS", "ELEKTRIK", "KABEL")=""
     ^LL("HAUS", "ELEKTRIK", "KABEL", "FARBEN")=""
+    ^LL("HAUS", "ELEKTRIK", "KABEL", "FIN")=""
     ^LL("HAUS", "ELEKTRIK", "KABEL", "STAERKEN")=""
     ^LL("HAUS", "ELEKTRIK", "SICHERUNGEN")=""
     ^LL("HAUS", "FLAECHEN", "RAUM1")=""
@@ -107,7 +108,7 @@ proc testSetGet() =
     set: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32)="xxx"
   # Should work without exception
   set: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31)="xxx"
-  let s2 = get: ^CUST(id, 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30)
+  let s2 = get: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31)
   assert "xxx" == s2
 
 
@@ -159,27 +160,29 @@ proc testLock()  =
   
 
 proc testNextNode() =
+  var rc:int
+  var node:Subscripts
   block:
-    var node = nextn: ^LL()
+    (rc, node) = nextn: ^LL()
     assert node[0] == "HAUS"
-    node = nextn: ^LL(node)
+    (rc, node) = nextn: ^LL(node)
     assert (node[0] == "HAUS" and node[1] == "ELEKTRIK")
 
   block:
-    var node = nextn: ^LL("HAUS")
+    (rc, node) = nextn: ^LL("HAUS")
     assert (node[0] == "HAUS" and node[1] == "ELEKTRIK")
-    node = nextn: ^LL(node)
+    (rc, node) = nextn: ^LL(node)
     assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN")
 
   block:
-    var node = nextn: ^LL("HAUS", "ELEKTRIK")
+    (rc, node) = nextn: ^LL("HAUS", "ELEKTRIK")
     assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN")
-    node = nextn: ^LL(node)  
+    (rc, node) = nextn: ^LL(node)  
     assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN" and node[3] == "1")
 
   block:
-    var node:Subscripts = @["HAUS", "ELEKTRIK", "DOSEN"]
-    node = nextn: ^LL(node)
+    node = @["HAUS", "ELEKTRIK", "DOSEN"]
+    (rc, node) = nextn: ^LL(node)
     let val = get: ^LL(node)
     assert val == "Telefondose"
     let val2 = get: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
@@ -188,31 +191,49 @@ proc testNextNode() =
 
 proc testNextCount() =
   var cnt = 0
+  var rc:int
   var node:Subscripts = @[]
   while true:
-    node = nextn: ^LL(node)
+    (rc, node) = nextn: ^LL(node)
     if node.len == 0: break
     inc(cnt)
     let val = get: ^LL(node)
-  assert cnt == 20
+  assert cnt == 22
 
 proc testPrevNode() =
+  var rc:int
+  var node:Subscripts
   block:
-    var node = prevn: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
+    (rc, node) = prevn: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
     assert node.len == 3 and node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN"
 
   block:
-    var node = prevn: ^LL("HAUS", "ELEKTRIK")
+    (rc, node) = prevn: ^LL("HAUS", "ELEKTRIK")
     assert node.len == 1 and node[0] == "HAUS"
 
   block:
-    var node = prevn: ^LL("HAUS")
+    (rc, node) = prevn: ^LL("HAUS")
     assert node.len == 0
 
   block:
-    var node = prevn: ^LL()
+    (rc, node) = prevn: ^LL()
     assert node.len == 0
 
+
+proc testNextSubscript(start: Subscripts, expected: Subscripts) =
+  var rc:int
+  var node: Subscripts = start 
+  (rc, node) = nextsub: ^LL(node)
+  assert rc == YDB_OK and node == expected
+
+proc testNextSubsIter(start: Subscripts, expected: Subscripts) =
+  var node: Subscripts= start
+  var lastnode: Subscripts
+  var rc = YDB_OK
+  while rc == YDB_OK:
+    lastnode = node
+    (rc, node) = nextsub: ^LL(node)
+  assert lastnode == expected
 
 proc test(): int =
   suite "YottaDB DSL Tests":
@@ -225,6 +246,19 @@ proc test(): int =
     test "nextNode": testNextNode()
     test "nextNode count": testNextCount()
     test "prevNode": testPrevNode()
+    test "testNextSubscript":
+      test "testNextSubscript1": testNextSubscript(@["HAUS", "ELE..."], @["HAUS", "ELEKTRIK"])
+      test "testNextSubscript2": testNextSubscript(@["HAUS", "ELEKTRIK"], @["HAUS", "FLAECHEN"])
+      test "testNextSubscript3": testNextSubscript(@["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "DOSEN"])
+      test "testNextSubscript4": testNextSubscript(@["HAUS", "ELEKTRIK", "DOSEN", ""], @["HAUS", "ELEKTRIK", "DOSEN", "1"])
+    test "testNextSubsIter":
+      test "testNextSubsIter1": testNextSubsIter(@[], @["ORT"])
+      test "testNextSubsIter2": testNextSubsIter(@[""], @["ORT"])
+      test "testNextSubsIter3": testNextSubsIter(@["H.."], @["ORT"])
+      test "testNextSubsIter4": testNextSubsIter(@["HAUS"], @["ORT"])
+      test "testNextSubsIter5": testNextSubsIter(@["HAUS", "ELE..."], @["HAUS", "HEIZUNG"])
+      test "testNextSubsIter6": testNextSubsIter(@["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
+      test "testNextSubsIter7": testNextSubsIter(@["HAUS", "ELEKTRIK", "DOSEN", ""], @["HAUS", "ELEKTRIK", "DOSEN", "4"])
 
 
 when isMainModule:
