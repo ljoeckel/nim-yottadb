@@ -31,7 +31,7 @@ proc worker_dsl(tn: int, iterations: int) = # Duration 24606 ms.
 
 proc main(): int =
   const NUM_OF_THREADS = 2
-  const ITERATIONS = 2000000
+  const ITERATIONS = 1000000
   var m = createMaster()
   m.awaitAll:
     for tn in 0..<NUM_OF_THREADS:
@@ -40,7 +40,7 @@ proc main(): int =
 
 proc main_dsl(): int =
   const NUM_OF_THREADS = 2
-  const ITERATIONS = 2000000
+  const ITERATIONS = 1000000
   var m = createMaster()
   m.awaitAll:
     for tn in 0..<NUM_OF_THREADS:
@@ -56,7 +56,7 @@ proc count_data(): int =
     (rc, node) = nextn: ^ydbSet(node)
     if rc == YDB_OK:
       inc(cnt)
-
+  echo "Have ", cnt, " entries."
 
 when isMainModule:
   # Reset counter

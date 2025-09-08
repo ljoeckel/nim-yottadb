@@ -191,14 +191,14 @@ proc testNextNode() =
 
 proc testNextCount() =
   var cnt = 0
-  var rc:int
+  var rc:int = YDB_OK
   var node:Subscripts = @[]
-  while true:
+  while rc == YDB_OK:
     (rc, node) = nextn: ^LL(node)
-    if node.len == 0: break
-    inc(cnt)
-    let val = get: ^LL(node)
+    if rc == YDB_OK:
+      inc(cnt)
   assert cnt == 22
+
 
 proc testPrevNode() =
   var rc:int

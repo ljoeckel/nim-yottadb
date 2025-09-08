@@ -261,7 +261,7 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken
       IDXARR2[i].buf_addr[len_used] = '\0' # null terminate
       sbscr.add($IDXARR2[i].buf_addr)
   
-  return (rc, sbscr)
+  return (rc.int, sbscr)
 
 proc ydb_node_next_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
   return node_traverse(Direction.Next, name, keys, tptoken)
@@ -273,6 +273,7 @@ proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts
   check()
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF)
+  if keys.len == 0: keys = @[""] # special case for empty subscript
   setIdxArr(IDXARR, keys)
   let subs_used = cast[cint](keys.len)
 
