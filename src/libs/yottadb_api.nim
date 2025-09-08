@@ -36,11 +36,14 @@ proc ydbTxRunMT*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string, transid: string
 proc ydbTxRun*(myTxnProc: ydb_tpfnptr_t, param: string, transid:string = ""): int =
   result = ydb_tp_start(myTxnProc, param, transid)
 
-# ------------------ Iterators for Next/Previous Node -----------------
+# ------------------ Next/Previous Node -----------------
 proc nextNode*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
   result = ydb_node_next_db(global, subscripts, tptoken)
   
+proc prevNode*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
+  result = ydb_node_previous_db(global, subscripts, tptoken)
 
+# ------------------ Iterators for Next/Previous Node -----------------
 iterator nextNodeIter*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
   var i = -1
   while i < len(subscripts):
@@ -63,14 +66,14 @@ proc ydb_subscript_previous*(name: string, keys: var Subscripts): int =
   result = ydb_subscript_previous_db(name, keys)
 
 # ------------------ Iterators for Next/Previous Subscript-------------
-iterator nextSubscriptNode*(global: string, subscripts: var Subscripts): Subscripts =
+iterator nextSubscriptIter*(global: string, subscripts: var Subscripts): Subscripts =
   var i = -1
   while i < len(subscripts):
     let rc = ydb_subscript_next(global, subscripts)
     if rc != 0 or len(subscripts) == 0: break
     yield subscripts
 
-iterator previousSubscriptNode*(global: string, subscripts: var Subscripts): Subscripts =
+iterator previousSubscriptIter*(global: string, subscripts: var Subscripts): Subscripts =
   var i = -1
   while i < len(subscripts):
     let rc = ydb_subscript_previous(global, subscripts)

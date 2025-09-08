@@ -20,7 +20,7 @@ type
     tkNext,       # Next node transformation 
     tkGet        # Get transformation
 
-proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault): NimNode =
+proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procPrefix: string = ""): NimNode =
   ## Consolidated transform procedure that handles all cases
   if node.kind != nnkPrefix:
     error "unsupported node kind: " & $node.kind
@@ -78,9 +78,11 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault): NimN
       
       if transformedArgs.len == 1 and 
          transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit}:
-        return newCall(ident"nextnodeyyy1", globalArg, transformedArgs[0])
+        let p = procPrefix & "yyy1"
+        return newCall(ident(p), globalArg, transformedArgs[0])
       else:
-        result = newCall(ident"nextnodeyyy", globalArg)
+        let p = procPrefix & "yyy"
+        result = newCall(ident(p), globalArg)
         for a in transformedArgs:
           result.add a
 
@@ -121,12 +123,12 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault): NimN
 
 # Update existing transform procs to use the base version
 proc transformCallNode(node: NimNode): seq[NimNode] =
-  let transformed = transformCallNodeBase(node, tkDefault)
+  let transformed = transformCallNodeBase(node, tkDefault, "")
   if transformed.kind == nnkStmtList:
     for stmt in transformed: result.add stmt
 
-proc transformCallNodeNext(node: NimNode): NimNode =
-  transformCallNodeBase(node, tkNext)
+proc transformCallNodeNext(node: NimNode, procPrefix:string = ""): NimNode =
+  transformCallNodeBase(node, tkNext, procPrefix)
 
 proc transformCallNodeGET(node: NimNode): NimNode = 
   transformCallNodeBase(node, tkGet)
@@ -182,7 +184,17 @@ macro get*(body: untyped): untyped =
 macro nextn*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
-      var args = transformCallNodeNext(node)
+      var args = transformCallNodeNext(node, "nextnode")
+      return args
+    else:
+      return node
+
+  transformBody body
+
+macro prevn*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      var args = transformCallNodeNext(node, "prevnode")
       return args
     else:
       return node
@@ -277,6 +289,19 @@ proc nextnodeyyy1*(global: string, subscripts: var seq[string]): Subscripts =
 proc nextnodeyyy1*(global: string, sub: string): Subscripts =
   var subscripts:seq[string] = @[sub]
   result = nextNode(global, subscripts)
+
+# -------------------
+# prevnode procs
+# -------------------
+proc prevnodeyyy*(args: varargs[string]): Subscripts =
+  let global = args[0]
+  var subscripts = args[1..^1]
+  result = prevNode(global, subscripts)
+proc prevnodeyyy1*(global: string, subscripts: var seq[string]): Subscripts =
+  result = prevNode(global, subscripts)
+proc prevnodeyyy1*(global: string, sub: string): Subscripts =
+  var subscripts:seq[string] = @[sub]
+  result = prevNode(global, subscripts)
 
 
 # ---------------------

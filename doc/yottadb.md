@@ -1,9 +1,10 @@
 # YottaDB commands
 
-## Enable Journaling
-mupip set -journal=enable -region '*'
-
+## Enable / Disable Journaling
 mupip journal -show=all -fo yottadb.mjl
+
+mupip set -journal=enable -region '*'
+mupip set -journal=disable -region '*'
 
 mupip journal -forward -extract -global="^TXM" yottadb.mjl 
 

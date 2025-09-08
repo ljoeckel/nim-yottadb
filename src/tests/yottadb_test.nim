@@ -141,17 +141,17 @@ proc previousSubscript(global: string, start: Subscripts, expected: Subscripts) 
       lastSubscript = subscript
   doAssert lastSubscript == expected
 
-proc nextSubscriptIter(global: string, start: Subscripts, expected: Subscripts) =
+proc nextSubsIter(global: string, start: Subscripts, expected: Subscripts) =
   var subs = start
   var lastSubs: Subscripts
-  for subs in nextSubscriptNode(global, subs):
+  for subs in nextSubscriptIter(global, subs):
     lastSubs = subs
   doAssert lastSubs == expected
 
-proc previousSubscriptIter(global: string, start: Subscripts, expected: Subscripts) =
+proc previousSubsIter(global: string, start: Subscripts, expected: Subscripts) =
   var subs = start
   var lastSubs: Subscripts
-  for subs in previousSubscriptNode(global, subs):
+  for subs in previousSubscriptIter(global, subs):
     lastSubs = subs
   doAssert lastSubs == expected
 
@@ -269,8 +269,8 @@ proc test() =
       test "nextSubscript": nextSubscript("^LL", @["HAUS", "ELE..."], @["HAUS", "HEIZUNG"])
       test "nextSubscript":nextSubscript("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
       test "previousSubscript":previousSubscript("^LL", @["HAUS", "ELEKTRIK", "SICHERUN..."], @["HAUS", "ELEKTRIK", "DOSEN"] )
-      test "nextSubscriptIter":nextSubscriptIter("^LL", @["HAUS", "ELEKT..."], @["HAUS", "HEIZUNG"])
-      test "previousSubscriptIter":previousSubscriptIter("^LL", @["HAUS", "HEIZUNG"], @["HAUS", "ELEKTRIK"])
+      test "nextSubscriptIter":nextSubsIter("^LL", @["HAUS", "ELEKT..."], @["HAUS", "HEIZUNG"])
+      test "previousSubscriptIter":previousSubsIter("^LL", @["HAUS", "HEIZUNG"], @["HAUS", "ELEKTRIK"])
     test "Delete Operations":
       test "deleteTree": deleteTree()
       test "deleteNode": deleteNode()

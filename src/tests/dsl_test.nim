@@ -158,40 +158,60 @@ proc testLock()  =
   assert 0 == getLockCountFromYottaDb()
   
 
-proc testNextNode1() =
-  var node = nextn: ^LL()
-  assert node[0] == "HAUS"
-  node = nextn: ^LL(node)
-  assert (node[0] == "HAUS" and node[1] == "ELEKTRIK")
+proc testNextNode() =
+  block:
+    var node = nextn: ^LL()
+    assert node[0] == "HAUS"
+    node = nextn: ^LL(node)
+    assert (node[0] == "HAUS" and node[1] == "ELEKTRIK")
 
-proc testNextNode2() =
-  var node = nextn: ^LL("HAUS")
-  assert (node[0] == "HAUS" and node[1] == "ELEKTRIK")
-  node = nextn: ^LL(node)
-  assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN")
+  block:
+    var node = nextn: ^LL("HAUS")
+    assert (node[0] == "HAUS" and node[1] == "ELEKTRIK")
+    node = nextn: ^LL(node)
+    assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN")
 
-proc testNextNode3() =
-  var node = nextn: ^LL("HAUS", "ELEKTRIK")
-  assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN")
-  node = nextn: ^LL(node)  
-  assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN" and node[3] == "1")
+  block:
+    var node = nextn: ^LL("HAUS", "ELEKTRIK")
+    assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN")
+    node = nextn: ^LL(node)  
+    assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN" and node[3] == "1")
 
-proc testNextNode4() =
-  var node:Subscripts = @["HAUS", "ELEKTRIK", "DOSEN"]
-  node = nextn: ^LL(node)
-  let val = get: ^LL(node)
-  assert val == "Telefondose"
-  let val2 = get: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
-  assert val2 == "Telefondose"
+  block:
+    var node:Subscripts = @["HAUS", "ELEKTRIK", "DOSEN"]
+    node = nextn: ^LL(node)
+    let val = get: ^LL(node)
+    assert val == "Telefondose"
+    let val2 = get: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
+    assert val2 == "Telefondose"
 
 
-proc testTXS() =
+proc testNextCount() =
+  var cnt = 0
   var node:Subscripts = @[]
   while true:
     node = nextn: ^LL(node)
     if node.len == 0: break
+    inc(cnt)
     let val = get: ^LL(node)
-    echo keysToString("^LL", node, val)
+  assert cnt == 20
+
+proc testPrevNode() =
+  block:
+    var node = prevn: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
+    assert node.len == 3 and node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN"
+
+  block:
+    var node = prevn: ^LL("HAUS", "ELEKTRIK")
+    assert node.len == 1 and node[0] == "HAUS"
+
+  block:
+    var node = prevn: ^LL("HAUS")
+    assert node.len == 0
+
+  block:
+    var node = prevn: ^LL()
+    assert node.len == 0
 
 
 proc test(): int =
@@ -202,11 +222,9 @@ proc test(): int =
     test "data": testData()
     test "testDel": testDel()
     test "locks": testLock()
-    test "nextNode empty": testNextNode1()
-    test "nextNode one element": testNextNode2()
-    test "nextNode two elements": testNextNode3()
-    test "nextNode Access value with :get": testNextNode4()
-    test "nextNode TXS :get": testTXS()
+    test "nextNode": testNextNode()
+    test "nextNode count": testNextCount()
+    test "prevNode": testPrevNode()
 
 
 when isMainModule:
