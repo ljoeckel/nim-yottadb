@@ -1,14 +1,7 @@
 import strutils, std/strformat
 import yottadb_types
 
-when defined(futhark):
-  import futhark, os
-  importc:
-    outputPath currentSourcePath.parentDir / "yottadb.nim"
-    path "/usr/local/lib/yottadb/r202"
-    "libyottadb.h"
-else:
-  include "libyottadb.nim"
+include "libyottadb.nim"
 
 const
   BUFFER_ERRMSG_SIZE = 1024

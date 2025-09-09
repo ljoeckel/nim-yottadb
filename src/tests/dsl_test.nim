@@ -1,5 +1,6 @@
 import std/times
 import std/unittest
+import std/strutils
 import ../yottadb
 import ../libs/utils
 
@@ -309,6 +310,17 @@ proc testNextSubsIter(start: Subscripts, expected: Subscripts) =
     (rc, node) = nextsub: ^LL(node)
   assert lastnode == expected
 
+proc testSpecialVars() =
+  # Get
+  let zversion = get: $ZVERSION
+  assert zversion.len > 0 and zversion.startsWith("GT.M")
+
+  # Set
+  set: $ZMAXTPTIME()="2"
+  let zmaxtptime = get: $ZMAXTPTIME
+  assert zmaxtptime == "2"
+
+
 proc test(): int =
   suite "YottaDB DSL Tests":
     test "set": testSetGet()
@@ -342,6 +354,8 @@ proc test(): int =
     test "SubscriptCaret":
       test "testNextSubscriptCaret": testNextSubscriptCaret()
       test "testPrevSubscriptCaret": testPrevSubscriptCaret()
+    test "Misc":
+      test "SpecialVars": testSpecialVars()
   
   return 0
 

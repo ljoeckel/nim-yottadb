@@ -4,11 +4,10 @@ author = "Lothar Joeckel"
 description = "NIM language implementation for the YottaDB database"
 license = "MIT"
 srcDir = "src"
-bin = @["examples/client", "examples/upcount", "tests/yottadb_test"]
+bin = @["tests/yottadb_test"]
 requires "nim >= 2.2.4"
 
 # Dependencies
-requires "futhark"
 requires "malebolgia"
 
 task test, "Run nim-yottadb unittests":
