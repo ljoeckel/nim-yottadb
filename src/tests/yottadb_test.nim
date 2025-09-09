@@ -223,12 +223,12 @@ proc testLock() =
         @["^LL","HAUS", "31"], @["^LL","HAUS", "32"], @["^LL","HAUS", "33"], @["^LL","HAUS", "34"], 
         @["^LL","HAUS", "35"]
         ]
-        
-  var toLock:seq[seq[string]] = @[@[]]
+
+  var toLock:seq[seq[string]]
   for global in  globals:
     toLock.add(global)
-    ydbLock(100000, globals)
-    assert getLockCountFromYottaDb() == globals.len
+    ydbLock(100000, toLock)
+    assert getLockCountFromYottaDb() == toLock.len
 
   ydbLock(100000, @[])
   assert getLockCountFromYottaDb() == 0
@@ -314,10 +314,11 @@ proc testB() =
 
 proc testC() =
   setupLL()
+  test "testLock": testLock()
 
 
 when isMainModule:
-  test() # threads:off=31s, threads:on=33s
+  #test() # threads:off=31s, threads:on=33s
   #testB()
   #testA()
-  #testC()
+  testC()
