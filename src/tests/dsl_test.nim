@@ -198,6 +198,7 @@ proc testNextNode() =
 
 
 proc testOrder() =
+  # Go forwards
   block:
     var results: seq[string] = @[]
     var rc:int = YDB_OK
@@ -214,10 +215,11 @@ proc testOrder() =
     assert results[4] == "^XX(1,6)=16"
     assert results[5] == "^XX(\"B\",1)=AB"
 
+  # Go backwards
   block:
     var results: seq[string] = @[]
     var rc:int = YDB_OK
-    var node:Subscripts = @["B","1"]
+    var node:Subscripts = @["B","9999999999"]
     while rc == YDB_OK:
       (rc, node) = prevn: ^XX(node)
       if rc == YDB_OK:
@@ -307,5 +309,6 @@ proc test(): int =
 
 when isMainModule:
   setupLL()
-  let (ms, rc) = timed:
-    test()
+  #let (ms, rc) = timed:
+    #test()
+  test "order": testOrder()
