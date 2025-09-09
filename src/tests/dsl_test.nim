@@ -224,7 +224,6 @@ proc testOrder() =
       (rc, node) = prevn: ^XX(node)
       if rc == YDB_OK:
         results.add(subscriptsToValue("^XX", node))
-        echo node
     assert results.len == 6
     assert results[5] == "^XX(1,2,3)=123"
     assert results[4] == "^XX(1,2,3,7)=1237"
@@ -264,12 +263,42 @@ proc testPrevNode() =
     (rc, node) = prevn: ^LL()
     assert node.len == 0
 
+proc testNextSubscriptCaret() =
+  var rc:int
+  var node: Subscripts
+  (rc, node) = nextsub: ^LL("HAUS", "ELEKTRIK")
+  assert rc == YDB_OK and node == @["HAUS", "FLAECHEN"]
+  (rc, node) = nextsub: ^LL("HAUS")
+  assert rc == YDB_OK and node == @["LAND"]
+  (rc, node) = nextsub: ^LL("")
+  assert rc == YDB_OK and node == @["HAUS"]
+  (rc, node) = nextsub: ^LL("ZZZZZZZ")
+  assert rc == YDB_ERR_NODEEND and node == @[""]
+
+proc testPrevSubscriptCaret() =
+  var rc:int
+  var node: Subscripts
+  (rc, node) = prevsub: ^LL("HAUS", "FLAECHEN")
+  assert rc == YDB_OK and node == @["HAUS", "ELEKTRIK"]
+  (rc, node) = prevsub: ^LL("LAND")
+  assert rc == YDB_OK and node == @["HAUS"]
+  (rc, node) = prevsub: ^LL("HAUS")
+  assert rc == YDB_ERR_NODEEND and node == @[""]
 
 proc testNextSubscript(start: Subscripts, expected: Subscripts) =
   var rc:int
   var node: Subscripts = start 
   (rc, node) = nextsub: ^LL(node)
   assert rc == YDB_OK and node == expected
+
+proc testPrevSubscript(start: Subscripts, expected: Subscripts) =
+  var rc:int
+  var node: Subscripts = start 
+  (rc, node) = prevsub: ^LL(node)
+  if rc == YDB_ERR_NODEEND:
+    assert node == expected
+  else:
+    assert rc == YDB_OK and node == expected
 
 proc testNextSubsIter(start: Subscripts, expected: Subscripts) =
   var node: Subscripts= start
@@ -305,10 +334,19 @@ proc test(): int =
       test "testNextSubsIter5": testNextSubsIter(@["HAUS", "ELE..."], @["HAUS", "HEIZUNG"])
       test "testNextSubsIter6": testNextSubsIter(@["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
       test "testNextSubsIter7": testNextSubsIter(@["HAUS", "ELEKTRIK", "DOSEN", ""], @["HAUS", "ELEKTRIK", "DOSEN", "4"])
-
+    test "testPrevSubscript":
+      test "testPrevSubscript": testPrevSubscript(@["HAUS", "FLAECHEN"], @["HAUS", "ELEKTRIK"])
+      test "testPrevSubscript": testPrevSubscript(@["HAUS", "FLA."], @["HAUS", "ELEKTRIK"])      
+      test "testPrevSubscript": testPrevSubscript(@["HAUS", "ELEKTRIK"], @["HAUS", ""])
+      test "testPrevSubscript": testPrevSubscript(@["HAUS", "ELEKTRIK", "DOSEN", "9999"], @["HAUS", "ELEKTRIK", "DOSEN", "4"])
+    test "SubscriptCaret":
+      test "testNextSubscriptCaret": testNextSubscriptCaret()
+      test "testPrevSubscriptCaret": testPrevSubscriptCaret()
+  
+  return 0
 
 when isMainModule:
   setupLL()
-  #let (ms, rc) = timed:
-    #test()
-  test "order": testOrder()
+  let (ms, rc) = timed:
+    test()
+

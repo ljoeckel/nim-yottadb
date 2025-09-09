@@ -212,6 +212,18 @@ macro nextsub*(body: untyped): untyped =
 
   transformBody body
 
+
+macro prevsub*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      var args = transformCallNodeNext(node, "prevsub")
+      return args
+    else:
+      return node
+
+  transformBody body
+
+
 macro data*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
@@ -312,7 +324,6 @@ proc nextsubyyy*(args: varargs[string]): (int, Subscripts) =
   var subscripts = args[1..^1]
   var rc:int
   (rc, subscripts) = ydb_subscript_next(global, subscripts)
-  result = ydb_subscript_next(global, subscripts)
   return (rc, subscripts)
 
 proc nextsubyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
@@ -324,6 +335,27 @@ proc nextsubyyy1*(global: string, sub: string): (int, Subscripts) =
   var rc:int
   var subscripts:seq[string] = @[sub]
   (rc, subscripts) = ydb_subscript_next(global, subscripts)
+  return (rc, subscripts)
+
+# -------------------
+# prevsub procs
+# -------------------
+proc prevsubyyy*(args: varargs[string]): (int, Subscripts) =
+  let global = args[0]
+  var subscripts = args[1..^1]
+  var rc:int
+  (rc, subscripts) = ydb_subscript_previous(global, subscripts)
+  return (rc, subscripts)
+
+proc prevsubyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
+  var rc:int
+  (rc, subscripts) = ydb_subscript_previous(global, subscripts)
+  return (rc, subscripts)
+
+proc prevsubyyy1*(global: string, sub: string): (int, Subscripts) =
+  var rc:int
+  var subscripts:seq[string] = @[sub]
+  (rc, subscripts) = ydb_subscript_previous(global, subscripts)
   return (rc, subscripts)
 
 
