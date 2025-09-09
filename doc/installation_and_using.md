@@ -1,4 +1,9 @@
 # Install YottaDB
+For a Linux installation go to
+```nim
+https://yottadb.com/product/get-started/#your-linux-system
+```
+and follow the instructions
 
 # Install Nim
 
