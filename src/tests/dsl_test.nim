@@ -28,6 +28,14 @@ proc setupLL() =
     ^LL("LAND", "NUTZUNG")=""
     ^LL("ORT")=""
 
+  set:
+    ^XX(1,2,3)=123
+    ^XX(1,2,3,7)=1237
+    ^XX(1,2,4)=124
+    ^XX(1,2,5,9)=1259
+    ^XX(1,6)=16
+    ^XX("B",1)="AB"
+
 
 # ------------ Test procs ------------
 
@@ -189,6 +197,41 @@ proc testNextNode() =
     assert val2 == "Telefondose"
 
 
+proc testOrder() =
+  block:
+    var results: seq[string] = @[]
+    var rc:int = YDB_OK
+    var node:Subscripts = @[]
+    while rc == YDB_OK:
+      (rc, node) = nextn: ^XX(node)
+      if rc == YDB_OK:
+        results.add(subscriptsToValue("^XX", node))
+    assert results.len == 6
+    assert results[0] == "^XX(1,2,3)=123"
+    assert results[1] == "^XX(1,2,3,7)=1237"
+    assert results[2] == "^XX(1,2,4)=124"
+    assert results[3] == "^XX(1,2,5,9)=1259"
+    assert results[4] == "^XX(1,6)=16"
+    assert results[5] == "^XX(\"B\",1)=AB"
+
+  block:
+    var results: seq[string] = @[]
+    var rc:int = YDB_OK
+    var node:Subscripts = @["B","1"]
+    while rc == YDB_OK:
+      (rc, node) = prevn: ^XX(node)
+      if rc == YDB_OK:
+        results.add(subscriptsToValue("^XX", node))
+        echo node
+    assert results.len == 6
+    assert results[5] == "^XX(1,2,3)=123"
+    assert results[4] == "^XX(1,2,3,7)=1237"
+    assert results[3] == "^XX(1,2,4)=124"
+    assert results[2] == "^XX(1,2,5,9)=1259"
+    assert results[1] == "^XX(1,6)=16"
+    assert results[0] == "^XX(\"B\",1)=AB"
+
+
 proc testNextCount() =
   var cnt = 0
   var rc:int = YDB_OK
@@ -244,6 +287,7 @@ proc test(): int =
     test "testDel": testDel()
     test "locks": testLock()
     test "nextNode": testNextNode()
+    test "order": testOrder()
     test "nextNode count": testNextCount()
     test "prevNode": testPrevNode()
     test "testNextSubscript":
