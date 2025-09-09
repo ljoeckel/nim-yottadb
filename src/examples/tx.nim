@@ -8,6 +8,7 @@ when compileOption("threads"):
   {.fatal: "Must be compiled with --threads:off".}
 
 const
+  MAX = 100_000
   THS = "S"
   GLOBAL = "^TX" & THS
 
@@ -33,11 +34,11 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
 
 # Set transaction timeout to 1 second
 ydbSet("$ZMAXTPTIME", value="1")
-while true:
+for i in 1..MAX:
   let (ms, rc) = timed:
     ydbTxRun(myTxn, "SomeParam")
 
   let txid = ydbGet("^CNT", @[THS]) # get last transaction id
   var data = newYdbVar(GLOBAL, @[$txid])
   data[] = data.value & " overall-time:" & $ms # append overall
-  echo "rc=", rc, " ", ms, "ms. txid:", txid, " data:", data
+  echo "i:", i, " rc=", rc, " ", ms, "ms. txid:", txid, " data:", data

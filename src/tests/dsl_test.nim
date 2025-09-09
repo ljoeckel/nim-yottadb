@@ -171,31 +171,28 @@ proc testLock()  =
 proc testNextNode() =
   var rc:int
   var node:Subscripts
-  block:
-    (rc, node) = nextn: ^LL()
-    assert node[0] == "HAUS"
-    (rc, node) = nextn: ^LL(node)
-    assert (node[0] == "HAUS" and node[1] == "ELEKTRIK")
 
-  block:
-    (rc, node) = nextn: ^LL("HAUS")
-    assert (node[0] == "HAUS" and node[1] == "ELEKTRIK")
-    (rc, node) = nextn: ^LL(node)
-    assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN")
+  (rc, node) = nextn: ^LL()
+  assert node == @["HAUS"]
+  (rc, node) = nextn: ^LL(node)
+  assert node == @["HAUS", "ELEKTRIK"]
 
-  block:
-    (rc, node) = nextn: ^LL("HAUS", "ELEKTRIK")
-    assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN")
-    (rc, node) = nextn: ^LL(node)  
-    assert (node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN" and node[3] == "1")
+  (rc, node) = nextn: ^LL("HAUS")
+  assert node == @["HAUS", "ELEKTRIK"]
+  (rc, node) = nextn: ^LL(node)
+  assert node == @["HAUS", "ELEKTRIK", "DOSEN"]
 
-  block:
-    node = @["HAUS", "ELEKTRIK", "DOSEN"]
-    (rc, node) = nextn: ^LL(node)
-    let val = get: ^LL(node)
-    assert val == "Telefondose"
-    let val2 = get: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
-    assert val2 == "Telefondose"
+  (rc, node) = nextn: ^LL("HAUS", "ELEKTRIK")
+  assert node == @["HAUS", "ELEKTRIK", "DOSEN"]
+  (rc, node) = nextn: ^LL(node)  
+  assert node == @["HAUS", "ELEKTRIK", "DOSEN", "1"]
+
+  node = @["HAUS", "ELEKTRIK", "DOSEN"]
+  (rc, node) = nextn: ^LL(node)
+  let val = get: ^LL(node)
+  assert val == "Telefondose"
+  let val2 = get: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
+  assert val2 == "Telefondose"
 
 
 proc testOrder() =
@@ -250,11 +247,11 @@ proc testPrevNode() =
   var node:Subscripts
   block:
     (rc, node) = prevn: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
-    assert node.len == 3 and node[0] == "HAUS" and node[1] == "ELEKTRIK" and node[2] == "DOSEN"
+    assert node == @["HAUS", "ELEKTRIK", "DOSEN"]
 
   block:
     (rc, node) = prevn: ^LL("HAUS", "ELEKTRIK")
-    assert node.len == 1 and node[0] == "HAUS"
+    assert node == @["HAUS"]
 
   block:
     (rc, node) = prevn: ^LL("HAUS")

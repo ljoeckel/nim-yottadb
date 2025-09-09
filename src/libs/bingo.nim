@@ -6,7 +6,6 @@ import libyottadb
 proc saveInYdb(global: string, subs: seq[string], key: string, value: string) =
   var subscpy = subs
   subscpy.add(key)
-  echo "8 saveInYdb global:", global," subs:", subs, " key:", key, " value:", value
   ydbSet(global, subscpy, value)
 
 proc loadFromYdb(global: string, subs: seq[string], key: string): string =
@@ -20,32 +19,25 @@ proc loadFromYdb(global: string, subs: seq[string], key: string): string =
 
 # serialization
 proc store(global: string, subs: seq[string], k: string; x: bool) =
-  echo "19 store bool"
   saveInYdb(global, subs, k, $x)
   
 proc store(global: string, subs: seq[string], k: string; x: char) =
-  echo "22 store char"
   saveInYdb(global, subs, k, $x)
 
 proc store(global: string, subs: seq[string], k: string; x: string) =
-  echo "25 store string"
   saveInYdb(global, subs, k, $x)
   
 proc store[T: SomeNumber](global: string, subs: seq[string], k: string; x: T) =
-  echo "28 store somenumber"
   saveInYdb(global, subs, k, $x)
   
 proc store[T: enum](global: string, subs: seq[string], k: string; x: T) =
-  echo "31 store enum"
   saveInYdb(global, subs, k, $ord(x))
   
 proc store[S, T](global: string, subs: seq[string], k: string; x: array[S, T]) =
-  echo "34 store s,t"
   for elem in items(x):
     store(global, subs, k, elem)
 
 proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[T] | set[T]) =
-  echo "38 set seq T ", $typeof(T), " k:", k
   var idx = 0
   for elem in x.items():
     var subscpy = subs
@@ -65,19 +57,16 @@ proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[
     inc(idx)
 
 proc store[K, V](global: string, subs: seq[string], kv: string; o: (Table[K, V]|OrderedTable[K, V])) =
-  echo "58 store KV"
   for fn, fv in pairs(o):
     store(global, subs, kv, fn)
     store(global, subs, kv, fv)
 
 proc store[T](global: string, subs: seq[string], k: string; o: Option[T]) =
-  echo "63 Option(T)"
   let isSome = isSome(o)
   if isSome:
     store(global, subs, k, get(o))
 
 proc store[T: tuple](global: string, subs: seq[string], k: string; o: T) =
-  echo "68 store T: tuple"
   for fn, fv in fieldPairs(o):
     store(global, subs, fn, fv)
 
@@ -92,15 +81,12 @@ proc store[T: tuple](global: string, subs: seq[string], k: string; o: T) =
 
 # For plain objects
 proc store[T](global: string, subs: seq[string], k: string; o: T) =
-  echo "91 store T"
   let gbl = "^" & $T
   for fn, fv in fieldPairs(o):
-    echo "81 typeof(o):", $typeof(fv)
     store(gbl, subs, fn, fv)
 
 
 proc store*[T: object](subs: seq[string]; o: T) =
-  echo "98 type:", $typeof(o)
   let gbl = "^" & $typeof(o)
   for fn, fv in fieldPairs(o):
     store(gbl, subs, fn, fv)
@@ -122,7 +108,6 @@ proc load(global: string, subs: seq[string], k: string; x: var string) =
 
 # SOME NUMBER
 proc load[T: var SomeNumber](global: string, subs: seq[string], k: string; x: var T) =
-  echo "148 gbl:", global, " subs:", subs, " k:", k, " o:", x
   try:
     let s = loadFromYdb(global, subs, k)
     when T is SomeInteger:
@@ -134,7 +119,6 @@ proc load[T: var SomeNumber](global: string, subs: seq[string], k: string; x: va
 
 # ENUM
 proc load[T: enum](global: string, subs: seq[string], k: string; x: var T) =
-  echo "158 gbl:", global, " subs:", subs, " k:", k, " o:", x 
   let value = parseInt(loadFromYdb(global, subs, k))
   if value >= low(T).ord and value <= high(T).ord:
     x = T(value)
@@ -143,7 +127,6 @@ proc load[T: enum](global: string, subs: seq[string], k: string; x: var T) =
 
 # SET 
 proc load[T](global: string, subs: seq[string], k: string; x: var set[T]) =
-  echo "167 load ", $typeof(T), " global:", global, " subs:", subs, " k:", k
   var idx, rc = 0
   var subscripts = subs
   subscripts.add( @[k, ""] )
@@ -159,13 +142,11 @@ proc load[T](global: string, subs: seq[string], k: string; x: var set[T]) =
 
 
 proc load[S, T](global: string, subs: seq[string], k: string; x: var array[S, T]) =
-  echo "180 gbl:", global, " subs:", subs, " k:", k, " o:", x
   for elem in items(x):
     load(global, subs, k, elem)
 
 # HashSet, OrderedSet
 proc load[T: var SomeSet](global: string, subs: seq[string], k: string; x: var T ) =
-  echo "185 gbl:", global, " subs:", subs, " k:", k, " o:", x
   var idx, rc = 0
   var subscripts = subs
   subscripts.add(@[k, ""])
@@ -177,7 +158,6 @@ proc load[T: var SomeSet](global: string, subs: seq[string], k: string; x: var T
 
 # seq[T] | seq[T of object]
 proc load[T](global: string, subs: seq[string], k: string; x: var seq[T] ) =
-  echo "202 gbl:", global, " subs:", subs, " k:", k, " o:", x      
   var rc = 0
   when T is object:
     var subscripts = subs
@@ -198,7 +178,6 @@ proc load[T](global: string, subs: seq[string], k: string; x: var seq[T] ) =
         x.add(ydbGet(global, subscripts))
 
 proc load[K, V](global: string, subs: seq[string], kv: string; o: var (Table[K, V]|OrderedTable[K, V])) =
-  echo "224 gbl:", global, " subs:", subs, " kv:", kv, " o:", o      
   for fn, fv in pairs(o):
     load(global, subs, kv, fn)
     load(global, subs, kv, fv)
@@ -215,30 +194,24 @@ proc load[K, V](global: string, subs: seq[string], kv: string; o: var (Table[K, 
 #   load[T](global, subs, k, o[])
 
 proc load[T](global: string, subs: seq[string], k: string; o: var Option[T]) =
-  echo "234 gbl:", global, " subs:", subs, " k:", k, " o:", o    
   let isSome = isSome(o)
   if isSome:
     load(global, subs, k, get(o))
 
 proc load[T: var tuple](global: string, subs: seq[string], k: string; o: var T) =
   for fn, fv in fieldPairs(o):
-    echo "240 gbl:", global, " subs:", subs, " fn:", fn, " fv:", fv    
     load(global, subs, fn, fv)
 
 proc load[T](global: string, subs: seq[string], k: string; o: var T) =
-  echo "232 T gbl:", global, " subs:", subs, " k:", k, " o:", $typeof(o)
   for fn, fv in fieldPairs(o):
-      echo "fn:", fn, " fv:", repr(fv)
       var gbl = "^" & $T
       #if gbl.contains(':'): gbl = gbl.split(':')[0]
       load(gbl, subs, fn, fv)
 
 proc load*[T: var object](subs: seq[string]; o: var T) =
   let gbl = "^" & $typeof(o)
-  echo "250 gbl:", gbl, " subs:", subs, " o:", $typeof(o)
   load(gbl, subs, o)
 
 proc load*[T: var object](gbl: string, subs: seq[string]; o: var T) =
   for fn, fv in fieldPairs(o):
-    #echo "255 gbl:", gbl, " subs:", subs, " fn:", fn, " fv:", fv, " ", $typeof(fv)
     load(gbl, subs, fn, fv)
