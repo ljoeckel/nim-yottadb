@@ -116,7 +116,7 @@ proc newResponder(id: int): Responder =
         )
 
 proc save[T](t: T) =
-  store(@[$t.id], t)
+  store(@[$t.id], t) # proc store*[T: object](subs: seq[string]; o: T)
 
 when isMainModule:
   for i in 1..1:
@@ -150,7 +150,7 @@ when isMainModule:
     for sibling in responder.siblings:
       echo "  sibling:", sibling
 ```
-For each object type there will be one Global created
+For each object type there will be one Global created.
 ```nim
 List ^Customer
 ^Customer(1,"charX")="Y"

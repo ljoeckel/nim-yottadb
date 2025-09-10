@@ -301,14 +301,25 @@ proc ydb_subscript_next_db*(name: string, keys: var Subscripts, tptoken:uint64 =
 proc ydb_subscript_previous_db*(name: string, keys: var Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
   return subscript_traverse(Direction.Previous, name, keys, tptoken)
 
-# macro ydbLockDbVariadicMacro(timeout: culonglong; names: typed; subs: typed): untyped =
-#   result = newCall(ident("ydbLock_s"))
-#   result.add newCall(ident("culonglong"), timeout)
-#   result.add newCall(ident("cint"), newDotExpr(names, ident("len")))
-#   for i in 0 ..< names.len:
-#     result.add newCall(ident("addr"), newTree(nnkBracketExpr, names, newLit(i)))
-#     result.add newCall(ident("cint"), newDotExpr(newTree(nnkBracketExpr, subs, newLit(i)), ident("len")))
-#     result.add newCall(ident("addr"), newTree(nnkBracketExpr, newTree(nnkBracketExpr, subs, newLit(i)), newLit(0)))
+proc ydb_lock_incr_db*(timeout_nsec: culonglong, name: string, keys: Subscripts, tptoken:uint64 = 0): int =
+  check()
+  setYdbBuffer(GLOBAL, name)
+  setIdxArr(IDXARR, keys)
+  when compileOption("threads"):
+    return ydb_lock_incr_st(tptoken, ERRMSG.addr, timeout_nsec, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr)
+  else:
+    return ydb_lock_incr_s(timeout_nsec, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr)
+
+proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
+  check()
+  setYdbBuffer(GLOBAL, name)
+  setIdxArr(IDXARR, keys)
+
+  when compileOption("threads"):
+    return ydb_lock_decr_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr)
+  else:
+    return ydb_lock_decr_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr)
+
 
 
 proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]], tptoken: uint64 = 0): cint =
@@ -1758,6 +1769,17 @@ proc ydb_lock_db_variadic(timeout: culonglong, names: seq[ydb_buffer_t], subs: s
 
   return rc
 
+# import macros
+# macro ydbLockDbVariadicMacro(timeout: culonglong; names: typed; subs: typed): untyped =
+#   result = newCall(ident("ydbLock_s"))
+#   result.add newCall(ident("culonglong"), timeout)
+#   result.add newCall(ident("cint"), newDotExpr(names, ident("len")))
+#   for i in 0 ..<names.len:
+#     result.add newCall(ident("addr"), newTree(nnkBracketExpr, names, newLit(i)))
+#     result.add newCall(ident("cint"), newDotExpr(newTree(nnkBracketExpr, subs, newLit(i)), ident("len")))
+#     result.add newCall(ident("addr"), newTree(nnkBracketExpr, newTree(nnkBracketExpr, subs, newLit(i)), newLit(0)))
+#   echo treeRepr(result)
+
 proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken:uint64 = 0) =
   var locknames: seq[ydb_buffer_t] = newSeq[ydb_buffer_t]()
   var locksubs: seq[seq[ydb_buffer_t]] = newSeq[newSeq[ydb_buffer_t]()]()
@@ -1773,7 +1795,7 @@ proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken:uint6
       subs.add(stringToYdbBuffer(subskeys[idx]))
     locksubs.add(subs)
 
-  let rc = ydb_lock_db_variadic(timeout_nsec, locknames, locksubs)
+  let rc = ydb_lock_db_variadic(timeout_nsec, locknames, locksubs)  
   if rc < YDB_OK:
     raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, {keys})")
 

@@ -146,7 +146,6 @@ macro set*(body: untyped): untyped =
         return newCall(ident"setxxx", args)
     else:
       return node
-
   transformBody body
 
 
@@ -164,7 +163,6 @@ macro incr*(body: untyped): untyped =
       return newCall(ident"incr1xxx", args)
     else:
       return node
-  
   transformBody body
 
 
@@ -178,7 +176,6 @@ macro get*(body: untyped): untyped =
         result.add transform(ch)
     else:
       return node
-
   transformBody body
 
 macro nextn*(body: untyped): untyped =
@@ -188,7 +185,6 @@ macro nextn*(body: untyped): untyped =
       return args
     else:
       return node
-
   transformBody body
 
 macro prevn*(body: untyped): untyped =
@@ -198,7 +194,6 @@ macro prevn*(body: untyped): untyped =
       return args
     else:
       return node
-
   transformBody body
 
 
@@ -209,7 +204,6 @@ macro nextsub*(body: untyped): untyped =
       return args
     else:
       return node
-
   transformBody body
 
 
@@ -220,7 +214,6 @@ macro prevsub*(body: untyped): untyped =
       return args
     else:
       return node
-
   transformBody body
 
 
@@ -231,7 +224,6 @@ macro data*(body: untyped): untyped =
       return newCall(ident"dataxxx", args)
     else:
       return node
-
   transformBody body
 
 
@@ -242,7 +234,6 @@ macro delnode*(body: untyped): untyped =
       return newCall(ident"delnodexxx", args)
     else:
       return node
-
   transformBody body
 
 
@@ -253,7 +244,6 @@ macro deltree*(body: untyped): untyped =
       return newCall(ident"deltreexxx", args)
     else:
       return node
-
   transformBody body
 
 
@@ -270,8 +260,27 @@ macro lock*(body: untyped): untyped =
       return newCall(ident"lockxxx", args)
     else:
       return node
-
   transformBody body
+
+
+macro lockincr*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      var args = transformCallNode(node)
+      return newCall(ident"lockincrxxx", args)
+    else:
+      return node
+  transformBody body
+
+macro lockdecr*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      var args = transformCallNode(node)
+      return newCall(ident"lockdecrxxx", args)
+    else:
+      return node
+  transformBody body
+
 
 
 # Proc^s that implement the ydb call's
@@ -442,3 +451,18 @@ proc lockxxx*(args: varargs[string]) =
     ydbLock(100000, subs)
   except:
     echo getCurrentExceptionMsg()
+
+
+# ----------------------
+# lockincr / decr proc's
+# ----------------------
+proc lockincrxxx*(args: varargs[string]):int =
+  let global = args[0]
+  let timeout:culonglong = 100000  #TODO make readable from DSL macro ^LL("HAUS"),100000 o.ä.
+  let subscripts = args[1..^1]
+  return ydbLockIncrement(timeout, global, subscripts)
+
+proc lockdecrxxx*(args: varargs[string]):int =
+  let global = args[0]
+  let subscripts = args[1..^1]
+  return ydbLockDecrement(global, subscripts)

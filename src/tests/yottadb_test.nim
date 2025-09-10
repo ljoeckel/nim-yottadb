@@ -233,6 +233,44 @@ proc testLock() =
   ydbLock(100000, @[])
   assert getLockCountFromYottaDb() == 0
 
+proc testLockIncrement() =
+  var rc:int
+  rc = ydbLockIncrement(100000, "^LL", @["HAUS", "31"])
+  assert getLockCountFromYottaDb() == 1
+  rc = ydbLockIncrement(100000, "^LL", @["HAUS", "32"])
+  assert getLockCountFromYottaDb() == 2
+  rc = ydbLockIncrement(100000, "^LL", @["HAUS", "33"])
+  assert getLockCountFromYottaDb() == 3
+
+  # Decrement locks one by one
+  rc = ydbLockDecrement("^LL", @["HAUS", "33"])
+  assert getLockCountFromYottaDb() == 2
+  rc = ydbLockDecrement("^LL", @["HAUS", "32"])
+  assert getLockCountFromYottaDb() == 1
+  rc = ydbLockDecrement("^LL", @["HAUS", "31"])
+  assert getLockCountFromYottaDb() == 0
+
+  # Increment / Decrement non existing lock (Should be ignored)
+  rc = ydbLockDecrement("^LL", @["HAUS", "99"])
+  assert getLockCountFromYottaDb() == 0
+
+  # Increment / Decrement non existing global (Lock will be created)
+  rc = ydbLockIncrement(100000, "^ZZZZ", @["HAUS", "31"])
+  assert getLockCountFromYottaDb() == 1
+
+  # Increment / Decrement same lock multiple times
+  rc = ydbLockIncrement(100000, "^ZZZZ", @["HAUS", "31"])
+  assert getLockCountFromYottaDb() == 1
+  rc = ydbLockIncrement(100000, "^ZZZZ", @["HAUS", "31"])
+  assert getLockCountFromYottaDb() == 1
+  rc = ydbLockDecrement("^ZZZZ", @["HAUS", "31"])
+  assert getLockCountFromYottaDb() == 1
+  rc = ydbLockDecrement("^ZZZZ", @["HAUS", "31"])
+  assert getLockCountFromYottaDb() == 1
+  rc = ydbLockDecrement("^ZZZZ", @["HAUS", "31"])
+  assert getLockCountFromYottaDb() == 0
+
+
 proc testIncrement() =
   let MAX = 1000 
   ydbSet("^COUNTERS", @["upcount"], "0")
@@ -300,6 +338,8 @@ proc test() =
       test "testSetAndGetVariable": testSetAndGetVariable()
     test "Lock Handling":
       test "testLock": testLock()
+      test "testLockIncrement": testLockIncrement()
+
 
 proc testA() =
   # ^X(0..1000000)=i total 1900ms threads:on 2100ms
@@ -314,7 +354,7 @@ proc testB() =
 
 proc testC() =
   setupLL()
-  test "testLock": testLock()
+  test "testLockIncrement": testLockIncrement()
 
 
 when isMainModule:

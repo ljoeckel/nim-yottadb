@@ -89,6 +89,14 @@ iterator previousSubscriptIter*(global: string, subscripts: var Subscripts): Sub
 proc ydbLock*(timeout_nsec: culonglong, keys: seq[Subscripts] = @[]) =
   ydb_lock_db(timeout_nsec, keys)
 
+# Only one variable name in one call
+proc ydbLockIncrement*(timeout_nsec: culonglong, name: string, keys: Subscripts): int =
+  return ydb_lock_incr_db(timeout_nsec, name, keys)
+
+# Only one variable name in one call
+proc ydbLockDecrement*(name: string, keys: Subscripts): int =
+  return ydb_lock_decr_db(name, keys)
+
 # ------------------ YdbVar ----------------
 proc newYdbVar*(global: string, subscripts: Subscripts, value: string = ""): YdbVar =
   if global.isEmptyOrWhitespace: raise newException(YdbDbError, "Empty 'global' param")

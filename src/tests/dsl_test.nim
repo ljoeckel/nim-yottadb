@@ -168,6 +168,51 @@ proc testLock()  =
   assert 0 == getLockCountFromYottaDb()
   
 
+proc testLockIncrement() =
+  var rc:int
+  rc = lockincr: ^LL("HAUS", "ELEKTRIK")
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
+  rc = lockincr: ^LL("HAUS", "HEIZUNG")
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 2
+  rc = lockincr: ^LL("HAUS", "FLAECHEN")
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 3
+
+  # # # Decrement locks one by one
+  rc = lockdecr: ^LL("HAUS", "FLAECHEN")
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 2
+  rc = lockdecr: ^LL("HAUS", "HEIZUNG")
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
+  rc = lockdecr: ^LL("HAUS", "ELEKTRIK")
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 0
+
+  # Increment non existing subscript (Lock will be created)
+  rc = lockincr: ^LL("HAUS", "XXXXXXX")
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
+  rc = lockdecr: ^LL("HAUS", "XXXXXXX")
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 0
+
+  # Decrement non existing global (Lock will be created)
+  rc = lockincr: ^ZZZZ("HAUS", "XXXXXXX")
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
+  rc = lockdecr: ^ZZZZ("HAUS", "XXXXXXX")
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 0
+
+  # Increment 3 times same lock
+  rc = lockincr: ^ZZZZ("HAUS", 31)
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
+  rc = lockincr: ^ZZZZ("HAUS", 31)  
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
+  rc = lockincr: ^ZZZZ("HAUS", 31)  
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
+  # Decrement 3 times
+  rc = lockdecr: ^ZZZZ("HAUS", 31)  
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
+  rc = lockdecr: ^ZZZZ("HAUS", 31)  
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
+  rc = lockdecr: ^ZZZZ("HAUS", 31)  
+  assert rc == YDB_OK and getLockCountFromYottaDb() == 0
+  
+
 proc testNextNode() =
   var rc:int
   var node:Subscripts
@@ -326,6 +371,7 @@ proc test(): int =
     test "data": testData()
     test "testDel": testDel()
     test "locks": testLock()
+    test "lockincrement": testLockIncrement()
     test "nextNode": testNextNode()
     test "order": testOrder()
     test "nextNode count": testNextCount()
@@ -358,6 +404,7 @@ proc test(): int =
 
 when isMainModule:
   setupLL()
-  let (ms, rc) = timed:
-    test()
+  ##let (ms, rc) = timed:
+  ##  test()
+  test "lockincrement": testLockIncrement()
 
