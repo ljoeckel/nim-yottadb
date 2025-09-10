@@ -290,6 +290,36 @@ proc testMaxSubscripts() =
     else:
       doAssertRaises(YdbDbError): ydbSet("^SUBS", keys, $i)
 
+
+proc testDeleteExcl() =
+  ydbSet("DELTEST1", @["A"], "1")
+  ydbSet("DELTEST2", @["A"], "1")
+  ydbSet("DELTEST3", @["A"], "1")
+  ydbSet("DELTEST4", @["A"], "1")
+  ydbSet("DELTEST5", @["A"], "1")
+
+  doAssert ydbGet("DELTEST1", @["A"]) == "1"
+  doAssert ydbGet("DELTEST2", @["A"]) == "1"
+  doAssert ydbGet("DELTEST3", @["A"]) == "1"
+  doAssert ydbGet("DELTEST4", @["A"]) == "1"
+  doAssert ydbGet("DELTEST5", @["A"]) == "1"
+
+  var rc = ydbDeleteExcl(@["DELTEST1","DELTEST3","DELTEST5"])
+
+  # Global's are not allowed
+  doAssertRaises(YdbDbError): rc = ydbDeleteExcl(@["^DELTEST"])
+
+  doAssert ydbGet("DELTEST1", @["A"]) == "1"
+  doAssert ydbGet("DELTEST3", @["A"]) == "1"
+  doAssert ydbGet("DELTEST5", @["A"]) == "1"
+  doAssertRaises(YdbDbError): discard ydbGet("DELTEST2", @["A"])
+  doAssertRaises(YdbDbError): discard ydbGet("DELTEST4", @["A"])
+
+  # delete all variables
+  rc = ydbDeleteExcl()
+  doAssertRaises(YdbDbError): discard ydbGet("DELTEST1", @["A"])
+
+
 # -------------------------------------------------------------------
 
 setupLL()
@@ -330,6 +360,7 @@ proc test() =
       test "deleteTree": deleteTree()
       test "deleteNode": deleteNode()
       test "deleteGlobalVar": testDeleteTree()
+      test "testLocalVarExcl": testDeleteExcl()
     test "Misc":
       test "testSpecialVariables": testSpecialVariables()
       test "increment": testIncrement()
@@ -354,7 +385,7 @@ proc testB() =
 
 proc testC() =
   setupLL()
-  test "testLockIncrement": testLockIncrement()
+  test "testDeleteExcl": testDeleteExcl()
 
 
 when isMainModule:

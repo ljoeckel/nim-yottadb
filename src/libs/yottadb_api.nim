@@ -1,4 +1,4 @@
-import std/[strutils, os, osproc, streams]
+import std/[strutils, strformat, os, osproc, streams]
 import yottadb_types
 import yottadb_impl
 
@@ -22,6 +22,12 @@ proc ydbDeleteNode*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
 
 proc ydbDeleteTree*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
   return ydb_delete_tree_db(name, keys, tptoken)
+
+proc ydbDeleteExcl*(names: seq[string] = @[], tptoken:uint64 = 0): int =
+  if names.len > 35: raise newException(YdbDbError, fmt"Too many names. Only {YDB_MAX_NAMES} are allowed")
+  # Default names to empty -> clear all local variables
+  return ydb_delete_excl_db(names, tptoken)
+
 
 proc ydbIncrement*(name: string, keys: Subscripts, increment: int = 1, tptoken:uint64 = 0): int =
   let s = ydb_increment_db(name, keys, increment, tptoken)

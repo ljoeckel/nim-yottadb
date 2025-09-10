@@ -4,7 +4,6 @@ import yottadb_types
 include "libyottadb.nim"
 
 const
-  BUFFER_ERRMSG_SIZE = 1024
   BUFFER_DATABUF_SIZE = 1024*1024
   BUFFER_GLOBAL_SIZE = 256
   BUFFER_IDX_SIZE = 64
@@ -14,8 +13,9 @@ var
   ERRMSG {.threadvar.}: ydb_buffer_t
   DATABUF {.threadvar.}: ydb_buffer_t
   GLOBAL {.threadvar.}: ydb_buffer_t
-  IDXARR {.threadvar.}: array[0..31, ydb_buffer_t]
-  IDXARR2 {.threadvar.}: array[0..31, ydb_buffer_t] # for next/previous node
+  IDXARR {.threadvar.}: array[0..YDB_MAX_SUBS, ydb_buffer_t]
+  IDXARR2 {.threadvar.}: array[0..YDB_MAX_SUBS, ydb_buffer_t] # for next/previous node
+  NAMES {.threadvar.}: array[0..YDB_MAX_NAMES-1, ydb_buffer_t] # for delete_excl
   rc {.threadvar.}: cint
 
 # atexit for buffer cleanup
@@ -69,17 +69,24 @@ proc setYdbBuffer(buffer: var ydb_buffer_t, name: string = "") =
     buffer.len_used = 0.uint32
   buffer.buf_addr[len] = '\0'
 
+proc setYdbBuffer(buffer: var openArray[ydb_buffer_t], names: seq[string]) =
+  for idx in 0..<names.len:
+    setYdbBuffer(buffer[idx], names[idx])
+  for idx in names.len..<buffer.len:
+    setYdbBuffer(buffer[idx], "")
+
 proc setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string] = @[]) =
+  # set the current keys
   for idx in 0..<keys.len:
     setYdbBuffer(arr[idx], keys[idx])
-   
+  # clear to the end   
   for idx in keys.len..<arr.len:
     arr[idx].len_used = 0.uint32
     arr[idx].buf_addr[0] = '\0'
 
 proc check() =
   if not buf_initialized:
-    ERRMSG = stringToYdbBuffer(zeroBuffer(BUFFER_ERRMSG_SIZE))
+    ERRMSG = stringToYdbBuffer(zeroBuffer(YDB_MAX_ERRORMSG))
     DATABUF = stringToYdbBuffer(zeroBuffer(BUFFER_DATABUF_SIZE))
     GLOBAL = stringToYdbBuffer(zeroBuffer(BUFFER_GLOBAL_SIZE))
     buf_initialized = true
@@ -87,6 +94,8 @@ proc check() =
       IDXARR[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
     for idx in 0..<IDXARR2.len:
       IDXARR2[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
+    for idx in 0..<YDB_MAX_NAMES:
+      NAMES[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
 
 proc cleanupBuffers() {.noconv} =
   deallocBuffer(ERRMSG)
@@ -94,6 +103,7 @@ proc cleanupBuffers() {.noconv} =
   deallocBuffer(GLOBAL)
   deallocBuffer(IDXARR)
   deallocBuffer(IDXARR2)
+  deallocBuffer(NAMES)
 
 # Register atexit hook
 atexit(cleanupBuffers)
@@ -191,6 +201,21 @@ proc ydb_delete_node_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): in
 
 proc ydb_delete_tree_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
   return ydb_delete(name, keys, YDB_DEL_TREE, tptoken)
+
+proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64 = 0): int =
+  check()
+  setYdbBuffer(NAMES, names)
+
+  when compileOption("threads"):
+    rc = ydb_delete_excl_st(tptoken, ERRMSG.addr, cast[cint](names.len), NAMES[0].addr)
+  else:
+    rc = ydb_delete_excl_s(cast[cint](names.len), NAMES[0].addr)
+
+  if rc < YDB_OK:
+    raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{names}")
+  else:
+    return rc.int
+
 
 proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken:uint64 = 0): string =
   check()
