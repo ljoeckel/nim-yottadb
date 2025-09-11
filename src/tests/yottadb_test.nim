@@ -233,6 +233,11 @@ proc testLock() =
   ydbLock(100000, @[])
   assert getLockCountFromYottaDb() == 0
 
+  # Too many locks
+  toLock.add(@["^LL","HAUS", "36"])
+  doAssertRaises(YdbDbError): ydbLock(100000, toLock)
+
+
 proc testLockIncrement() =
   var rc:int
   rc = ydbLockIncrement(100000, "^LL", @["HAUS", "31"])
@@ -385,11 +390,11 @@ proc testB() =
 
 proc testC() =
   setupLL()
-  test "testDeleteExcl": testDeleteExcl()
+  test "testLock": testLock()
 
 
 when isMainModule:
-  test() # threads:off=31s, threads:on=33s
+  #test() # threads:off=31s, threads:on=33s
   #testB()
   #testA()
-  #testC()
+  testC()
