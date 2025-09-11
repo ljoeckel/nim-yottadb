@@ -46,7 +46,7 @@ proc testDel() =
   assert "hello" == s
   delnode: ^X(1) # delete node
   doAssertRaises(YdbDbError): # expect exception because node removed
-    let v = get: ^X(1)
+    discard get: ^X(1)
   
   # create a tree
   set: ^X(1,1)="hello"
@@ -436,7 +436,7 @@ proc test() =
 
 when isMainModule:
   setupLL()
-  let ms = timed:
+  timed:
     test()
   
 

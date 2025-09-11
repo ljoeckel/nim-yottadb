@@ -62,7 +62,6 @@ when isMainModule:
   # Reset counter
   delnode: ^CNT("ydbSet")
 
-  var ms:int64
-  ms = timed: main()
-  ms = timed: main_dsl()
-  ms = timed: count_data()  
+  timed: main()
+  timed: main_dsl()
+  timed: count_data()  

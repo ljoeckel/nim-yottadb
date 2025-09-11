@@ -175,7 +175,7 @@ proc testDeleteTree() =
 proc deleteNode() =
     ydbDeleteNode("^CNT", @["CHANNEL", "INPUT"])
     var result = ydbIncrement("^CNT", @["CHANNEL", "INPUT"], 1)
-    let value = ydbGet("^CNT", @["CHANNEL", "INPUT"]) == "1"
+    assert ydbGet("^CNT", @["CHANNEL", "INPUT"]) == $result
 
 
 
@@ -278,9 +278,11 @@ proc testLockIncrement() =
 
 proc testIncrement() =
   let MAX = 1000 
+  var cnt:int 
   ydbSet("^COUNTERS", @["upcount"], "0")
   for i in 0..<MAX:
-    let cnt = ydbIncrement("^COUNTERS", @["upcount"])
+    cnt = ydbIncrement("^COUNTERS", @["upcount"])
+  assert cnt == MAX
   assert ydbGet("^COUNTERS", @["upcount"]) == $MAX
 
 proc testMaxSubscripts() =
@@ -377,24 +379,5 @@ proc test() =
       test "testLockIncrement": testLockIncrement()
 
 
-proc testA() =
-  # ^X(0..1000000)=i total 1900ms threads:on 2100ms
-  test "simpleSet": simpleSet("^X", MAX)
-  test "simpleGet": simpleGet("^X", MAX)
-  test "simpleDel": simpleDelete("^X", MAX)
-
-proc testB() =
-  testYdbVar()
-  testDeleteTree()
-  
-
-proc testC() =
-  setupLL()
-  test "testLock": testLock()
-
-
 when isMainModule:
-  #test() # threads:off=31s, threads:on=33s
-  #testB()
-  #testA()
-  testC()
+  test() # threads:off=31s, threads:on=33s

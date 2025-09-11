@@ -8,7 +8,7 @@ template withlock*(lockid: untyped, body: untyped): untyped =
     rc = lockdecr: ^LOCKS(lockid)
 
 
-template timed*(body: untyped, show: bool = true): auto =
+template timed*(body: untyped) =
   ## Measure the execution time of the given body and return the duration in ms.
   #[
     let ms = timed_norc:
@@ -19,9 +19,7 @@ template timed*(body: untyped, show: bool = true): auto =
   let t1 = getTime()
   body
   let durationMs = (getTime() - t1).inMilliseconds
-  if show:
-    echo "Duration: ", durationMs," ms."
-  durationMs
+  echo "Duration: ", durationMs," ms."
 
 template timed_rc*(body: untyped, show: bool = true): auto =
   ## Measure the execution time of the given body and return 

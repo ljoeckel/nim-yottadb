@@ -22,9 +22,9 @@ type
 
 proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procPrefix: string = ""): NimNode =
   ## Consolidated transform procedure that handles all cases
-  if node.kind != nnkPrefix:
-    error "unsupported node kind: " & $node.kind
-    return node
+  # if node.kind != nnkPrefix:
+  #   error "unsupported node kind: " & $node.kind
+  #   return node
 
   let prefix = node[0].strVal   # get ^, $, or ''
   let rhs = node[1]
@@ -105,9 +105,9 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
       let callPart = rhs[0]
       let fieldPart = rhs[1]
       
-      if callPart.kind != nnkCall:
-        error("Expected a call on left side of dotExpr")
-        return node
+      # if callPart.kind != nnkCall:
+      #   error("Expected a call on left side of dotExpr")
+      #   return node
 
       let args = makeBaseArgs(callPart)
       let suffix = fieldPart.strVal

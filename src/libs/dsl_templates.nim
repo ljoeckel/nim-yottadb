@@ -43,7 +43,7 @@ proc testTryToCreateDeadlock() =
     delnode:
         ^CNT("TEMPLATE_TEST")
     
-    var ms = timed:
+    timed:
         var cnt = maxCount
         while cnt > 0:
             dec(cnt)

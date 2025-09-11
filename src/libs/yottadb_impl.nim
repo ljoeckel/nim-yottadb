@@ -343,14 +343,13 @@ proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int 
 
 proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]], tptoken: uint64 = 0): cint =
   check()
-  if numOfLocks == 0:
+  if numOfLocks == 0:  # release all locks
     when compileOption("threads"):
-      rc = ydbLock_st(tptoken, ERRMSG.addr, timeout, 0.cint) # release all locks
+      rc = ydbLock_st(tptoken, ERRMSG.addr, timeout, 0.cint) 
     else:
-      rc = ydbLock_s(timeout, 0.cint) # release all locks
+      rc = ydbLock_s(timeout, 0.cint)
   else:
     when compileOption("threads"):
-      #for i in 0..<numOfLocks:
       rc = ydbLock_st(tptoken, ERRMSG.addr, timeout, numOfLocks.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],

@@ -17,7 +17,7 @@ proc upcount_dsl() = # Duration 1324 ms.
     echo "counter DSL: ", counter
 
 when isMainModule:
-    var ms = timed:
+    timed:
         upcount()
-    ms = timed:
+    timed:
         upcount_dsl()
