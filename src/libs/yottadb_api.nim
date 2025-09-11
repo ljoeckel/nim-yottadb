@@ -17,16 +17,16 @@ proc ydbGet*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
 proc ydbData*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
   return ydb_data_db(name, keys, tptoken)
 
-proc ydbDeleteNode*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
-  return ydb_delete_node_db(name, keys, tptoken)
+proc ydbDeleteNode*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
+  ydb_delete_node_db(name, keys, tptoken)
 
-proc ydbDeleteTree*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
-  return ydb_delete_tree_db(name, keys, tptoken)
+proc ydbDeleteTree*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
+  ydb_delete_tree_db(name, keys, tptoken)
 
-proc ydbDeleteExcl*(names: seq[string] = @[], tptoken:uint64 = 0): int =
+proc ydbDeleteExcl*(names: seq[string] = @[], tptoken:uint64 = 0) =
   if names.len > 35: raise newException(YdbDbError, fmt"Too many names. Only {YDB_MAX_NAMES} are allowed")
   # Default names to empty -> clear all local variables
-  return ydb_delete_excl_db(names, tptoken)
+  ydb_delete_excl_db(names, tptoken)
 
 
 proc ydbIncrement*(name: string, keys: Subscripts, increment: int = 1, tptoken:uint64 = 0): int =
@@ -189,12 +189,15 @@ proc getGlobals*(): seq[string] =
     discard waitForExit(p)  # Wait until process finishes
 
 
-proc getLockCountFromYottaDb*(): int =
+proc getLocksFromYottaDb*(): seq[string] =
   # Show real locks on db with 'lke show'
-  var lockcnt = 0
+  result = @[]
+
   let lke = findExe("lke")
   let lines = execProcess(lke & " show")
   for line in lines.split('\n'):
     if line.contains("Owned by"):
-      inc(lockcnt)
-  return lockcnt
+      result.add(line)    
+
+proc getLockCountFromYottaDb*(): int =
+  return getLocksFromYottaDb().len

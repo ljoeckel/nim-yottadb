@@ -51,7 +51,7 @@ proc simpleDelete(global: string, cnt: int) =
   var subs:seq[string] = @[]
   for i in 0..cnt:
     subs.add($i)
-    assert YDB_OK == ydbDeleteNode(global, subs)
+    ydbDeleteNode(global, subs)
     discard subs.pop()
 
 proc testYdbVar() =
@@ -84,7 +84,7 @@ proc testMaxValueSize() =
 
   var subs = @[""]
   for subs in nextNodeIter("^VARSIZE", subs):
-    assert YDB_OK == ydbDeleteNode("^VARSIZE", subs)
+    ydbDeleteNode("^VARSIZE", subs)
 
 
 proc testYdbSetGet() =
@@ -162,18 +162,18 @@ proc previousSubsIter(global: string, start: Subscripts, expected: Subscripts) =
 
 
 proc deleteTree() =
-  var rc = ydbDeleteNode("^LJ", @["LAND", "STRASSE"])
+  ydbDeleteNode("^LJ", @["LAND", "STRASSE"])
   for i in 0..MAX:
-    rc = ydbDeleteTree("^LJ", @["LAND", "ORT", $i, $i])
+    ydbDeleteTree("^LJ", @["LAND", "ORT", $i, $i])
 
 # Delete all globals from ^LJ, ^LJ will be removed from %GD
 proc testDeleteTree() =
-  assert YDB_OK == ydbDeleteTree("^LJ", @["LAND"])
+  ydbDeleteTree("^LJ", @["LAND"])
   let globals = getGlobals()
   assert globals.find("^LJ") == -1
 
 proc deleteNode() =
-    var rc = ydbDeleteNode("^CNT", @["CHANNEL", "INPUT"])
+    ydbDeleteNode("^CNT", @["CHANNEL", "INPUT"])
     var result = ydbIncrement("^CNT", @["CHANNEL", "INPUT"], 1)
     let value = ydbGet("^CNT", @["CHANNEL", "INPUT"]) == "1"
 
@@ -304,10 +304,10 @@ proc testDeleteExcl() =
   doAssert ydbGet("DELTEST4", @["A"]) == "1"
   doAssert ydbGet("DELTEST5", @["A"]) == "1"
 
-  var rc = ydbDeleteExcl(@["DELTEST1","DELTEST3","DELTEST5"])
+  ydbDeleteExcl(@["DELTEST1","DELTEST3","DELTEST5"])
 
   # Global's are not allowed
-  doAssertRaises(YdbDbError): rc = ydbDeleteExcl(@["^DELTEST"])
+  doAssertRaises(YdbDbError): ydbDeleteExcl(@["^DELTEST"])
 
   doAssert ydbGet("DELTEST1", @["A"]) == "1"
   doAssert ydbGet("DELTEST3", @["A"]) == "1"
@@ -316,7 +316,7 @@ proc testDeleteExcl() =
   doAssertRaises(YdbDbError): discard ydbGet("DELTEST4", @["A"])
 
   # delete all variables
-  rc = ydbDeleteExcl()
+  ydbDeleteExcl()
   doAssertRaises(YdbDbError): discard ydbGet("DELTEST1", @["A"])
 
 

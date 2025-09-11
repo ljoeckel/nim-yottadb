@@ -29,7 +29,7 @@ proc worker_dsl(tn: int, iterations: int) = # Duration 24606 ms.
       echo "Exception: ", getCurrentExceptionMsg()
     dec(counter)
 
-proc main(): int =
+proc main() =
   const NUM_OF_THREADS = 2
   const ITERATIONS = 1000000
   var m = createMaster()
@@ -38,7 +38,7 @@ proc main(): int =
       m.spawn worker(tn, ITERATIONS)
   echo "main done"
 
-proc main_dsl(): int =
+proc main_dsl() =
   const NUM_OF_THREADS = 2
   const ITERATIONS = 1000000
   var m = createMaster()
@@ -48,7 +48,7 @@ proc main_dsl(): int =
   echo "main_dsl done"
 
 
-proc count_data(): int =
+proc count_data() =
   var cnt = 0
   var rc = YDB_OK
   var node:Subscripts = @[]
@@ -60,9 +60,9 @@ proc count_data(): int =
 
 when isMainModule:
   # Reset counter
-  discard delnode: ^CNT("ydbSet")
+  delnode: ^CNT("ydbSet")
 
-  var ms, rc:int
-  (ms, rc) = timed: main()
-  (ms, rc) = timed: main_dsl()
-  (ms, rc) = timed: count_data()  
+  var ms:int64
+  ms = timed: main()
+  ms = timed: main_dsl()
+  ms = timed: count_data()  

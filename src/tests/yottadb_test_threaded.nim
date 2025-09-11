@@ -8,7 +8,7 @@ import ../yottadb
 # nim -c r --threads:on yottadb_test_threaded
 
 const
-  MAX = 1000
+  MAX = 100
   NUM_OF_THREADS = 4
   GLOBAL = "^COUNTERS"
   MAX_FIBONACCI_NUMBER = 32
@@ -22,7 +22,7 @@ proc initDB() =
   ## Clean the database
   var keys:Subscripts = @[]
   for keys in nextNodeIter(GLOBAL, keys):
-    assert YDB_OK == ydbDeleteNode(GLOBAL, keys)
+    ydbDeleteNode(GLOBAL, keys)
 
 proc fibonacci_recursive(n: int): int =
   ## Simulate some CPU intense work

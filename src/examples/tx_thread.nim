@@ -24,7 +24,7 @@ proc myTxnMT*(tptoken: uint64; buff: ptr ydb_buffer_t; param: pointer): cint  {.
   let restarted = parseInt(ydbGet("$TRESTART", tptoken=tptoken)) # How many times the proc was called from yottadb
   let zstatus = ydbGet("$ZSTATUS", tptoken=tptoken)
   echo "restarted:", restarted, " zstatus:", zstatus
-  let (ms, fibresult) = timed:
+  let (ms, fibresult) = timed_rc:
     let fib = rand(30..42)
     fibonacci_recursive(fib) # do some cpu intense work
   try:  
@@ -46,7 +46,7 @@ proc worker(tn: int, iterations: int) =
   var tx = 100000
   while counter > 0:
     inc(tx)
-    let (ms, rc) = timed:
+    let (ms, rc) = timed_rc:
       ydbTxRunMT(myTxnMT, $tn, $tx)
     
     if rc == YDB_OK:

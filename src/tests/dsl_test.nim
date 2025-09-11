@@ -44,7 +44,7 @@ proc testDel() =
   set: ^X(1)="hello"
   let s = get: ^X(1)
   assert "hello" == s
-  var rc = delnode: ^X(1) # delete node
+  delnode: ^X(1) # delete node
   doAssertRaises(YdbDbError): # expect exception because node removed
     let v = get: ^X(1)
   
@@ -53,7 +53,7 @@ proc testDel() =
   set: ^X(1,2)="world"
   let dta = data: ^X(1) 
   assert 10 == dta # Expect no data but subtree
-  rc = deltree: ^X(1)
+  deltree: ^X(1)
   doAssertRaises(YdbDbError): # expect exception because node removed
     discard  get: ^X(1)
 
@@ -123,7 +123,7 @@ proc testSetGet() =
 
 proc testIncrement() =  
   # Increment
-  let rc = delnode: ^CNT("TXID")
+  delnode: ^CNT("TXID")
   var incrval = incr: ^CNT("TXID")
   assert 1 == incrval
   incrval = incr: ^CNT("TXID") = 10
@@ -395,7 +395,7 @@ proc testDeleteExcl() =
 
 
 
-proc test(): int =
+proc test() =
   suite "YottaDB DSL Tests":
     test "set": testSetGet()
     test "increment": testIncrement()
@@ -432,12 +432,11 @@ proc test(): int =
       test "testPrevSubscriptCaret": testPrevSubscriptCaret()
     test "Misc":
       test "SpecialVars": testSpecialVars()
-  
-  return 0
+
 
 when isMainModule:
   setupLL()
-  let (ms, rc) = timed:
+  let ms = timed:
     test()
   
 

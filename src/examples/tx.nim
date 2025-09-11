@@ -17,7 +17,7 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
   let restarted = parseInt(ydbGet("$TRESTART")) # How many times the proc was called from yottadb
 
   try:
-    let (ms, fibresult) = timed:
+    let (ms, fibresult) = timed_rc:
       let fib = rand(30..38)
       fibonacci_recursive(fib) # do some cpu intense work
     
@@ -35,7 +35,7 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
 # Set transaction timeout to 1 second
 ydbSet("$ZMAXTPTIME", value="1")
 for i in 1..MAX:
-  let (ms, rc) = timed:
+  let (ms, rc) = timed_rc:
     ydbTxRun(myTxn, "SomeParam")
 
   let txid = ydbGet("^CNT", @[THS]) # get last transaction id

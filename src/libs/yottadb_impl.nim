@@ -181,7 +181,7 @@ proc ydb_data_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
   else:
     return cast[int](value) # 0,1,10,11
 
-proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64 = 0): int =
+proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64 = 0) =
   check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
@@ -193,16 +193,14 @@ proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64 =
 
   if rc < YDB_OK:
     raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
-  else:
-    return rc.int
 
-proc ydb_delete_node_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
-  return ydb_delete(name, keys, YDB_DEL_NODE, tptoken)
+proc ydb_delete_node_db*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
+  ydb_delete(name, keys, YDB_DEL_NODE, tptoken)
 
-proc ydb_delete_tree_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
-  return ydb_delete(name, keys, YDB_DEL_TREE, tptoken)
+proc ydb_delete_tree_db*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
+  ydb_delete(name, keys, YDB_DEL_TREE, tptoken)
 
-proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64 = 0): int =
+proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64 = 0) =
   check()
   setYdbBuffer(NAMES, names)
 
@@ -213,9 +211,6 @@ proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64 = 0): int =
 
   if rc < YDB_OK:
     raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{names}")
-  else:
-    return rc.int
-
 
 proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken:uint64 = 0): string =
   check()

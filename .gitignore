@@ -19,3 +19,4 @@ src/examples/tx_thread
 src/examples/ydbSet_thread
 src/examples/caret
 src/tests/dsl_test
+src/libs/dsl_templates

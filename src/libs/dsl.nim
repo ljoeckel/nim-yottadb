@@ -419,15 +419,15 @@ proc dataxxx*(args: varargs[string]): int =
 # -------------------
 # del Node/Tree procs
 # -------------------
-proc delnodexxx*(args: varargs[string]): int =
+proc delnodexxx*(args: varargs[string]) =
   let global = args[0]
   let subscripts = args[1..^1]
-  result = ydbDeleteNode(global, subscripts)
+  ydbDeleteNode(global, subscripts)
 
-proc deltreexxx*(args: varargs[string]): int =
+proc deltreexxx*(args: varargs[string]) =
   let global = args[0]
   let subscripts = args[1..^1]
-  result = ydbDeleteTree(global, subscripts)
+  ydbDeleteTree(global, subscripts)
 
 
 # ---------------------

@@ -162,6 +162,23 @@ Traverse the globals backwards on a given index level.
   assert rc == YDB_ERR_NODEEND and subs == @[""]
 ```
 
+## lockincr / lockdecr
+```nim
+template withlock(lockid: untyped, body: untyped): untyped =
+    var rc = lockincr: ^LOCKS(lockid)
+    body
+    rc = lockdecr: ^LOCKS(lockid)
+```
+Using:
+```nim
+proc update() =
+    withlock(4711):
+        echo "locks set:", getLockCountFromYottaDb()
+        # do the work here
+        
+    echo "After locks:", getLockCountFromYottaDb()
+```
+
 # Special Variables
 Getting a value, use get:
 ```nim
