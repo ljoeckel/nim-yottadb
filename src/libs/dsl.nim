@@ -19,15 +19,21 @@ type
     tkDefault,    # Default transformation
     tkNext,       # Next node transformation 
     tkGet        # Get transformation
+    tkDelExcl    # del exclude
 
 proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procPrefix: string = ""): NimNode =
   ## Consolidated transform procedure that handles all cases
-  # if node.kind != nnkPrefix:
-  #   error "unsupported node kind: " & $node.kind
-  #   return node
-
-  let prefix = node[0].strVal   # get ^, $, or ''
-  let rhs = node[1]
+  var prefix: string = ""
+  var rhs: NimNode
+  if node.kind == nnkCall:
+    rhs = node     # set: VARNAME(xxx)=yyy
+  elif node.kind == nnkPrefix:
+    prefix = node[0].strVal  # set: ^VARNAME(xxxx)=yyyy, $VARNAME()=yyyy
+    rhs = node[1]
+  elif node.kind == nnkIdent:  # z.B. { IDENT01 }
+    rhs = node
+  else:
+    echo "Node kind not supported! ", node.kind
 
   # Helper to build basic args
   proc makeBaseArgs(callPart: NimNode): seq[NimNode] =
@@ -63,10 +69,19 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
         result.add newCall(ident"$", arg)
 
   case kind
+  of tkDelExcl:
+    # Handle transformation for delexcl:
+    if rhs.kind == nnkCall:
+      var args = makeBaseArgs(rhs)
+      return newStmtList(args)
+
   of tkDefault:
     # Handle basic transformation
     if rhs.kind == nnkCall:
       var args = makeBaseArgs(rhs)
+      return newStmtList(args)
+    elif rhs.kind == nnkIdent:
+      var args:seq[NimNode] = @[newLit(rhs.strVal)]
       return newStmtList(args)
 
   of tkNext:
@@ -89,7 +104,6 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
   of tkGet:
     # Handle get transformation with type conversion
     if rhs.kind == nnkCall:
-      #return newCall(ident"getstring", makeBaseArgs(rhs))
       let args = makeBaseArgsNext(rhs)
       let globalArg = args[0]
       let transformedArgs = args[1..^1]
@@ -98,7 +112,6 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
       else:
         result = newCall(ident"getstring", globalArg)
         for a in transformedArgs:
-          #result.add a
           result.add newCall(ident"$", a)
 
     elif rhs.kind == nnkDotExpr:
@@ -133,6 +146,9 @@ proc transformCallNodeNext(node: NimNode, procPrefix:string = ""): NimNode =
 proc transformCallNodeGET(node: NimNode): NimNode = 
   transformCallNodeBase(node, tkGet)
 
+proc transformCallNodeDelExcl(node: NimNode): NimNode =
+  transformCallNodeBase(node, tkDelExcl)
+
 # ------------------- DSL macros -------------------
 
 macro set*(body: untyped): untyped =
@@ -140,7 +156,7 @@ macro set*(body: untyped): untyped =
     if node.kind == nnkAsgn:
       let lhs = node[0]
       let rhs = node[1]
-      if lhs.kind == nnkPrefix:
+      if lhs.kind == nnkPrefix or lhs.kind == nnkCall:
         var args = transformCallNode(lhs)
         args.add newCall(ident"$", rhs)
         return newCall(ident"setxxx", args)
@@ -168,7 +184,7 @@ macro incr*(body: untyped): untyped =
 
 macro get*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
-    if node.kind == nnkPrefix:
+    if node.kind == nnkPrefix or node.kind == nnkCall:
       return transformCallNodeGET(node)
     elif node.kind == nnkStmtList:
       result = newStmtList()
@@ -242,6 +258,18 @@ macro deltree*(body: untyped): untyped =
     if node.kind == nnkPrefix:
       var args = transformCallNode(node)
       return newCall(ident"deltreexxx", args)
+    else:
+      return node
+  transformBody body
+
+
+macro delexcl*(body: untyped): untyped =
+  var args:seq[NimNode] = @[]
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkCurly:
+      for n in 0..<node.len:
+        args.add(transformCallNode(node[n]))
+      return newCall(ident"delexclxxx", args)
     else:
       return node
   transformBody body
@@ -428,6 +456,13 @@ proc deltreexxx*(args: varargs[string]) =
   let global = args[0]
   let subscripts = args[1..^1]
   ydbDeleteTree(global, subscripts)
+
+# -------------------
+# delexcl procs
+# -------------------
+proc delexclxxx*(args: varargs[string]) =
+  let subscripts = args[0..^1]
+  ydbDeleteExcl(subscripts)
 
 
 # ---------------------

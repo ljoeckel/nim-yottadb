@@ -363,34 +363,42 @@ proc testSpecialVars() =
   assert zmaxtptime == "2"
 
 proc testDeleteExcl() =
-  echo "testDeleteExcl() not implemented"
-  #set: DELTEST1("A")="1"
-  #TODO: implement macro for local variables (no ^ or $)
-    # DELTEST2("A")="1"
-    # DELTEST3("A")="1"
-    # DELTEST4("A")="1"
-    # DELTEST5("A")="1"
+  # Global's are not allowed
+  #doAssertRaises(YdbDbError):
+  #TODO: ^ not recognized
+  delexcl: { ^SOMEGLOBAL }
 
-  # doAssert ydbGet("DELTEST1", @["A"]) == "1"
-  # doAssert ydbGet("DELTEST2", @["A"]) == "1"
-  # doAssert ydbGet("DELTEST3", @["A"]) == "1"
-  # doAssert ydbGet("DELTEST4", @["A"]) == "1"
-  # doAssert ydbGet("DELTEST5", @["A"]) == "1"
+  # Set local variables
+  set:
+    DELTEST0("deltest")="deltest"
+    DELTEST1()="1"
+    DELTEST2()="2"
+    DELTEST3()="3"
+    DELTEST4()="4"
+    DELTEST5()="5"
 
-  # var rc = ydbDeleteExcl(@["DELTEST1","DELTEST3","DELTEST5"])
+  # Test if local variable is readable
+  discard get: DELTEST0("deltest")
+  discard get: DELTEST1()
+  
+  # Remove all except the following
+  delexcl: 
+    {
+      DELTEST1, DELTEST3, DELTEST5 
+    }
 
-  # # Global's are not allowed
-  # doAssertRaises(YdbDbError): rc = ydbDeleteExcl(@["^DELTEST"])
+  # 1,3 and 5 should be there
+  discard get: DELTEST1()
+  discard get: DELTEST3()
+  discard get: DELTEST5()
 
-  # doAssert ydbGet("DELTEST1", @["A"]) == "1"
-  # doAssert ydbGet("DELTEST3", @["A"]) == "1"
-  # doAssert ydbGet("DELTEST5", @["A"]) == "1"
-  # doAssertRaises(YdbDbError): discard ydbGet("DELTEST2", @["A"])
-  # doAssertRaises(YdbDbError): discard ydbGet("DELTEST4", @["A"])
+  # Removed vars should raise exception on access
+  doAssertRaises(YdbDbError): discard get: DELTEST2()
+  doAssertRaises(YdbDbError): discard get: DELTEST4()
 
-  # # delete all variables
-  # rc = ydbDeleteExcl()
-  # doAssertRaises(YdbDbError): discard ydbGet("DELTEST1", @["A"])
+  # delete all variables
+  delexcl: {}
+  doAssertRaises(YdbDbError): discard get: DELTEST1()
 
 
 
@@ -432,6 +440,7 @@ proc test() =
       test "testPrevSubscriptCaret": testPrevSubscriptCaret()
     test "Misc":
       test "SpecialVars": testSpecialVars()
+      test "DeleteExcl": testDeleteExcl()
 
 
 when isMainModule:
