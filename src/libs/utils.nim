@@ -9,7 +9,7 @@ template withlock*(lockid: untyped, body: untyped): untyped =
 
 
 template timed*(body: untyped) =
-  ## Measure the execution time of the given body and return the duration in ms.
+  ## Measure the execution time of the given body.
   #[
     let ms = timed_norc:
       let fib = rand(30..44)
@@ -21,9 +21,23 @@ template timed*(body: untyped) =
   let durationMs = (getTime() - t1).inMilliseconds
   echo "Duration: ", durationMs," ms."
 
+template timed_ms*(body: untyped, show: bool = true): auto =
+  ## Measure the execution time of the given body and return the duration in ms.
+  #[
+    let ms = timed_ms:
+      let fib = rand(30..44)
+      fibonacci_recursive(fib) # do some cpu intense work
+    echo "time used:", ms, " finonacci:", fibresult)
+  ]#
+  let t1 = getTime()
+  body
+  let durationMs = (getTime() - t1).inMilliseconds
+  if show:
+    echo "Duration: ", durationMs," ms."
+  durationMs
+
 template timed_rc*(body: untyped, show: bool = true): auto =
-  ## Measure the execution time of the given body and return 
-  ## the body return code and the duration in ms.
+  ## Measure the execution time of the given body and return the body return code and the duration in ms.
   #[
     let (ms, fibresult) = timed:
       let fib = rand(30..44)

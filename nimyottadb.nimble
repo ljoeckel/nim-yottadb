@@ -15,6 +15,7 @@ task test, "Run nimyottadb unittests":
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test_threaded.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/dsl_test.nim"
+  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/dsl_lock_test.nim"
 
 # task setupBook, "Compiles the nimibook CLI-binary used for generating the docs":
 #   exec "nim c -d:release nbook.nim"

@@ -3,7 +3,15 @@ import yottadb_api
 import yottadb_types
 import std/strutils
 
-# Consolidated transformation logic for DSL macros
+# TODO: Consolidate and refactor transformation logic for DSL macros
+
+type
+  TransformKind = enum
+    tkDefault,    # Default transformation
+    tkNext,       # Next node transformation 
+    tkGet        # Get transformation
+    tkDelExcl    # del exclude
+
 
 template transformBody(body: untyped): untyped =
   if body.kind == nnkStmtList:
@@ -14,15 +22,7 @@ template transformBody(body: untyped): untyped =
     result = transform(body)
 
 
-type
-  TransformKind = enum
-    tkDefault,    # Default transformation
-    tkNext,       # Next node transformation 
-    tkGet        # Get transformation
-    tkDelExcl    # del exclude
-
 proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procPrefix: string = ""): NimNode =
-  ## Consolidated transform procedure that handles all cases
   var prefix: string = ""
   var rhs: NimNode
   if node.kind == nnkCall:
@@ -117,11 +117,6 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
     elif rhs.kind == nnkDotExpr:
       let callPart = rhs[0]
       let fieldPart = rhs[1]
-      
-      # if callPart.kind != nnkCall:
-      #   error("Expected a call on left side of dotExpr")
-      #   return node
-
       let args = makeBaseArgs(callPart)
       let suffix = fieldPart.strVal
       let procName = case suffix

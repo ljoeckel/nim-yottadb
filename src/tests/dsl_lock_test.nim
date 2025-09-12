@@ -1,5 +1,6 @@
-import dsl
-import utils
+import std/unittest
+import ../libs/dsl
+import ../libs/utils
 import malebolgia
 
 
@@ -22,7 +23,7 @@ proc demoUpdate2(cnt: int, tn: int) =
             discard incr: ^CNT(4711, tn)
 
 
-proc main(cnt: int, numOfThreads: int) =
+proc createThreads(cnt: int, numOfThreads: int) =
   var m = createMaster()
   m.awaitAll:
     for tn in 0..<numOfThreads:
@@ -43,13 +44,13 @@ proc testTryToCreateDeadlock() =
     delnode:
         ^CNT("TEMPLATE_TEST")
     
-    timed:
+    let ms = timed_ms:
         var cnt = maxCount
         while cnt > 0:
             dec(cnt)
             if cnt mod 1000 == 0:
                 echo "------> ", cnt
-            main(cnt, numOfThreads)
+            createThreads(cnt, numOfThreads)
 
     # Test totals
     let iterations = maxCount * numOfThreads
@@ -59,7 +60,7 @@ proc testTryToCreateDeadlock() =
     assert v == iterations
     v = get: ^CNT("TEMPLATE_TEST").int
     assert v == iterations
-    echo "Total iterations:", iterations, " Time per iteration: ", ms.float64 / v.float64, " ms."
+    echo "Number of Threads: ", numOfThreads, ", Total iterations:", iterations, ", Time per iteration: ", ms.float64 / v.float64, " ms."
 
     # Test numbers for each thread
     for tn in 0..<numOfThreads:
@@ -68,7 +69,8 @@ proc testTryToCreateDeadlock() =
         v = get: ^CNT(4711.1, tn).int
         assert v == maxCount
 
-    
+
 when isMainModule:
-    while true:
-        testTryToCreateDeadlock()
+  suite "DSL Lock Tests":
+    test "Locks":
+      test "Deadlock test": testTryToCreateDeadlock()
