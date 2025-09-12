@@ -123,6 +123,9 @@ proc `[]=`*(v: var YdbVar; val: string) =
   ydbSet(v.global, v.subscripts, val)
   v.value = val
 
+# Call-In Interface
+proc ydbCI*(name: string) =
+  ydb_ci_db(name)
 
 # ------- Helpers
 func keysToString*(subscript: Subscripts): string =

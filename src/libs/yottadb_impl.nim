@@ -455,3 +455,19 @@ proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken:uint6
   let rc = ydb_lock_db_variadic(keys.len, timeout_nsec, locknames, locksubs)  
   if rc < YDB_OK:
     raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, {keys})")
+
+
+# ----------- Call In Interface -------------
+
+proc ydb_ci_db*(name: string, tptoken: uint64 = 0) =
+  let c_call_name = allocCstring(name)
+  defer:
+    dealloc(c_call_name)
+
+  when compileOption("threads"):
+    rc = ydb_ci_t(tptoken, ERRMSG.addr, c_call_name)
+  else:
+    rc = ydb_ci(c_call_name)
+
+  if rc < YDB_OK:
+    raise newException(YdbDbError, fmt"{ydbMessage_db(rc)}") 

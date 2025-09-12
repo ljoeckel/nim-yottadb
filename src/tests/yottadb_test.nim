@@ -1,4 +1,4 @@
-import std/[strformat, strutils, unittest]
+import std/[strformat, strutils, unittest, times]
 import ../yottadb
 
 const
@@ -327,6 +327,13 @@ proc testDeleteExcl() =
   doAssertRaises(YdbDbError): discard ydbGet("DELTEST1", @["A"])
 
 
+proc test_ydb_ci() =
+    let tm = getTime()
+    set: VAR1()=tm                      # set a YottaDB variable
+    ydbCI("method1")
+    let result = get: RESULT()  # Read the YottaDB variable from the Callin
+    assert $tm == result
+
 # -------------------------------------------------------------------
 
 setupLL()
@@ -372,6 +379,7 @@ proc test() =
       test "testSpecialVariables": testSpecialVariables()
       test "increment": testIncrement()
       test "maxSubscripts": testMaxSubscripts()
+      test "Call-In Interface": test_ydb_ci()
     test "Set and Get Variable":
       test "testSetAndGetVariable": testSetAndGetVariable()
     test "Lock Handling":

@@ -400,6 +400,12 @@ proc testDeleteExcl() =
   delexcl: {}
   doAssertRaises(YdbDbError): discard get: DELTEST1()
 
+proc test_ydb_ci() =
+    let tm = getTime()
+    set: VAR1()=tm                      # set a YottaDB variable
+    ydbCI: "method1"
+    let result = get: RESULT()  # Read the YottaDB variable from the Callin
+    assert $tm == result
 
 
 
@@ -441,6 +447,7 @@ proc test() =
     test "Misc":
       test "SpecialVars": testSpecialVars()
       test "DeleteExcl": testDeleteExcl()
+      test "Call-In Interface": test_ydb_ci()
 
 
 when isMainModule:
