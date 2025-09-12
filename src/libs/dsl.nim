@@ -141,9 +141,6 @@ proc transformCallNodeNext(node: NimNode, procPrefix:string = ""): NimNode =
 proc transformCallNodeGET(node: NimNode): NimNode = 
   transformCallNodeBase(node, tkGet)
 
-proc transformCallNodeDelExcl(node: NimNode): NimNode =
-  transformCallNodeBase(node, tkDelExcl)
-
 # ------------------- DSL macros -------------------
 
 macro set*(body: untyped): untyped =

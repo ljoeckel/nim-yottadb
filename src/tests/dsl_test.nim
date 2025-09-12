@@ -1,6 +1,4 @@
-import std/times
-import std/unittest
-import std/strutils
+import std/[times, os, unittest, strutils]
 import ../yottadb
 import ../libs/utils
 
@@ -401,11 +399,21 @@ proc testDeleteExcl() =
   doAssertRaises(YdbDbError): discard get: DELTEST1()
 
 proc test_ydb_ci() =
-    let tm = getTime()
-    set: VAR1()=tm                      # set a YottaDB variable
-    ydb_ci: "method1"
-    let result = get: RESULT()  # Read the YottaDB variable from the Callin
-    assert $tm == result
+  let ydb_ci = getEnv("ydb_ci")
+  if ydb_ci.isEmptyOrWhitespace:
+    echo "Could not find environment variable 'ydb_ci' to set the callin table."
+    echo "*** Test ignored ***"
+    return
+  if not fileExists(ydb_ci):
+    echo "Could not find callin file ", ydb_ci
+    echo "*** Test ignored ***"
+    return
+
+  let tm = getTime()
+  set: VAR1()=tm                      # set a YottaDB variable
+  ydb_ci: "method1"
+  let result = get: RESULT()  # Read the YottaDB variable from the Callin
+  assert $tm == result
 
 
 
