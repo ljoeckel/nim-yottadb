@@ -5,52 +5,52 @@ import yottadb_impl
 proc ydbMessage*(status: cint): string =
   return ydbMessage_db(status)
 
-proc ydbSet*(name: string, keys: Subscripts = @[]; value: string = "", tptoken:uint64 = 0) =
+proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "", tptoken:uint64 = 0) =
   if keys.len > 31:
     raise newException(YdbDbError, "Too many subscript levels. Valid [0..31])")
   else:
     ydb_set_db(name, keys, value, tptoken)
 
-proc ydbGet*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
+proc ydb_get*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
   return ydb_get_db(name, keys, tptoken)
 
-proc ydbData*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
+proc ydb_data*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
   return ydb_data_db(name, keys, tptoken)
 
-proc ydbDeleteNode*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
+proc ydb_delete_node*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
   ydb_delete_node_db(name, keys, tptoken)
 
-proc ydbDeleteTree*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
+proc ydb_delete_tree*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
   ydb_delete_tree_db(name, keys, tptoken)
 
-proc ydbDeleteExcl*(names: seq[string] = @[], tptoken:uint64 = 0) =
+proc ydb_delete_excl*(names: seq[string] = @[], tptoken:uint64 = 0) =
   if names.len > 35: raise newException(YdbDbError, fmt"Too many names. Only {YDB_MAX_NAMES} are allowed")
   # Default names to empty -> clear all local variables
   ydb_delete_excl_db(names, tptoken)
 
 
-proc ydbIncrement*(name: string, keys: Subscripts, increment: int = 1, tptoken:uint64 = 0): int =
+proc ydb_increment*(name: string, keys: Subscripts, increment: int = 1, tptoken:uint64 = 0): int =
   let s = ydb_increment_db(name, keys, increment, tptoken)
   try:
     result = parseInt(s)
   except:
     raise newException(YdbDbError, "Illegal Number. Tried to parseInt(" & s & ")")
 
-proc ydbTxRunMT*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string, transid: string = ""): int =
+proc ydb_tp_mt*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string, transid: string = ""): int =
   result = ydb_tp2_start(myTxnProc, param, transid)
 
-proc ydbTxRun*(myTxnProc: ydb_tpfnptr_t, param: string, transid:string = ""): int =
+proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: string, transid:string = ""): int =
   result = ydb_tp_start(myTxnProc, param, transid)
 
 # ------------------ Next/Previous Node -----------------
-proc nextNode*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_node_next*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
   return ydb_node_next_db(global, subscripts, tptoken)
   
-proc prevNode*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_node_previous*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
   return ydb_node_previous_db(global, subscripts, tptoken)
 
 # ------------------ Iterators for Next/Previous Node -----------------
-iterator nextNodeIter*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
+iterator ydb_node_next_iter*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
   var i = -1
   var rc:int
   while i < len(subscripts):
@@ -58,7 +58,7 @@ iterator nextNodeIter*(global: string, subscripts: var Subscripts, tptoken:uint6
     if rc != YDB_OK: break
     yield subscripts
 
-iterator previousNodeIter*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
+iterator ydb_node_previous_iter*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
   var i = -1
   var rc:int
   while i < len(subscripts):
@@ -74,7 +74,7 @@ proc ydb_subscript_previous*(name: string, subs: var Subscripts): (int, Subscrip
   return ydb_subscript_previous_db(name, subs)
 
 # ------------------ Iterators for Next/Previous Subscript-------------
-iterator nextSubscriptIter*(global: string, subscripts: var Subscripts): Subscripts =
+iterator ydb_subscript_next_iter*(global: string, subscripts: var Subscripts): Subscripts =
   var i = -1
   var rc = 0
   while i < len(subscripts):
@@ -82,7 +82,7 @@ iterator nextSubscriptIter*(global: string, subscripts: var Subscripts): Subscri
     if rc != YDB_OK: break
     yield subscripts
 
-iterator previousSubscriptIter*(global: string, subscripts: var Subscripts): Subscripts =
+iterator ydb_subscript_previous_iter*(global: string, subscripts: var Subscripts): Subscripts =
   var i = -1
   var rc: int
   while i < len(subscripts):
@@ -92,15 +92,15 @@ iterator previousSubscriptIter*(global: string, subscripts: var Subscripts): Sub
 
 # ------------------ Locks -----------------
 # Max of 35 variable names in one call
-proc ydbLock*(timeout_nsec: culonglong, keys: seq[Subscripts] = @[]) =
+proc ydb_lock*(timeout_nsec: culonglong, keys: seq[Subscripts] = @[]) =
   ydb_lock_db(timeout_nsec, keys)
 
 # Only one variable name in one call
-proc ydbLockIncrement*(timeout_nsec: culonglong, name: string, keys: Subscripts): int =
+proc ydb_lock_incr*(timeout_nsec: culonglong, name: string, keys: Subscripts): int =
   return ydb_lock_incr_db(timeout_nsec, name, keys)
 
 # Only one variable name in one call
-proc ydbLockDecrement*(name: string, keys: Subscripts): int =
+proc ydb_lock_decs*(name: string, keys: Subscripts): int =
   return ydb_lock_decr_db(name, keys)
 
 # ------------------ YdbVar ----------------
@@ -112,19 +112,19 @@ proc newYdbVar*(global: string, subscripts: Subscripts, value: string = ""): Ydb
   result.value = value
   # Read from / or write to DB
   if value.isEmptyOrWhitespace:
-    result.value = ydbGet(result.global, result.subscripts)
+    result.value = ydb_get(result.global, result.subscripts)
   else:
-    ydbSet(result.global, result.subscripts, result.value)    
+    ydb_set(result.global, result.subscripts, result.value)    
 
 proc `$`*(v: YdbVar): string =
-  ydbGet(v.global, v.subscripts)
+  ydb_get(v.global, v.subscripts)
 
 proc `[]=`*(v: var YdbVar; val: string) =
-  ydbSet(v.global, v.subscripts, val)
+  ydb_set(v.global, v.subscripts, val)
   v.value = val
 
 # Call-In Interface
-proc ydbCI*(name: string) =
+proc ydb_ci*(name: string) =
   ydb_ci_db(name)
 
 # ------- Helpers
@@ -153,7 +153,7 @@ func keysToString*(global: string, subscript: Subscripts, value:string): string 
 proc subscriptsToValue*(global: string, subscript: Subscripts): string =
   var value: string
   try:
-    value = ydbGet(global, subscript)
+    value = ydb_get(global, subscript)
   except:
     discard
   if value.isEmptyOrWhitespace:

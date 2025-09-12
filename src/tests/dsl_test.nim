@@ -403,7 +403,7 @@ proc testDeleteExcl() =
 proc test_ydb_ci() =
     let tm = getTime()
     set: VAR1()=tm                      # set a YottaDB variable
-    ydbCI: "method1"
+    ydb_ci: "method1"
     let result = get: RESULT()  # Read the YottaDB variable from the Callin
     assert $tm == result
 
@@ -419,10 +419,10 @@ proc test() =
     test "testDeleteLocalExcl": testDeleteExcl()
     test "locks": testLock()
     test "lockincrement": testLockIncrement()
-    test "nextNode": testNextNode()
+    test "ydb_node_next": testNextNode()
     test "order": testOrder()
-    test "nextNode count": testNextCount()
-    test "prevNode": testPrevNode()
+    test "ydb_node_next count": testNextCount()
+    test "ydb_node_previous": testPrevNode()
     test "testNextSubscript":
       test "testNextSubscript1": testNextSubscript(@["HAUS", "ELE..."], @["HAUS", "ELEKTRIK"])
       test "testNextSubscript2": testNextSubscript(@["HAUS", "ELEKTRIK"], @["HAUS", "FLAECHEN"])

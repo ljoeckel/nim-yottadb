@@ -141,9 +141,9 @@ proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "", tptok
 
   var rc:cint
   when compileOption("threads"):
-    rc = ydbSet_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
+    rc = ydb_set_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
   else:
-    rc = ydbSet_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
+    rc = ydb_set_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
   if rc < YDB_OK:
     raise newException(YdbDbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys & " value:" & $value)
 
@@ -172,9 +172,9 @@ proc ydb_data_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
   var value: cuint = 0
 
   when compileOption("threads"):
-    rc = ydbData_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, value.addr)
+    rc = ydb_data_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, value.addr)
   else:
-    rc = ydbData_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, value.addr)
+    rc = ydb_data_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, value.addr)
 
   if rc < YDB_OK:
     raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
@@ -345,12 +345,12 @@ proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_b
   check()
   if numOfLocks == 0:  # release all locks
     when compileOption("threads"):
-      rc = ydbLock_st(tptoken, ERRMSG.addr, timeout, 0.cint) 
+      rc = ydb_lock_st(tptoken, ERRMSG.addr, timeout, 0.cint) 
     else:
-      rc = ydbLock_s(timeout, 0.cint)
+      rc = ydb_lock_s(timeout, 0.cint)
   else:
     when compileOption("threads"):
-      rc = ydbLock_st(tptoken, ERRMSG.addr, timeout, numOfLocks.cint, 
+      rc = ydb_lock_st(tptoken, ERRMSG.addr, timeout, numOfLocks.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],
@@ -388,7 +388,7 @@ proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_b
         addr names[34], subs[34].len.cint, addr subs[34][0]
         )
     else:
-      rc = ydbLock_s(timeout, numOfLocks.cint, 
+      rc = ydb_lock_s(timeout, numOfLocks.cint, 
         addr names[0], subs[0].len.cint, addr subs[0][0],
         addr names[1], subs[1].len.cint, addr subs[1][0],
         addr names[2], subs[2].len.cint, addr subs[2][0],

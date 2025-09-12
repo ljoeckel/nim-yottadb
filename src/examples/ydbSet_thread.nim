@@ -1,4 +1,4 @@
-import std/[random, strformat, strutils, times]
+import std/[times]
 import ../libs/yottadb_types
 import ../libs/libyottadb
 import ../libs/yottadb_api
@@ -13,25 +13,25 @@ proc worker(tn: int, iterations: int) = # Duration 25264 ms.
   var counter = iterations
   while counter > 0:
     try:
-      let txid = ydbIncrement("^CNT", @["ydbSet"])
-      ydbSet("^ydbSet", @[$txid], "This is some test from thread " & $tn)
+      let txid = ydb_increment("^CNT", @["ydb_set"])
+      ydb_set("^YDB", @[$txid], "This is some test from thread " & $tn)
     except:
-      echo "Exception: ", getCurrentExceptionMsg()
+      echo "Exception simple-api: ", getCurrentExceptionMsg()
     dec(counter)
 
 proc worker_dsl(tn: int, iterations: int) = # Duration 24606 ms.
   var counter = iterations
   while counter > 0:
     try:
-      let txid = incr: ^CNT("ydbSet")
-      set: ^ydbSet(txid) = "This is some test from thread " & $tn
+      let txid = incr: ^CNT("ydb_set")
+      set: ^YDB(txid) = "This is some test from thread " & $tn
     except:
-      echo "Exception: ", getCurrentExceptionMsg()
+      echo "Exception dsl: ", getCurrentExceptionMsg()
     dec(counter)
 
 proc main() =
   const NUM_OF_THREADS = 2
-  const ITERATIONS = 1000000
+  const ITERATIONS = 100000
   var m = createMaster()
   m.awaitAll:
     for tn in 0..<NUM_OF_THREADS:
@@ -40,7 +40,7 @@ proc main() =
 
 proc main_dsl() =
   const NUM_OF_THREADS = 2
-  const ITERATIONS = 1000000
+  const ITERATIONS = 100000
   var m = createMaster()
   m.awaitAll:
     for tn in 0..<NUM_OF_THREADS:
@@ -53,14 +53,14 @@ proc count_data() =
   var rc = YDB_OK
   var node:Subscripts = @[]
   while rc == YDB_OK:
-    (rc, node) = nextn: ^ydbSet(node)
+    (rc, node) = nextn: ^YDB(node)
     if rc == YDB_OK:
       inc(cnt)
   echo "Have ", cnt, " entries."
 
 when isMainModule:
   # Reset counter
-  delnode: ^CNT("ydbSet")
+  delnode: ^CNT("ydb_set")
 
   timed: main()
   timed: main_dsl()

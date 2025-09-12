@@ -7,7 +7,7 @@ const MAX = 1000000
 proc upcount() = # Duration 1319 ms.
     var counter:int
     for cnt in 0..MAX:
-        counter = ydbIncrement("^CNT", @["upcount"])
+        counter = ydb_increment("^CNT", @["upcount"])
     echo "counter: ", counter
 
 proc upcount_dsl() = # Duration 1324 ms.

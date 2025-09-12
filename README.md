@@ -22,6 +22,16 @@ The nim-yottadb implementation delievers the following features:
 - ydb_tp (Start a transaction)
 - ydb_ci (Call a M-Routine via Call-In Interface)
 
+### Extensions to the Simple-API
+- Iterator for next/previous node
+- Iterator for next/previous subscript
+- YdbVar with $ and [] operator
+```nim
+for i in 0..MAX:
+    var v = newYdbVar("^Geo", @["LAND", "ORT", i])
+    # update db with new value
+    v[] = "New " & v.value
+```
 ### DSL
 - set: 
 ```nim

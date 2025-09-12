@@ -21,8 +21,8 @@ template timed(body: untyped): untyped =
 proc initDB() =
   ## Clean the database
   var keys:Subscripts = @[]
-  for keys in nextNodeIter(GLOBAL, keys):
-    ydbDeleteNode(GLOBAL, keys)
+  for keys in ydb_node_next_iter(GLOBAL, keys):
+    ydb_delete_node(GLOBAL, keys)
 
 proc fibonacci_recursive(n: int): int =
   ## Simulate some CPU intense work
@@ -40,26 +40,26 @@ proc testIncrement(tn: int) =
   ## For each thread iterate to MAX and calculate the fibonacci and save in db
   let key = @["cnt"]
   for i in 0..<MAX:
-    let result = ydbIncrement(GLOBAL, key)
+    let result = ydb_increment(GLOBAL, key)
     let sum = calcFinonacciSum()
-    ydbSet(GLOBAL, @[$tn, $result], $sum)
+    ydb_set(GLOBAL, @[$tn, $result], $sum)
 
 proc validateCounters() =
   ## Validate if all data is correctly saved in the db
   
   # Check increment in db
-  assert MAX * NUM_OF_THREADS == parseInt(ydbGet(GLOBAL, @["cnt"]))
+  assert MAX * NUM_OF_THREADS == parseInt(ydb_get(GLOBAL, @["cnt"]))
 
   var results = initHashSet[int](MAX*NUM_OF_THREADS+1)
   var key = @[""]
   var cntidx = 0
   let fibo = calcFinonacciSum()
 
-  for key in nextNodeIter(GLOBAL, key):
+  for key in ydb_node_next_iter(GLOBAL, key):
     if key[0] == "cnt": continue
     results.incl(parseInt(key[1])) # 1..max*num_of_threads
     inc(cntidx)
-    let value = parseInt(ydbGet(GLOBAL, key))
+    let value = parseInt(ydb_get(GLOBAL, key))
     assert value == fibo
 
   # check the number of results in the db

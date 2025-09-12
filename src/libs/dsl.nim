@@ -314,23 +314,23 @@ macro lockdecr*(body: untyped): untyped =
 proc getstring*(args: varargs[string]): string =
   let global = args[0]
   let subscripts = args[1..^1]
-  result = ydbGet(global, subscripts)  
+  result = ydb_get(global, subscripts)  
 proc getstring1*(global: string, args: seq[string]): string =
   let subscripts = args[0..^1]
-  result = ydbGet(global, subscripts)
+  result = ydb_get(global, subscripts)
 proc getstring1*(global: string, args: string): string =
   let subscripts: seq[string] = @[args]
-  result = ydbGet(global, subscripts)
+  result = ydb_get(global, subscripts)
 
 proc getfloat*(args: varargs[string]): float =
   let global = args[0]
   let subscripts = args[1..^1]
-  result = parseFloat(ydbGet(global, subscripts))
+  result = parseFloat(ydb_get(global, subscripts))
 
 proc getint*(args: varargs[string]): int =
   let global = args[0]
   let subscripts = args[1..^1]
-  result = parseInt(ydbGet(global, subscripts))
+  result = parseInt(ydb_get(global, subscripts))
 
 # -------------------
 # nextnode procs
@@ -338,14 +338,14 @@ proc getint*(args: varargs[string]): int =
 proc nextnodeyyy*(args: varargs[string]): (int, Subscripts) =
   let global = args[0]
   var subscripts = args[1..^1]
-  return nextNode(global, subscripts)
+  return ydb_node_next(global, subscripts)
 
 proc nextnodeyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
-  return nextNode(global, subscripts)
+  return ydb_node_next(global, subscripts)
 
 proc nextnodeyyy1*(global: string, sub: string): (int, Subscripts) =
   var subscripts:seq[string] = @[sub]
-  return nextNode(global, subscripts)
+  return ydb_node_next(global, subscripts)
 
 
 # -------------------
@@ -397,12 +397,12 @@ proc prevsubyyy1*(global: string, sub: string): (int, Subscripts) =
 proc prevnodeyyy*(args: varargs[string]): (int, Subscripts) =
   let global = args[0]
   var subscripts = args[1..^1]
-  return prevNode(global, subscripts)
+  return ydb_node_previous(global, subscripts)
 proc prevnodeyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
-  return prevNode(global, subscripts)
+  return ydb_node_previous(global, subscripts)
 proc prevnodeyyy1*(global: string, sub: string): (int, Subscripts) =
   var subscripts:seq[string] = @[sub]
-  return prevNode(global, subscripts)
+  return ydb_node_previous(global, subscripts)
 
 
 # ---------------------
@@ -412,7 +412,7 @@ proc setxxx*(args: varargs[string]) =
   let global = args[0]
   let subscripts = args[1..^2]
   let value = args[^1]
-  ydbSet(global, subscripts, value)
+  ydb_set(global, subscripts, value)
 
 
 # ----------------------
@@ -421,13 +421,13 @@ proc setxxx*(args: varargs[string]) =
 proc incr1xxx*(args: varargs[string]): int =
   let global = args[0]
   let subscripts = args[1..^1]
-  return ydbIncrement(global, subscripts)
+  return ydb_increment(global, subscripts)
 
 proc incrxxx*(args: varargs[string]): int =
   let global = args[0]
   let subscripts = args[1..^2]
   let value = parseInt(args[^1])
-  return ydbIncrement(global, subscripts, value)
+  return ydb_increment(global, subscripts, value)
 
 
 # -------------------
@@ -436,7 +436,7 @@ proc incrxxx*(args: varargs[string]): int =
 proc dataxxx*(args: varargs[string]): int =
   let global = args[0]
   let subscripts = args[1..^1]
-  result = ydbData(global, subscripts)
+  result = ydb_data(global, subscripts)
 
 
 # -------------------
@@ -445,19 +445,19 @@ proc dataxxx*(args: varargs[string]): int =
 proc delnodexxx*(args: varargs[string]) =
   let global = args[0]
   let subscripts = args[1..^1]
-  ydbDeleteNode(global, subscripts)
+  ydb_delete_node(global, subscripts)
 
 proc deltreexxx*(args: varargs[string]) =
   let global = args[0]
   let subscripts = args[1..^1]
-  ydbDeleteTree(global, subscripts)
+  ydb_delete_tree(global, subscripts)
 
 # -------------------
 # delexcl procs
 # -------------------
 proc delexclxxx*(args: varargs[string]) =
   let subscripts = args[0..^1]
-  ydbDeleteExcl(subscripts)
+  ydb_delete_excl(subscripts)
 
 
 # ---------------------
@@ -478,7 +478,7 @@ proc lockxxx*(args: varargs[string]) =
   if tmp.len > 0:
     subs.add(tmp)
   try:
-    ydbLock(100000, subs)
+    ydb_lock(100000, subs)
   except:
     echo getCurrentExceptionMsg()
 
@@ -490,9 +490,9 @@ proc lockincrxxx*(args: varargs[string]):int =
   let global = args[0]
   let timeout:culonglong = 100000  #TODO make readable from DSL macro ^LL("HAUS"),100000 o.ä.
   let subscripts = args[1..^1]
-  return ydbLockIncrement(timeout, global, subscripts)
+  return ydb_lock_incr(timeout, global, subscripts)
 
 proc lockdecrxxx*(args: varargs[string]):int =
   let global = args[0]
   let subscripts = args[1..^1]
-  return ydbLockDecrement(global, subscripts)
+  return ydb_lock_decs(global, subscripts)

@@ -14,7 +14,7 @@ const
 
 proc myTxn(p0: pointer): cint {.cdecl.} =
   let someParam = $cast[cstring](p0)
-  let restarted = parseInt(ydbGet("$TRESTART")) # How many times the proc was called from yottadb
+  let restarted = parseInt(ydb_get("$TRESTART")) # How many times the proc was called from yottadb
 
   try:
     let (ms, fibresult) = timed_rc:
@@ -22,9 +22,9 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
       fibonacci_recursive(fib) # do some cpu intense work
     
     # Increment transaction counter and save application data
-    let txid = ydbIncrement("^CNT", @[THS])
+    let txid = ydb_increment("^CNT", @[THS])
     let data = fmt"restarts:{restarted}, fib:{fib} result:{fibresult} time:{ms}"
-    ydbSet(GLOBAL, @[$txid], $data)
+    ydb_set(GLOBAL, @[$txid], $data)
   except:
     # Retry a aborted transaction one time, otherwise roll back
     if restarted == 0: return YDB_TP_RESTART else: return YDB_TP_ROLLBACK
@@ -33,12 +33,12 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
 
 
 # Set transaction timeout to 1 second
-ydbSet("$ZMAXTPTIME", value="1")
+ydb_set("$ZMAXTPTIME", value="1")
 for i in 1..MAX:
   let (ms, rc) = timed_rc:
-    ydbTxRun(myTxn, "SomeParam")
+    ydb_tp(myTxn, "SomeParam")
 
-  let txid = ydbGet("^CNT", @[THS]) # get last transaction id
+  let txid = ydb_get("^CNT", @[THS]) # get last transaction id
   var data = newYdbVar(GLOBAL, @[$txid])
   data[] = data.value & " overall-time:" & $ms # append overall
   echo "i:", i, " rc=", rc, " ", ms, "ms. txid:", txid, " data:", data

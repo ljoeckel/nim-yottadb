@@ -6,13 +6,13 @@ import libyottadb
 proc saveInYdb(global: string, subs: seq[string], key: string, value: string) =
   var subscpy = subs
   subscpy.add(key)
-  ydbSet(global, subscpy, value)
+  ydb_set(global, subscpy, value)
 
 proc loadFromYdb(global: string, subs: seq[string], key: string): string =
   var subscpy = subs
   subscpy.add(key)
   try:
-    result = ydbGet(global, subscpy)
+    result = ydb_get(global, subscpy)
   except:
     echo "ERROR: " & getCurrentExceptionMsg()
 
@@ -47,12 +47,12 @@ proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[
     elif T is enum:
       subscpy.add(k)
       subscpy.add($idx)
-      ydbSet(global, subscpy, $ord(elem))
+      ydb_set(global, subscpy, $ord(elem))
     else:
       # it's a seq[string],...
       subscpy.add(k)
       subscpy.add($idx)
-      ydbSet(global, subscpy, $elem)
+      ydb_set(global, subscpy, $elem)
     
     inc(idx)
 
@@ -133,7 +133,7 @@ proc load[T](global: string, subs: seq[string], k: string; x: var set[T]) =
   while(rc == YDB_OK):
     (rc, subscripts) = ydb_subscript_next(global, subscripts)
     if rc == YDB_OK:
-      let value = ydbGet(global, subscripts)
+      let value = ydb_get(global, subscripts)
       when typeof(x) is set[char]:
         x.incl(value[0])
       else:
@@ -153,7 +153,7 @@ proc load[T: var SomeSet](global: string, subs: seq[string], k: string; x: var T
   while(rc == YDB_OK):
     (rc, subscripts) = ydb_subscript_next(global, subscripts)
     if rc == YDB_OK:
-      x.incl(ydbGet(global, subscripts))
+      x.incl(ydb_get(global, subscripts))
     inc(idx)
 
 # seq[T] | seq[T of object]
@@ -175,7 +175,7 @@ proc load[T](global: string, subs: seq[string], k: string; x: var seq[T] ) =
     while(rc == YDB_OK):
       (rc, subscripts) = ydb_subscript_next(global, subscripts)
       if rc == YDB_OK:
-        x.add(ydbGet(global, subscripts))
+        x.add(ydb_get(global, subscripts))
 
 proc load[K, V](global: string, subs: seq[string], kv: string; o: var (Table[K, V]|OrderedTable[K, V])) =
   for fn, fv in pairs(o):

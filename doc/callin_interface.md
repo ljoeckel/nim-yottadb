@@ -43,7 +43,7 @@ To create the M-program:
 proc test_ydb_ci() =
     let tm = getTime()
     set: VAR1()=tm             # set a YottaDB variable
-    ydbCI("method1")           # call CI method
+    ydb_ci("method1")           # call CI method
     let result = get: RESULT() # Read variable
 ```
 

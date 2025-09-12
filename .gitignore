@@ -16,7 +16,7 @@ src/examples/upcount
 src/tests/yottadb_test_threaded
 src/examples/tx
 src/examples/tx_thread
-src/examples/ydbSet_thread
+src/examples/ydb_set_thread
 src/examples/caret
 src/tests/dsl_test
 src/libs/dsl_templates
