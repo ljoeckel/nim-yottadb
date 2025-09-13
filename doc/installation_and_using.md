@@ -6,12 +6,9 @@ and follow the instructions.
 For installation go to [Install Nim](https://nim-lang.org/install.html)
 
 # Install nimyottadb
-Until the package is in nimble.directory, clone the project at github:
-git clone https://github.com/ljoeckel/nim-yottadb.git
-
-Got to the 'nim-yottadb' directory and run
+By now, nimyottadb is not yet in the [nimble.directory](https://nimble.directory/). So you can install with
 ```nim
-nimble install
+nimble install https://github.com/ljoeckel/nim-yottadb.git
 ```
 
 If it's in the package registry, install simply with

@@ -106,6 +106,12 @@ All API-Calls are available in a single- or multi-threaded version and ara autom
 
 For the project's architecture details look at https://deepwiki.com/ljoeckel/nim-yottadb/1-overview
 
+- [Blog](doc/blog.md) gives some general information about the project
+- Go to [Installation](doc/installation_and_using.md) for installation details.
+- [dsl](doc/dsl.md) for details about the Domain Specific Language
+- Details about the Call-In Interface are found [here](doc/callin_interface.md)
+- [Object-Serialization](doc/object_serialization.md) gives infos how to serialize and deserialize Nim object to YottaDB.
+- Some details about Transactions are [here](doc/yottadb.md). Need's further work
 
 This project was started to learn NIM (https://nim-lang.org)
 I'm truly impressed by the simplicity, power, and flexibility of Nim. The possibilities offered by macros and templates, in particular, make Nim a powerful tool. Developing software is finally fun again.
