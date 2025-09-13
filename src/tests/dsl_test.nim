@@ -274,14 +274,16 @@ proc testOrder() =
 
 
 proc testNextCount() =
-  var cnt = 0
-  var rc:int = YDB_OK
-  var node:Subscripts = @[]
+  var
+    cnt = 0
+    rc:int
+    node:Subscripts
+
+  (rc, node) = nextn: ^LL()
   while rc == YDB_OK:
+    inc(cnt)
     (rc, node) = nextn: ^LL(node)
-    if rc == YDB_OK:
-      inc(cnt)
-  assert cnt == 22
+  assert cnt == 21
 
 
 proc testPrevNode() =

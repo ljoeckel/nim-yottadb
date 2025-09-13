@@ -129,6 +129,7 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
     elif rhs.kind == nnkIdent:
       return newCall(ident"getstring", @[newLit(prefix & rhs.strVal)])
 
+
 # Update existing transform procs to use the base version
 proc transformCallNode(node: NimNode): seq[NimNode] =
   let transformed = transformCallNodeBase(node, tkDefault, "")
@@ -140,6 +141,7 @@ proc transformCallNodeNext(node: NimNode, procPrefix:string = ""): NimNode =
 
 proc transformCallNodeGET(node: NimNode): NimNode = 
   transformCallNodeBase(node, tkGet)
+
 
 # ------------------- DSL macros -------------------
 
@@ -186,6 +188,7 @@ macro get*(body: untyped): untyped =
       return node
   transformBody body
 
+
 macro nextn*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
@@ -194,6 +197,7 @@ macro nextn*(body: untyped): untyped =
     else:
       return node
   transformBody body
+
 
 macro prevn*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
@@ -292,6 +296,7 @@ macro lockincr*(body: untyped): untyped =
       return node
   transformBody body
 
+
 macro lockdecr*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
@@ -300,7 +305,6 @@ macro lockdecr*(body: untyped): untyped =
     else:
       return node
   transformBody body
-
 
 
 # Proc^s that implement the ydb call's
@@ -312,9 +316,11 @@ proc getstring*(args: varargs[string]): string =
   let global = args[0]
   let subscripts = args[1..^1]
   result = ydb_get(global, subscripts)  
+
 proc getstring1*(global: string, args: seq[string]): string =
   let subscripts = args[0..^1]
   result = ydb_get(global, subscripts)
+
 proc getstring1*(global: string, args: string): string =
   let subscripts: seq[string] = @[args]
   result = ydb_get(global, subscripts)
@@ -328,6 +334,7 @@ proc getint*(args: varargs[string]): int =
   let global = args[0]
   let subscripts = args[1..^1]
   result = parseInt(ydb_get(global, subscripts))
+
 
 # -------------------
 # nextnode procs
@@ -365,6 +372,13 @@ proc nextsubyyy1*(global: string, sub: string): (int, Subscripts) =
   var subscripts:seq[string] = @[sub]
   (rc, subscripts) = ydb_subscript_next(global, subscripts)
   return (rc, subscripts)
+
+proc nextsubyyy1*(global: string, sub: Subscripts): (int, Subscripts) =
+  var rc:int
+  var subscripts:seq[string] = sub
+  (rc, subscripts) = ydb_subscript_next(global, subscripts)
+  return (rc, subscripts)
+
 
 # -------------------
 # prevsub procs
@@ -448,6 +462,7 @@ proc deltreexxx*(args: varargs[string]) =
   let global = args[0]
   let subscripts = args[1..^1]
   ydb_delete_tree(global, subscripts)
+
 
 # -------------------
 # delexcl procs

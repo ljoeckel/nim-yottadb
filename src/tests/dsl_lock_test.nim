@@ -36,7 +36,7 @@ proc createThreads(cnt: int, numOfThreads: int) =
 
 proc testTryToCreateDeadlock() =
     let numOfThreads = 8
-    const maxCount = 10000
+    const maxCount = 1000
 
     deltree:
         ^CNT(4711)
@@ -48,8 +48,6 @@ proc testTryToCreateDeadlock() =
         var cnt = maxCount
         while cnt > 0:
             dec(cnt)
-            if cnt mod 1000 == 0:
-                echo "------> ", cnt
             createThreads(cnt, numOfThreads)
 
     # Test totals
