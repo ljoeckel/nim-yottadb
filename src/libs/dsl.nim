@@ -499,12 +499,14 @@ proc lockxxx*(args: varargs[string]) =
 # lockincr / decr proc's
 # ----------------------
 proc lockincrxxx*(args: varargs[string]) =
+  # Increment lock count for variable
   let global = args[0]
   let timeout:culonglong = 100000  #TODO make readable from DSL macro ^LL("HAUS"),100000 o.ä.
   let subscripts = args[1..^1]
   ydb_lock_incr(timeout, global, subscripts)
 
 proc lockdecrxxx*(args: varargs[string]) =
+  # Decrement lock count for variable
   let global = args[0]
   let subscripts = args[1..^1]
   ydb_lock_decr(global, subscripts)
