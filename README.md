@@ -59,11 +59,11 @@ nim let i: int = get: ^Customer(4711, accountId, "somevalue").int
 ```
 - nextsub:
 ```nim
-(rc, node) = prevn: ^House("ELECTRIC")
+(rc, node) = nextsub: ^House("ELECTRIC")
 ```
 - prevsub:
 ```nim
-(rc, node) = prevn: ^House("ELECTIRC", "CABLES")
+(rc, node) = prevsub: ^House("ELECTIRC", "CABLES")
 ```
 - data:
 ```nim
