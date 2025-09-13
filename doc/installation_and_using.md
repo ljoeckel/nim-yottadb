@@ -4,6 +4,29 @@ and follow the instructions.
 
 # Install Nim
 For installation go to [Install Nim](https://nim-lang.org/install.html)
+To Install on ARM Architecture, you need to build from source:
+- Get the source files 
+***wget https://nim-lang.org/download/nim-2.2.4.tar.xz***
+- Unpack
+***tar xf nim-2.2.4.tar.xz***
+```
+cd nim-2.2.4
+sh build.sh
+bin/nim c koch
+./koch boot -d:release
+./koch tools
+sudo ./install.sh /usr/local/bin
+```
+Test
+```
+ljoeckel@m4ubt01:~$ nim -v
+Nim Compiler Version 2.2.4 [Linux: arm64]
+Compiled at 2025-09-13
+Copyright (c) 2006-2025 by Andreas Rumpf
+
+active boot switches: -d:release
+```
+
 
 # Install nimyottadb
 By now, nimyottadb is not yet in the [nimble.directory](https://nimble.directory/). So you can install with

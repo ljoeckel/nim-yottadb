@@ -96,7 +96,7 @@ proc ydb_lock_incr*(timeout_nsec: culonglong, name: string, keys: Subscripts) =
   ydb_lock_incr_db(timeout_nsec, name, keys)
 
 # Only one variable name in one call
-proc ydb_lock_decs*(name: string, keys: Subscripts) =
+proc ydb_lock_decr*(name: string, keys: Subscripts) =
   ydb_lock_decr_db(name, keys)
 
 # ------------------ YdbVar ----------------

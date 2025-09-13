@@ -247,15 +247,15 @@ proc testLockIncrement() =
   assert getLockCountFromYottaDb() == 3
 
   # Decrement locks one by one
-  ydb_lock_decs("^LL", @["HAUS", "33"])
+  ydb_lock_decr("^LL", @["HAUS", "33"])
   assert getLockCountFromYottaDb() == 2
-  ydb_lock_decs("^LL", @["HAUS", "32"])
+  ydb_lock_decr("^LL", @["HAUS", "32"])
   assert getLockCountFromYottaDb() == 1
-  ydb_lock_decs("^LL", @["HAUS", "31"])
+  ydb_lock_decr("^LL", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 0
 
   # Increment / Decrement non existing lock (Should be ignored)
-  ydb_lock_decs("^LL", @["HAUS", "99"])
+  ydb_lock_decr("^LL", @["HAUS", "99"])
   assert getLockCountFromYottaDb() == 0
 
   # Increment / Decrement non existing global (Lock will be created)
@@ -267,11 +267,11 @@ proc testLockIncrement() =
   assert getLockCountFromYottaDb() == 1
   ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 1
-  ydb_lock_decs("^ZZZZ", @["HAUS", "31"])
+  ydb_lock_decr("^ZZZZ", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 1
-  ydb_lock_decs("^ZZZZ", @["HAUS", "31"])
+  ydb_lock_decr("^ZZZZ", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 1
-  ydb_lock_decs("^ZZZZ", @["HAUS", "31"])
+  ydb_lock_decr("^ZZZZ", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 0
 
 
