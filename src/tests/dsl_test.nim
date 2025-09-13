@@ -167,48 +167,47 @@ proc testLock()  =
   
 
 proc testLockIncrement() =
-  var rc:int
-  rc = lockincr: ^LL("HAUS", "ELEKTRIK")
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
-  rc = lockincr: ^LL("HAUS", "HEIZUNG")
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 2
-  rc = lockincr: ^LL("HAUS", "FLAECHEN")
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 3
+  lockincr: ^LL("HAUS", "ELEKTRIK")
+  assert getLockCountFromYottaDb() == 1
+  lockincr: ^LL("HAUS", "HEIZUNG")
+  assert getLockCountFromYottaDb() == 2
+  lockincr: ^LL("HAUS", "FLAECHEN")
+  assert getLockCountFromYottaDb() == 3
 
-  # # # Decrement locks one by one
-  rc = lockdecr: ^LL("HAUS", "FLAECHEN")
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 2
-  rc = lockdecr: ^LL("HAUS", "HEIZUNG")
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
-  rc = lockdecr: ^LL("HAUS", "ELEKTRIK")
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 0
+  # Decrement locks one by one
+  lockdecr: ^LL("HAUS", "FLAECHEN")
+  assert getLockCountFromYottaDb() == 2
+  lockdecr: ^LL("HAUS", "HEIZUNG")
+  assert getLockCountFromYottaDb() == 1
+  lockdecr: ^LL("HAUS", "ELEKTRIK")
+  assert getLockCountFromYottaDb() == 0
 
   # Increment non existing subscript (Lock will be created)
-  rc = lockincr: ^LL("HAUS", "XXXXXXX")
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
-  rc = lockdecr: ^LL("HAUS", "XXXXXXX")
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 0
+  lockincr: ^LL("HAUS", "XXXXXXX")
+  assert getLockCountFromYottaDb() == 1
+  lockdecr: ^LL("HAUS", "XXXXXXX")
+  assert getLockCountFromYottaDb() == 0
 
   # Decrement non existing global (Lock will be created)
-  rc = lockincr: ^ZZZZ("HAUS", "XXXXXXX")
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
-  rc = lockdecr: ^ZZZZ("HAUS", "XXXXXXX")
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 0
+  lockincr: ^ZZZZ("HAUS", "XXXXXXX")
+  assert getLockCountFromYottaDb() == 1
+  lockdecr: ^ZZZZ("HAUS", "XXXXXXX")
+  assert getLockCountFromYottaDb() == 0
 
   # Increment 3 times same lock
-  rc = lockincr: ^ZZZZ("HAUS", 31)
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
-  rc = lockincr: ^ZZZZ("HAUS", 31)  
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
-  rc = lockincr: ^ZZZZ("HAUS", 31)  
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
+  lockincr: ^ZZZZ("HAUS", 31)
+  assert getLockCountFromYottaDb() == 1
+  lockincr: ^ZZZZ("HAUS", 31)  
+  assert getLockCountFromYottaDb() == 1
+  lockincr: ^ZZZZ("HAUS", 31)  
+  assert getLockCountFromYottaDb() == 1
   # Decrement 3 times
-  rc = lockdecr: ^ZZZZ("HAUS", 31)  
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
-  rc = lockdecr: ^ZZZZ("HAUS", 31)  
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 1
-  rc = lockdecr: ^ZZZZ("HAUS", 31)  
-  assert rc == YDB_OK and getLockCountFromYottaDb() == 0
+  lockdecr: ^ZZZZ("HAUS", 31)  
+  assert getLockCountFromYottaDb() == 1
+  lockdecr: ^ZZZZ("HAUS", 31)  
+  assert getLockCountFromYottaDb() == 1
+  lockdecr: ^ZZZZ("HAUS", 31)  
+  assert getLockCountFromYottaDb() == 0
   
 
 proc testNextNode() =
@@ -458,9 +457,23 @@ proc test() =
       test "Call-In Interface": test_ydb_ci()
 
 
+proc setWithVar() =
+  let global = "^LL"
+  set: global("HAUS", "FLOOR", 1)="1. floor"
+  let l = get: global("HAUS", "FLOOR", 1)
+  echo "local var:", l
+  let s = get: ^LL("HAUS", "FLOOR", 1)
+  assert s == "1. floor"
+
 when isMainModule:
   setupLL()
   timed:
     test()
-  
+    #setWithVar()
+
+import macros  
+dumpTree:
+  let global = "^LL"
+  set: global("HAUS", "FLOOR", 1)="1. floor"
+  set: ^LL("HAUS", "FLOOR", 1)="1. floor"
 

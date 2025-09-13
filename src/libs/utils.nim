@@ -3,9 +3,9 @@ import std/times
 
 template withlock*(lockid: untyped, body: untyped): untyped =
     ## Create a database lock named ^LOCKS(lockid) while executing the body
-    var rc = lockincr: ^LOCKS(lockid)
+    lockincr: ^LOCKS(lockid)
     body
-    rc = lockdecr: ^LOCKS(lockid)
+    lockdecr: ^LOCKS(lockid)
 
 
 template timed*(body: untyped) =

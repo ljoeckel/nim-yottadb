@@ -483,13 +483,13 @@ proc lockxxx*(args: varargs[string]) =
 # ----------------------
 # lockincr / decr proc's
 # ----------------------
-proc lockincrxxx*(args: varargs[string]):int =
+proc lockincrxxx*(args: varargs[string]) =
   let global = args[0]
   let timeout:culonglong = 100000  #TODO make readable from DSL macro ^LL("HAUS"),100000 o.ä.
   let subscripts = args[1..^1]
-  return ydb_lock_incr(timeout, global, subscripts)
+  ydb_lock_incr(timeout, global, subscripts)
 
-proc lockdecrxxx*(args: varargs[string]):int =
+proc lockdecrxxx*(args: varargs[string]) =
   let global = args[0]
   let subscripts = args[1..^1]
-  return ydb_lock_decs(global, subscripts)
+  ydb_lock_decs(global, subscripts)

@@ -239,40 +239,39 @@ proc testLock() =
 
 
 proc testLockIncrement() =
-  var rc:int
-  rc = ydb_lock_incr(100000, "^LL", @["HAUS", "31"])
+  ydb_lock_incr(100000, "^LL", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 1
-  rc = ydb_lock_incr(100000, "^LL", @["HAUS", "32"])
+  ydb_lock_incr(100000, "^LL", @["HAUS", "32"])
   assert getLockCountFromYottaDb() == 2
-  rc = ydb_lock_incr(100000, "^LL", @["HAUS", "33"])
+  ydb_lock_incr(100000, "^LL", @["HAUS", "33"])
   assert getLockCountFromYottaDb() == 3
 
   # Decrement locks one by one
-  rc = ydb_lock_decs("^LL", @["HAUS", "33"])
+  ydb_lock_decs("^LL", @["HAUS", "33"])
   assert getLockCountFromYottaDb() == 2
-  rc = ydb_lock_decs("^LL", @["HAUS", "32"])
+  ydb_lock_decs("^LL", @["HAUS", "32"])
   assert getLockCountFromYottaDb() == 1
-  rc = ydb_lock_decs("^LL", @["HAUS", "31"])
+  ydb_lock_decs("^LL", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 0
 
   # Increment / Decrement non existing lock (Should be ignored)
-  rc = ydb_lock_decs("^LL", @["HAUS", "99"])
+  ydb_lock_decs("^LL", @["HAUS", "99"])
   assert getLockCountFromYottaDb() == 0
 
   # Increment / Decrement non existing global (Lock will be created)
-  rc = ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
+  ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 1
 
   # Increment / Decrement same lock multiple times
-  rc = ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
+  ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 1
-  rc = ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
+  ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 1
-  rc = ydb_lock_decs("^ZZZZ", @["HAUS", "31"])
+  ydb_lock_decs("^ZZZZ", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 1
-  rc = ydb_lock_decs("^ZZZZ", @["HAUS", "31"])
+  ydb_lock_decs("^ZZZZ", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 1
-  rc = ydb_lock_decs("^ZZZZ", @["HAUS", "31"])
+  ydb_lock_decs("^ZZZZ", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 0
 
 
@@ -399,5 +398,5 @@ proc test() =
 
 
 when isMainModule:
-  #test() # threads:off=31s, threads:on=33s
-  test "Call-In Interface": test_ydb_ci()
+  test() # threads:off=31s, threads:on=33s
+  #test "Call-In Interface": test_ydb_ci()

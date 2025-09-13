@@ -30,11 +30,7 @@ proc ydb_delete_excl*(names: seq[string] = @[], tptoken:uint64 = 0) =
 
 
 proc ydb_increment*(name: string, keys: Subscripts, increment: int = 1, tptoken:uint64 = 0): int =
-  let s = ydb_increment_db(name, keys, increment, tptoken)
-  try:
-    result = parseInt(s)
-  except:
-    raise newException(YdbDbError, "Illegal Number. Tried to parseInt(" & s & ")")
+  ydb_increment_db(name, keys, increment, tptoken)
 
 proc ydb_tp_mt*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string, transid: string = ""): int =
   result = ydb_tp2_start(myTxnProc, param, transid)
@@ -96,12 +92,12 @@ proc ydb_lock*(timeout_nsec: culonglong, keys: seq[Subscripts] = @[]) =
   ydb_lock_db(timeout_nsec, keys)
 
 # Only one variable name in one call
-proc ydb_lock_incr*(timeout_nsec: culonglong, name: string, keys: Subscripts): int =
-  return ydb_lock_incr_db(timeout_nsec, name, keys)
+proc ydb_lock_incr*(timeout_nsec: culonglong, name: string, keys: Subscripts) =
+  ydb_lock_incr_db(timeout_nsec, name, keys)
 
 # Only one variable name in one call
-proc ydb_lock_decs*(name: string, keys: Subscripts): int =
-  return ydb_lock_decr_db(name, keys)
+proc ydb_lock_decs*(name: string, keys: Subscripts) =
+  ydb_lock_decr_db(name, keys)
 
 # ------------------ YdbVar ----------------
 proc newYdbVar*(global: string, subscripts: Subscripts, value: string = ""): YdbVar =
