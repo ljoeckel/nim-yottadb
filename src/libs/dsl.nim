@@ -507,4 +507,4 @@ proc lockincrxxx*(args: varargs[string]) =
 proc lockdecrxxx*(args: varargs[string]) =
   let global = args[0]
   let subscripts = args[1..^1]
-  ydb_lock_decs(global, subscripts)
+  ydb_lock_decr(global, subscripts)
