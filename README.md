@@ -116,5 +116,4 @@ For the project's architecture details look at https://deepwiki.com/ljoeckel/nim
 This project was started to learn NIM (https://nim-lang.org)
 I'm truly impressed by the simplicity, power, and flexibility of Nim. The possibilities offered by macros and templates, in particular, make Nim a powerful tool. Developing software is finally fun again.
 
-
-
+If you want to contact me please email to **lothar.joeckel@gmail.com**
