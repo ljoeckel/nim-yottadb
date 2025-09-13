@@ -457,23 +457,7 @@ proc test() =
       test "Call-In Interface": test_ydb_ci()
 
 
-proc setWithVar() =
-  let global = "^LL"
-  set: global("HAUS", "FLOOR", 1)="1. floor"
-  let l = get: global("HAUS", "FLOOR", 1)
-  echo "local var:", l
-  let s = get: ^LL("HAUS", "FLOOR", 1)
-  assert s == "1. floor"
-
 when isMainModule:
   setupLL()
   timed:
     test()
-    #setWithVar()
-
-import macros  
-dumpTree:
-  let global = "^LL"
-  set: global("HAUS", "FLOOR", 1)="1. floor"
-  set: ^LL("HAUS", "FLOOR", 1)="1. floor"
-

@@ -1,4 +1,4 @@
-import std/[strformat, strutils, unittest, times, os, files]
+import std/[strformat, strutils, unittest, times, os]
 import ../yottadb
 
 const
