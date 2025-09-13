@@ -1,11 +1,9 @@
 # Install YottaDB
-For a Linux installation go to
-```nim
-https://yottadb.com/product/get-started/#your-linux-system
-```
-and follow the instructions
+For a Linux installation go to [Get-Started](https://yottadb.com/product/get-started/#your-linux-system)
+and follow the instructions.
 
 # Install Nim
+For installation go to [Install Nim](https://nim-lang.org/install.html)
 
 # Install nimyottadb
 Until the package is in nimble.directory, clone the project at github:

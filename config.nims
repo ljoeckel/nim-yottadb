@@ -7,7 +7,7 @@ task test, "Run full test suite":
     if kind == pcFile and path.endsWith(".nim") and not path.endsWith("config.nims"):
       let name = splitFile(path).name
       if not name.startsWith("t"): continue # run only t*.nim files
-      echo fmt"[sigils] Running {path}"
+      echo fmt"Running {path}"
       exec fmt"nim c -r {path}"
 
 task docs, "Generate API docs to docs/api":
@@ -24,7 +24,7 @@ task docs, "Generate API docs to docs/api":
       continue
     echo "[docs] Generating for ", f
     exec "nim doc --outdir:" & outDir & " " & f
-    
+
 # begin Nimble config (version 2)
 when withDir(thisDir(), system.fileExists("nimble.paths")):
   include "nimble.paths"
