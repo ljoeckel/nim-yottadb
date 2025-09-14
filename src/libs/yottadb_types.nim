@@ -11,6 +11,14 @@ type
   YdbData* = enum 
     NO_DATA_NO_SUBTREE = 0,
     DATA_NO_SUBTREE = 1,
+    x2 = 2,
+    x3 = 3,
+    x4 = 4,
+    x5 = 5,
+    x6 = 6,
+    x7 = 7,
+    x8 = 8,
+    x9 = 9,
     NO_DATA_WITH_SUBTREE = 10,
     DATA_AND_SUBTREE = 11
 
