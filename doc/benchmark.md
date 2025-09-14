@@ -52,12 +52,23 @@ fn main() -> Result<(), YDBError> {
 **Results**
 ```bash
 Test runs with 10_000_000 iterations on 'B' (MacMini M4)
-Test     Nim       Rust    Nim Compile     Rust
-set api  2.488s    2.335s  release         -7%
-set api  2.414s    2.335s  release,danger. -4%
-set dsl  2.790s    2.335s  release         -16%
-set dsl  2.596s    2.335s  release,danger  -10%
+Test     Nim       Rust    Nim Compile              
+set api  2.488s    2.335s  release                  
+set api  2.414s            release,danger.          
+set api  2.119s            release,danger,mm:refc
+set api  2.818s            release,danger,mm:arc
+set api  2.692s            release,danger,mm:orc
+set api  11.62s            release,danger,mm:atomicArc
+set api  2.016s            release,danger,mm:markAndSweep
+set api  2.098s            release,danger,mm:boehm
+set api  2.076s            release,danger,mm:regions
+set dsl  2.790s            release                  
+set dsl  2.596s            release,danger           
 ```
-
-There is some advantage for Rust over Nim in this scenario. For both tests the global ^hello was killed first. Only the fist run counts.
+For both tests the global ^hello was killed first. Only the fist run counts.
 The dsl adds a small amount of additional work.
+
+**Conclusion**
+
+With some memory management configurations, Nim outperforms Rust in this scenario. The practical implications may be minimal. The difference per iteration is extremly low.
+
