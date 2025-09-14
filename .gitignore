@@ -1,3 +1,5 @@
+.vscode
+.nimcache/
 nimcache/
 nimblecache/
 htmldocs/
@@ -22,3 +24,4 @@ src/tests/dsl_test
 src/libs/dsl_templates
 src/tests/dsl_lock_test
 src/examples/ydbSet_thread
+src/examples/benchmark
