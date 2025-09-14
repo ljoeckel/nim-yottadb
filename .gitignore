@@ -25,3 +25,4 @@ src/libs/dsl_templates
 src/tests/dsl_lock_test
 src/examples/ydbSet_thread
 src/examples/benchmark
+src/examples/benchmark2
