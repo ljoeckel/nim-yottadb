@@ -168,7 +168,7 @@ proc getGlobals*(): seq[string] =
     let p = startProcess(
         ydb,
         args = @["-run ^%GD"],
-        options = {poUsePath, poEchoCmd, poInteractive}
+        options = {poUsePath, poStdErrToStdOut, poInteractive}
     )
 
     p.inputStream.write("\n") # Send "Enter" (newline) to the process
