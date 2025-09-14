@@ -1,12 +1,19 @@
 # YottaDB commands
 
 ## Enable / Disable Journaling
+Show current status:
+```bash
 mupip journal -show=all -fo yottadb.mjl
-
+```
+Enable or Disable journaling
+```bash
 mupip set -journal=enable -region '*'
 mupip set -journal=disable -region '*'
-
-mupip journal -forward -extract -global="^TXM" yottadb.mjl 
+```
+Extract the journal. Use -global if you want to see a specific global. See `mupip help` for all options
+```bash
+mupip journal -forward -extract -global="^x.." yottadb.mjl 
+```
 
 ## Transactions
 Transactions are implemented in a callable proc
@@ -47,7 +54,6 @@ var data = newYdbVar(GLOBAL, @[$txid])
 data[] = data.value & " overall-time:" & $ms # append overall
 echo "rc=", rc, " ", ms, "ms. txid:", txid, " data:", data
 ```
-***TODO: Update for multiple threads***
 
 The following output is extracted from the journal. Command is *mupip journal -forward -extract -global="^TXM" yottadb.mjl*
 
@@ -65,8 +71,4 @@ This applies only to the Multi-Threaded environmen (nim c --threads:on tx_thread
 ## Transaction Timeout
 $ZMAXTPTI[ME] contains an integer value indicating the time duration, in seconds, YottaDB should wait for the completion of all activities fenced by the current transaction's outermost TSTART/TCOMMIT pair.
 
-$ZMAXTPTIME can be SET but cannot be NEWed.
-
 $ZMAXTPTIME takes its value from the environment variable ydb_maxtptime. If ydb_maxtptime is not defined, the initial value of $ZMAXTPTIME is zero (0) seconds which indicates "no timeout" (unlimited time). The value of $ZMAXTPTIME when a transaction's outermost TSTART operation executes determines the timeout setting for that transaction.
-
-When a $ZMAXTPTIME expires, YottaDB executes the $ETRAP/$ZTRAP exception handler currently in effect.

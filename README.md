@@ -108,6 +108,7 @@ For the project's architecture details look at https://deepwiki.com/ljoeckel/nim
 
 - [Blog](doc/blog.md) gives some general information about the project
 - Go to [Installation](doc/installation_and_using.md) for installation details.
+- For ARM Architecture look [here](doc/installation_yottadb.md)
 - [dsl](doc/dsl.md) for details about the Domain Specific Language
 - Details about the Call-In Interface are found [here](doc/callin_interface.md)
 - [Object-Serialization](doc/object_serialization.md) gives infos how to serialize and deserialize Nim object to YottaDB.
@@ -115,5 +116,8 @@ For the project's architecture details look at https://deepwiki.com/ljoeckel/nim
 
 This project was started to learn NIM (https://nim-lang.org)
 I'm truly impressed by the simplicity, power, and flexibility of Nim. The possibilities offered by macros and templates, in particular, make Nim a powerful tool. Developing software is finally fun again.
+
+### Feedback
+nim-yottadb is a work in progress and any feedback or suggestions are welcome. It is hosted on GitHub with an MIT license so issues, forks and PRs are most appreciated. 
 
 If you want to contact me please email to **lothar.joeckel@gmail.com**
