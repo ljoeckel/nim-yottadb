@@ -15,15 +15,17 @@ nim c -r --threads:off -d:release benchmark
 
 ```
 Each test runs with 10_000_000 iterations.
+nim c -r -d:release -d:danger --threads:off benchmark
+
 Test            Duration ms. A      Duration ms. B
-upcount             9934                3317
-upcount dsl        10209                3252
-set                 8193                2443
-set dsl             8879                2741
-nextnode           21366                7836
-nextnode dsl       21428                7911
-delnode             8791                2811
-delnode dsl         9238                2936
+upcount             9897                3074
+upcount dsl        10205                3018
+set                 8147                2446
+set dsl             8765                2694
+nextnode            4736                1361
+nextnode dsl        4793                1370
+delnode             8724                2851
+delnode dsl         9211                2918
 ````
 
 # Nim vs. Rust
