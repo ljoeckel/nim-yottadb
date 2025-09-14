@@ -36,7 +36,6 @@ proc main() =
   m.awaitAll:
     for tn in 0..<NUM_OF_THREADS:
       m.spawn worker(tn, ITERATIONS)
-  echo "main done"
 
 proc main_dsl() =
   const NUM_OF_THREADS = 2
@@ -45,10 +44,9 @@ proc main_dsl() =
   m.awaitAll:
     for tn in 0..<NUM_OF_THREADS:
       m.spawn worker_dsl(tn, ITERATIONS)
-  echo "main_dsl done"
 
 
-proc count_data() =
+proc count_data(): int =
   var cnt = 0
   var rc = YDB_OK
   var node:Subscripts = @[]
@@ -56,12 +54,12 @@ proc count_data() =
     (rc, node) = nextn: ^YDB(node)
     if rc == YDB_OK:
       inc(cnt)
-  echo "Have ", cnt, " entries."
+  cnt
 
 when isMainModule:
   # Reset counter
   delnode: ^CNT("ydb_set")
 
-  timed: main()
-  timed: main_dsl()
-  timed: count_data()  
+  timed("main"): main()
+  timed("main_dsl"): main_dsl()
+  timed_rc("count_data"): count_data()

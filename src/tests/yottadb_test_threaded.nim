@@ -4,6 +4,7 @@ import malebolgia
 import std/sets
 
 import ../yottadb
+import ../libs/utils
 
 # nim -c r --threads:on yottadb_test_threaded
 
@@ -12,11 +13,6 @@ const
   NUM_OF_THREADS = 4
   GLOBAL = "^COUNTERS"
   MAX_FIBONACCI_NUMBER = 32
-
-template timed(body: untyped): untyped =
-  let t1 = getTime()
-  body
-  echo getTime() - t1
 
 proc initDB() =
   ## Clean the database

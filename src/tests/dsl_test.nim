@@ -461,5 +461,4 @@ proc test() =
 
 when isMainModule:
   setupLL()
-  timed:
-    test()
+  timed "test" : test()

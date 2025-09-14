@@ -1,5 +1,5 @@
 import posix
-import std/times
+import std/[times, strformat]
 
 template withlock*(lockid: untyped, body: untyped): untyped =
     ## Create a database lock named ^LOCKS(lockid) while executing the body
@@ -7,36 +7,25 @@ template withlock*(lockid: untyped, body: untyped): untyped =
     body
     lockdecr: ^LOCKS(lockid)
 
-
-template timed*(body: untyped) =
-  ## Measure the execution time of the given body.
-  #[
-    let ms = timed_norc:
-      let fib = rand(30..44)
-      discard fibonacci_recursive(fib) # do some cpu intense work
-    echo "time used:", ms
-  ]#
+template timed_execute(body: untyped): auto =
   let t1 = getTime()
   body
   let durationMs = (getTime() - t1).inMilliseconds
-  echo "Duration: ", durationMs," ms."
-
-template timed_ms*(body: untyped, show: bool = true): auto =
-  ## Measure the execution time of the given body and return the duration in ms.
-  #[
-    let ms = timed_ms:
-      let fib = rand(30..44)
-      fibonacci_recursive(fib) # do some cpu intense work
-    echo "time used:", ms, " finonacci:", fibresult)
-  ]#
-  let t1 = getTime()
-  body
-  let durationMs = (getTime() - t1).inMilliseconds
-  if show:
-    echo "Duration: ", durationMs," ms."
   durationMs
 
-template timed_rc*(body: untyped, show: bool = true): auto =
+template timed*(body: untyped) =
+  let durationMs = timed_execute: body
+  echo "Duration: ", durationMs," ms."
+
+template timed*(info: string, body: untyped) =
+  let durationMs = timed_execute: body
+  echo $info & ": ", durationMs," ms."
+
+template timed_ms*(body: untyped): auto =
+  let durationMs = timed_execute: body
+  durationMs
+
+template timed_rc*(body: untyped): auto =
   ## Measure the execution time of the given body and return the body return code and the duration in ms.
   #[
     let (ms, fibresult) = timed:
@@ -47,10 +36,13 @@ template timed_rc*(body: untyped, show: bool = true): auto =
   let t1 = getTime()
   let rc = body
   let durationMs = (getTime() - t1).inMilliseconds
-  if show:
-    echo "rc: ",rc, " duration: ", durationMs," ms."
   (ms: durationMs, rc: rc)
 
+template timed_rc*(info: string, body: untyped) =
+  var ms: int64
+  var rc: int
+  (ms, rc) = timed_rc: body
+  echo $info & ": ", ms," ms, rc:", rc
 
 proc nimSleep*(ms: int) =
   ## Sleep for the given ms. but handle signal interruption
