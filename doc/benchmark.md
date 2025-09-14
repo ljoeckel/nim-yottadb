@@ -1,31 +1,27 @@
-Benchmarks 'A' on:
-Common KVM AMD processor cpu MHz 3892, 7785 bogomips
-Running ubuntu 24.04.3 LTS, x86
-Virtualization: proxmox
+# Some Benchmarks
 
-Benchmakrs 'B' on:
-xxx
-Running ubuntu 24.04.3 LTS, ARM
-Virtualization: UTM
+Benchmarks are measured on Ubuntu 24.04.3 LTS.
+```bash
+System 'A' is AMD Ryzen 7 2700X 8-Core with 3900 MHz
+Virtualized on proxmox with 2 cpu cores / 4GB RAM
 
-upcount api
-counter: 10000000
-Duration: 9934 ms.
-upcount dsl
-counter DSL: 10000000
-Duration: 10209 ms.
-setSimple
-Duration: 8183 ms.
-setSimple_dsl
-Duration: 8879 ms.
-nextnode api
-Subscripts: 10000000
-Duration: 21366 ms.
-nextnode dsl
-Subscripts: 10000000
-Duration: 21428 ms.
-delnode api
-Duration: 8791 ms.
-delnode dsl
-Duration: 9238 ms.
-ljoeckel@ubuntu2404:~/git/nim-yottadb/src/examples$ 
+System 'B' is MacMini M4
+Virtualized on UTM with 2 cpu cores / 4GB RAM
+```
+Compiled with
+```bash
+nim c -r --threads:off -d:release benchmark
+````
+
+```
+Each test runs with 10_000_000 iterations.
+Test            Duration ms. A      Duration ms. B
+upcount             9934                3317
+upcount dsl        10209                3252
+set                 8193                2443
+set dsl             8879                2741
+nextnode           21366                7836
+nextnode dsl       21428                7911
+delnode             8791                2811
+delnode dsl         9238                2936
+````
