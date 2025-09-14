@@ -16,7 +16,6 @@ var
   DATABUF {.threadvar.}: ydb_buffer_t
   GLOBAL {.threadvar.}: ydb_buffer_t
   IDXARR {.threadvar.}: array[0..YDB_MAX_SUBS, ydb_buffer_t]
-  IDXARR2 {.threadvar.}: array[0..YDB_MAX_SUBS, ydb_buffer_t] # for next/previous node
   NAMES {.threadvar.}: array[0..YDB_MAX_NAMES-1, ydb_buffer_t] # for delete_excl
   rc {.threadvar.}: cint
 
@@ -115,8 +114,6 @@ proc check() =
     buf_initialized = true
     for idx in 0..<IDXARR.len:
       IDXARR[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
-    for idx in 0..<IDXARR2.len:
-      IDXARR2[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
     for idx in 0..<YDB_MAX_NAMES:
       NAMES[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
 
@@ -127,7 +124,6 @@ proc cleanupBuffers() {.noconv} =
   deallocBuffer(DATABUF)
   deallocBuffer(GLOBAL)
   deallocBuffer(IDXARR)
-  deallocBuffer(IDXARR2)
   deallocBuffer(NAMES)
 
 # Register cleanup to run automatically at process exit
@@ -289,43 +285,28 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF)
   setIdxArr(IDXARR, keys)
-  setIdxArr(IDXARR2)
-  var ret_subs_used: cint = 0
+  var ret_subs_used: cint = YDB_MAX_SUBS
+  let keylen = keys.len.cint
 
   when compileOption("threads"):
-      # 1. call to get ret_subs_used
     if direction == Direction.Next:
-      rc = ydb_node_next_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, ret_subs_used.addr, DATABUF.addr)
+      rc = ydb_node_next_st(tptoken, ERRMSG.addr, GLOBAL.addr, keylen, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
     else:
-      rc = ydb_node_previous_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, ret_subs_used.addr, DATABUF.addr)
-    
-    # 2. call to get the data
-    if direction == Direction.Next:
-      rc = ydb_node_next_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, ret_subs_used.addr, IDXARR2[0].addr)
-    else:
-      rc = ydb_node_previous_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, ret_subs_used.addr, IDXARR2[0].addr)
-
+      rc = ydb_node_previous_st(tptoken, ERRMSG.addr, GLOBAL.addr, keylen, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
   else:
-    # 1. call to get ret_subs_used
     if direction == Direction.Next:
-      rc = ydb_node_next_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, ret_subs_used.addr, DATABUF.addr)
+      rc = ydb_node_next_s(GLOBAL.addr, keylen, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
     else:
-      rc = ydb_node_previous_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, ret_subs_used.addr, DATABUF.addr)
+      rc = ydb_node_previous_s(GLOBAL.addr, keylen, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
 
-    # 2. call to get the data
-    if direction == Direction.Next:
-      rc = ydb_node_next_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, ret_subs_used.addr, IDXARR2[0].addr)
-    else:
-      rc = ydb_node_previous_s(GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, ret_subs_used.addr, IDXARR2[0].addr)
-  
   # construct the return key sequence
   var sbscr = newSeq[string]()
   
   for i in 0..<cast[int](ret_subs_used):
-    let len_used = IDXARR2[i].len_used.int
+    let len_used = IDXARR[i].len_used.int
     if len_used > 0:
-      IDXARR2[i].buf_addr[len_used] = '\0' # null terminate
-      sbscr.add($IDXARR2[i].buf_addr)
+      IDXARR[i].buf_addr[len_used] = '\0' # null terminate
+      sbscr.add($IDXARR[i].buf_addr)
   
   return (rc.int, sbscr)
 
@@ -349,14 +330,12 @@ proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts
   let subs_used = cast[cint](keys.len)
 
   when compileOption("threads"):
-    # 1. call to get ret_subs_used
     if direction == Direction.Next:
       rc = ydb_subscript_next_st(tptoken, ERRMSG.addr, GLOBAL.addr, subs_used, IDXARR[0].addr,  DATABUF.addr)
     else:
       rc = ydb_subscript_previous_st(tptoken, ERRMSG.addr, GLOBAL.addr, subs_used, IDXARR[0].addr,  DATABUF.addr)    
 
   else:
-    # 1. call to get ret_subs_used
     if direction == Direction.Next:
       rc = ydb_subscript_next_s(GLOBAL.addr, subs_used, IDXARR[0].addr,  DATABUF.addr)
     else:

@@ -3,7 +3,7 @@ import ../yottadb
 import ../libs/utils
 import ../libs/dsl
 
-const MAX = 10000000
+const MAX = 10_000_000
 
 proc upcount() =
     ydb_delete_node("^CNT", @["upcount"])

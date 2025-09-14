@@ -65,6 +65,13 @@ proc nimSleep*(ms: int) =
       break
 
 
+# proc showIdxArr*(idxarr: array[0..YDB_MAX_SUBS, ydb_buffer_t]) = 
+#   for i in 0..<idxarr.len:
+#     if idxarr[i].len_used > 0:
+#       echo "idxarr[", i, "]=", idxarr[i]
+#     else:
+#       break
+
 proc fibonacci_recursive*(n: int): int =
   ## Simulate some CPU intense work
   if n <= 1:
