@@ -313,163 +313,124 @@ macro lockdecr*(body: untyped): untyped =
 # get* procs
 # -------------------
 proc getstring*(args: varargs[string]): string =
-  let global = args[0]
-  let subscripts = args[1..^1]
-  result = ydb_get(global, subscripts)  
+  ydb_get(args[0], args[1..^1])
 
 proc getstring1*(global: string, args: seq[string]): string =
-  let subscripts = args[0..^1]
-  result = ydb_get(global, subscripts)
+  ydb_get(global, args[0..^1])
 
 proc getstring1*(global: string, args: string): string =
-  let subscripts: seq[string] = @[args]
-  result = ydb_get(global, subscripts)
+  ydb_get(global, @[args])
 
 proc getfloat*(args: varargs[string]): float =
-  let global = args[0]
-  let subscripts = args[1..^1]
-  result = parseFloat(ydb_get(global, subscripts))
+  parseFloat(ydb_get(args[0], args[1..^1]))
 
 proc getint*(args: varargs[string]): int =
-  let global = args[0]
-  let subscripts = args[1..^1]
-  result = parseInt(ydb_get(global, subscripts))
+  parseInt(ydb_get(args[0], args[1..^1]))
 
 
 # -------------------
 # nextnode procs
 # -------------------
 proc nextnodeyyy*(args: varargs[string]): (int, Subscripts) =
-  let global = args[0]
   var subscripts = args[1..^1]
-  return ydb_node_next(global, subscripts)
+  ydb_node_next(args[0], subscripts)
 
 proc nextnodeyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
-  return ydb_node_next(global, subscripts)
+  ydb_node_next(global, subscripts)
 
 proc nextnodeyyy1*(global: string, sub: string): (int, Subscripts) =
   var subscripts:seq[string] = @[sub]
-  return ydb_node_next(global, subscripts)
+  ydb_node_next(global, subscripts)
 
 
 # -------------------
 # nextsub procs
 # -------------------
 proc nextsubyyy*(args: varargs[string]): (int, Subscripts) =
-  let global = args[0]
   var subscripts = args[1..^1]
-  var rc:int
-  (rc, subscripts) = ydb_subscript_next(global, subscripts)
-  return (rc, subscripts)
+  ydb_subscript_next(args[0], subscripts)
 
 proc nextsubyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
-  var rc:int
-  (rc, subscripts) = ydb_subscript_next(global, subscripts)
-  return (rc, subscripts)
+  ydb_subscript_next(global, subscripts)
 
 proc nextsubyyy1*(global: string, sub: string): (int, Subscripts) =
-  var rc:int
   var subscripts:seq[string] = @[sub]
-  (rc, subscripts) = ydb_subscript_next(global, subscripts)
-  return (rc, subscripts)
+  ydb_subscript_next(global, subscripts)
 
 proc nextsubyyy1*(global: string, sub: Subscripts): (int, Subscripts) =
-  var rc:int
   var subscripts:seq[string] = sub
-  (rc, subscripts) = ydb_subscript_next(global, subscripts)
-  return (rc, subscripts)
+  ydb_subscript_next(global, subscripts)
 
 
 # -------------------
 # prevsub procs
 # -------------------
 proc prevsubyyy*(args: varargs[string]): (int, Subscripts) =
-  let global = args[0]
   var subscripts = args[1..^1]
-  var rc:int
-  (rc, subscripts) = ydb_subscript_previous(global, subscripts)
-  return (rc, subscripts)
+  ydb_subscript_previous(args[0], subscripts)
 
 proc prevsubyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
-  var rc:int
-  (rc, subscripts) = ydb_subscript_previous(global, subscripts)
-  return (rc, subscripts)
+  ydb_subscript_previous(global, subscripts)
 
 proc prevsubyyy1*(global: string, sub: string): (int, Subscripts) =
-  var rc:int
   var subscripts:seq[string] = @[sub]
-  (rc, subscripts) = ydb_subscript_previous(global, subscripts)
-  return (rc, subscripts)
+  ydb_subscript_previous(global, subscripts)
 
 
 # -------------------
 # prevnode procs
 # -------------------
 proc prevnodeyyy*(args: varargs[string]): (int, Subscripts) =
-  let global = args[0]
   var subscripts = args[1..^1]
-  return ydb_node_previous(global, subscripts)
+  ydb_node_previous(args[0], subscripts)
+
 proc prevnodeyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
-  return ydb_node_previous(global, subscripts)
+  ydb_node_previous(global, subscripts)
+
 proc prevnodeyyy1*(global: string, sub: string): (int, Subscripts) =
   var subscripts:seq[string] = @[sub]
-  return ydb_node_previous(global, subscripts)
+  ydb_node_previous(global, subscripts)
 
 
 # ---------------------
 # set proc
 # ---------------------
 proc setxxx*(args: varargs[string]) =
-  let global = args[0]
-  let subscripts = args[1..^2]
-  let value = args[^1]
-  ydb_set(global, subscripts, value)
+  ydb_set(args[0], args[1..^2], args[^1])
 
 
 # ----------------------
 # incr (increment) procs
 # ----------------------
 proc incr1xxx*(args: varargs[string]): int =
-  let global = args[0]
-  let subscripts = args[1..^1]
-  return ydb_increment(global, subscripts)
+  ydb_increment(args[0], args[1..^1])
 
 proc incrxxx*(args: varargs[string]): int =
-  let global = args[0]
-  let subscripts = args[1..^2]
-  let value = parseInt(args[^1])
-  return ydb_increment(global, subscripts, value)
+  ydb_increment(args[0], args[1..^2], parseInt(args[^1]))
 
 
 # -------------------
 # data proc
 # -------------------
 proc dataxxx*(args: varargs[string]): int =
-  let global = args[0]
-  let subscripts = args[1..^1]
-  result = ydb_data(global, subscripts)
+  result = ydb_data(args[0], args[1..^1])
 
 
 # -------------------
 # del Node/Tree procs
 # -------------------
 proc delnodexxx*(args: varargs[string]) =
-  let global = args[0]
-  let subscripts = args[1..^1]
-  ydb_delete_node(global, subscripts)
+  ydb_delete_node(args[0], args[1..^1])
 
 proc deltreexxx*(args: varargs[string]) =
-  let global = args[0]
-  let subscripts = args[1..^1]
-  ydb_delete_tree(global, subscripts)
+  ydb_delete_tree(args[0], args[1..^1])
 
 
 # -------------------
 # delexcl procs
 # -------------------
 proc delexclxxx*(args: varargs[string]) =
-  let subscripts = args[0..^1]
-  ydb_delete_excl(subscripts)
+  ydb_delete_excl(args[0..^1])
 
 
 # ---------------------
