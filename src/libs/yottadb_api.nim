@@ -5,7 +5,7 @@ import yottadb_impl
 proc ydbMessage*(status: cint): string =
   ydbMessage_db(status)
 
-proc ydb_set*(name: string, keys: Subscripts; value: string="", tptoken:uint64 = 0) =
+proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "", tptoken:uint64 = 0) =
   ydb_set_db(name, keys, value, tptoken)
 
 proc ydb_get*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =

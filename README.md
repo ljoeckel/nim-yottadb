@@ -119,6 +119,7 @@ This project was started to learn NIM (https://nim-lang.org)
 I'm truly impressed by the simplicity, power, and flexibility of Nim. The possibilities offered by macros and templates, in particular, make Nim a powerful tool. Developing software is finally fun again.
 
 ### Feedback
-nim-yottadb is a work in progress and any feedback or suggestions are welcome. It is hosted on GitHub with an MIT license so issues, forks and PRs are most appreciated. 
+nim-yottadb is a **work in progress** and any feedback or suggestions are welcome. It is hosted on GitHub [nim-yottadb](https://github.com/ljoeckel/nim-yottadb) with an MIT license so issues, forks and PRs are most appreciated. 
+
 
 If you want to contact me please email to **lothar.joeckel@gmail.com**

@@ -1,4 +1,5 @@
 import std/[times]
+import tables
 import ../libs/yottadb_types
 import ../libs/libyottadb
 import ../libs/yottadb_api
@@ -9,57 +10,57 @@ import malebolgia
 when not compileOption("threads"):
   {.fatal: "Must be compiled with --threads:on".}
 
-proc worker(tn: int, iterations: int) = # Duration 25264 ms.
-  var counter = iterations
-  while counter > 0:
-    try:
-      let txid = ydb_increment("^CNT", @["ydb_set"])
-      ydb_set("^YDB", @[$txid], "This is some test from thread " & $tn)
-    except:
-      echo "Exception simple-api: ", getCurrentExceptionMsg()
-    dec(counter)
+const
+  NUM_OF_THREADS = 2
+  ITERATIONS = 100000
 
-proc worker_dsl(tn: int, iterations: int) = # Duration 24606 ms.
-  var counter = iterations
-  while counter > 0:
+template worker(body: untyped) =
+  for i in 0..<ITERATIONS:
     try:
-      let txid = incr: ^CNT("ydb_set")
-      set: ^YDB(txid) = "This is some test from thread " & $tn
+      body
     except:
-      echo "Exception dsl: ", getCurrentExceptionMsg()
-    dec(counter)
+      echo "Exception: ", getCurrentExceptionMsg()
 
-proc main() =
-  const NUM_OF_THREADS = 2
-  const ITERATIONS = 100000
+proc api(tn: int) =
+  worker:
+    let txid = ydb_increment("^CNT", @["ydb_set"])
+    ydb_set("^YDB", @[$txid], "This is some test from api thread " & $tn)
+
+proc dsl(tn: int) =
+  worker:
+    let txid = incr: ^CNT("ydb_set")
+    set: ^YDB(txid) = "This is some test from dsl thread " & $tn
+
+template main(workerProc: untyped) =
   var m = createMaster()
   m.awaitAll:
     for tn in 0..<NUM_OF_THREADS:
-      m.spawn worker(tn, ITERATIONS)
-
-proc main_dsl() =
-  const NUM_OF_THREADS = 2
-  const ITERATIONS = 100000
-  var m = createMaster()
-  m.awaitAll:
-    for tn in 0..<NUM_OF_THREADS:
-      m.spawn worker_dsl(tn, ITERATIONS)
+      m.spawn: workerProc(tn)
 
 
 proc count_data(): int =
-  var cnt = 0
-  var rc = YDB_OK
-  var node:Subscripts = @[]
+  var
+    cnt, rc:int = 0
+    node:Subscripts
+    thm = initCountTable[char]()
+
+  (rc, node) = nextn: ^YDB(node)
   while rc == YDB_OK:
+    inc(cnt)
+    let val = get: ^YDB(node)
+    let tn = val[^1]
+    thm.inc(tn)
+    # read next
     (rc, node) = nextn: ^YDB(node)
-    if rc == YDB_OK:
-      inc(cnt)
+
+  echo "Count by thread: ", thm
   cnt
 
+
 when isMainModule:
-  # Reset counter
+  # Reset counters
   delnode: ^CNT("ydb_set")
 
-  timed("main"): main()
-  timed("main_dsl"): main_dsl()
+  timed("main"): main(api)
+  timed("main_dsl"): main(dsl)
   timed_rc("count_data"): count_data()

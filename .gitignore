@@ -27,3 +27,4 @@ src/examples/ydbSet_thread
 src/examples/benchmark
 src/examples/benchmark2
 src/examples/say_hello
+src/examples/hello_customer

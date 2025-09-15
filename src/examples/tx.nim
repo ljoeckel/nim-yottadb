@@ -8,7 +8,7 @@ when compileOption("threads"):
   {.fatal: "Must be compiled with --threads:off".}
 
 const
-  MAX = 100_000
+  MAX = 1000
   THS = "S"
   GLOBAL = "^TX" & THS
 
