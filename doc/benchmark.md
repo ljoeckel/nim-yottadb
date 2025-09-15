@@ -15,17 +15,17 @@ nim c -r --threads:off -d:release benchmark
 
 ```
 Each test runs with 10_000_000 iterations.
-nim c --mm:xx -r -d:release -d:danger --threads:off benchmark
+nim c --mm:xx -r -d:release -d:danger --threads:off benchmark (arc, mAS=markAndSweep)
                System A         System B
-Test           arc   mAS               arc
-upcount        9685  8990              3074
-upcount dsl    9885  8976              3018
-set            8304  7261              2446
-set dsl        8951  7776              2694
-nextnode       4504  5634              1361
-nextnode dsl   4551  5594              1370
-delnode        8829  7692              2851
-delnode dsl    9236  8308              2918
+Test           arc   mAS        arc   mAS
+upcount        9685  8990       3137  2833 
+upcount dsl    9885  8976       3202  2850
+set            8304  7261       2520  2188
+set dsl        8951  7776       2669  2381
+nextnode       4504  5634       1370  1869
+nextnode dsl   4551  5594       1373  1878
+delnode        8829  7692       2833  2581
+delnode dsl    9236  8308       2897  2698
 ````
 
 # Nim vs. Rust
