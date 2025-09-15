@@ -10,25 +10,22 @@ Virtualized on UTM with 2 cpu cores / 4GB RAM
 ```
 Compiled with
 ```bash
-nim c -r --threads:off -d:release benchmark
+nim c --mm:arc|markAndSweep -r -d:release -d:danger --threads:off benchmark
 ````
 
 ```
 Each test runs with 10_000_000 iterations.
-nim c --mm:xx -r -d:release -d:danger --threads:off benchmark (arc, mAS=markAndSweep)
+
                System A         System B
 Test           arc   mAS        arc   mAS
-upcount        9685  8877       3137  2686 
-upcount dsl    9885  8823       3202  2713
-set            8304  7138       2520  2172
-set dsl        8951  7761       2669  2365
-nextnode       4504  5529       1370  1861
-nextnode dsl   4551  5647       1373  1854
-delnode        8829  7949       2833  2552
-delnode dsl    9236  8375       2897  2698
-
-A - mAS: real: 1m 0.501s, user: 0m 59.814s, sys: 0m0.323s
-B - mAS: real: 0m19.019s, user: 0m18.743s, sys: 0m0.180s
+upcount        8746  7987       3137  2686 
+upcount dsl    8940  7958       3202  2713
+set            8278  6182       2520  2172
+set dsl        8905  6448       2669  2365
+nextnode       4602  5694       1370  1861
+nextnode dsl   4654  5649       1373  1854
+delnode        8824  8151       2833  2552
+delnode dsl    9082  8371       2897  2698
 ````
 
 # Nim vs. Rust

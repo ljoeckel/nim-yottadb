@@ -8,12 +8,14 @@ const
   BUFFER_DATABUF_SIZE = 1024*1024
   BUFFER_GLOBAL_SIZE = 256
   BUFFER_IDX_SIZE = 64
+  INCRBUF_SIZE = 32
 
 # Thread-local buffers to avoid re-allocating buffers on every call and keep state per-thread.
 var
   buf_initialized {.threadvar.}: bool
   ERRMSG {.threadvar.}: ydb_buffer_t
   DATABUF {.threadvar.}: ydb_buffer_t
+  INCRBUF {.threadvar.}: ydb_buffer_t
   GLOBAL {.threadvar.}: ydb_buffer_t
   IDXARR {.threadvar.}: array[0..YDB_MAX_SUBS, ydb_buffer_t]
   NAMES {.threadvar.}: array[0..YDB_MAX_NAMES-1, ydb_buffer_t] # for delete_excl
@@ -24,20 +26,6 @@ var
 {.push header: "<stdlib.h>".}
 proc atexit(f: proc() {.noconv.}) {.importc.}
 {.pop.}
-
-# Forward declarations to initialize buffers once
-proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t
-proc zeroBuffer(size: int): string
-
-## Ensure buffers are allocated before first use.
-ERRMSG = stringToYdbBuffer(zeroBuffer(YDB_MAX_ERRORMSG))
-DATABUF = stringToYdbBuffer(zeroBuffer(BUFFER_DATABUF_SIZE))
-GLOBAL = stringToYdbBuffer(zeroBuffer(BUFFER_GLOBAL_SIZE))
-for idx in 0..<IDXARR.len:
-  IDXARR[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
-for idx in 0..<YDB_MAX_NAMES:
-  NAMES[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
-
 
 
 # ------------------------------------------------------------------------
@@ -122,18 +110,19 @@ proc check() =
   if not buf_initialized:
     ERRMSG = stringToYdbBuffer(zeroBuffer(YDB_MAX_ERRORMSG))
     DATABUF = stringToYdbBuffer(zeroBuffer(BUFFER_DATABUF_SIZE))
+    INCRBUF = stringToYdbBuffer(zeroBuffer(INCRBUF_SIZE))    
     GLOBAL = stringToYdbBuffer(zeroBuffer(BUFFER_GLOBAL_SIZE))
-    buf_initialized = true
     for idx in 0..<IDXARR.len:
       IDXARR[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
     for idx in 0..<YDB_MAX_NAMES:
       NAMES[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
-
+    buf_initialized = true
 
 proc cleanupBuffers() {.noconv} =
   # Free all thread-local buffers at exit
   deallocBuffer(ERRMSG)
   deallocBuffer(DATABUF)
+  deallocBuffer(INCRBUF)
   deallocBuffer(GLOBAL)
   deallocBuffer(IDXARR)
   deallocBuffer(NAMES)
@@ -275,24 +264,23 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken:u
   ## Increment a node value and return new value  
   check()
   setYdbBuffer(GLOBAL, name)
+  setYdbBuffer(INCRBUF, "")
   setYdbBuffer(DATABUF, $increment)
   setIdxArr(IDXARR, keys)
-  var value = stringToYdbBuffer(zeroBuffer(32))
-  defer:
-    deallocBuffer(value)
 
   when compileOption("threads"):
-    rc = ydb_incr_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr, value.addr)
+    rc = ydb_incr_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr, INCRBUF.addr)
   else:
-    rc = ydb_incr_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr, value.addr)
+    rc = ydb_incr_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr, INCRBUF.addr)
 
   if rc < YDB_OK:
     raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
   else:
+      let buf = $INCRBUF.buf_addr
       try:
-        result = parseInt($value.buf_addr)
+        result = parseInt(buf)
       except:
-        raise newException(YdbDbError, "Illegal Number. Tried to parseInt(" & $value.buf_addr & ")")
+        raise newException(YdbDbError, "Illegal Number. Tried to parseInt(" & buf & ")")
 
 
 # --- Node traversal (next/previous) ---
