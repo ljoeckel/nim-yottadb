@@ -1,5 +1,7 @@
 import std/strformat
-import yottadb
+import ../libs/dsl
+import ../libs/yottadb_types
+import ../libs/libyottadb
 
 proc main() =
   set:
@@ -8,17 +10,19 @@ proc main() =
     ^CUSTOMER(2, "Name")="Jane Smith"
     ^CUSTOMER(2, "Email")="jane.smith.@yahoo.com"
 
-  var subs:Subscripts = @[]
-  var rc = YDB_OK
+  var
+    subs:Subscripts
+    rc = YDB_OK
 
   echo "Iterate over all customers"
+  (rc, subs) = nextsub: ^CUSTOMER(subs)
   while rc == YDB_OK:
+    let id = subs[0]
+    let name = get: ^CUSTOMER(id, "Name")
+    let email = get: ^CUSTOMER(id, "Email")
+    echo fmt"Customer {id}: {name} <{email}>"
+    # Read next
     (rc, subs) = nextsub: ^CUSTOMER(subs)
-    if rc == YDB_OK:
-      let id = subs[0]
-      let name = get: ^CUSTOMER(id, "Name")
-      let email = get: ^CUSTOMER(id, "Email")
-      echo fmt"Customer {id}: {name} <{email}>"
 
   echo "Iterate over all nodes and use subscripts()"
   subs = @[]
