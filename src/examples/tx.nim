@@ -1,6 +1,7 @@
-import std/[random, strformat, strutils, times]
+import std/[random, strformat, times]
 import ../libs/yottadb_types
 import ../libs/libyottadb
+import ../libs/dsl
 import ../libs/yottadb_api
 import ../libs/utils
 
@@ -8,37 +9,37 @@ when compileOption("threads"):
   {.fatal: "Must be compiled with --threads:off".}
 
 const
-  MAX = 1000
+  MAX = 100
   THS = "S"
-  GLOBAL = "^TX" & THS
 
 proc myTxn(p0: pointer): cint {.cdecl.} =
   let someParam = $cast[cstring](p0)
-  let restarted = parseInt(ydb_get("$TRESTART")) # How many times the proc was called from yottadb
+  let restarted = get: $TRESTART().int
 
   try:
     let (ms, fibresult) = timed_rc:
-      let fib = rand(30..38)
+      let fib = rand(30..43)
       fibonacci_recursive(fib) # do some cpu intense work
     
     # Increment transaction counter and save application data
-    let txid = ydb_increment("^CNT", @[THS])
-    let data = fmt"restarts:{restarted}, fib:{fib} result:{fibresult} time:{ms}"
-    ydb_set(GLOBAL, @[$txid], $data)
+    let txid = incr: ^CNT(THS)
+    let data = fmt"{someParam}, restarts:{restarted}, fib:{fib} result:{fibresult} time:{ms}"
+    set: ^TXS(txid)=data
   except:
     # Retry a aborted transaction one time, otherwise roll back
     if restarted == 0: return YDB_TP_RESTART else: return YDB_TP_ROLLBACK
 
-  return YDB_OK # commit the transaction
+  YDB_OK # commit the transaction
 
 
 # Set transaction timeout to 1 second
-ydb_set("$ZMAXTPTIME", value="1")
+set: $ZMAXTPTIME()="1"
 for i in 1..MAX:
   let (ms, rc) = timed_rc:
-    ydb_tp(myTxn, "SomeParam")
-
-  let txid = ydb_get("^CNT", @[THS]) # get last transaction id
-  var data = newYdbVar(GLOBAL, @[$txid])
-  data[] = data.value & " overall-time:" & $ms # append overall
+    ydb_tp(myTxn, "SomeParam" & $i)
+  
+  let txid = get: ^CNT(THS)
+  var data = get: ^TXS(txid)
+  data.add(" overall-time:" & $ms)
+  set: ^TXS(txid)=data
   echo "i:", i, " rc=", rc, " ", ms, "ms. txid:", txid, " data:", data
