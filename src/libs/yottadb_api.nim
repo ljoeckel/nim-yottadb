@@ -1,21 +1,18 @@
-import std/[strutils, strformat, os, osproc, streams]
+import std/[strutils, os, osproc, streams]
 import yottadb_types
 import yottadb_impl
 
 proc ydbMessage*(status: cint): string =
-  return ydbMessage_db(status)
+  ydbMessage_db(status)
 
 proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "", tptoken:uint64 = 0) =
-  if keys.len > 31:
-    raise newException(YdbDbError, "Too many subscript levels. Valid [0..31])")
-  else:
-    ydb_set_db(name, keys, value, tptoken)
+  ydb_set_db(name, keys, value, tptoken)
 
 proc ydb_get*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
-  return ydb_get_db(name, keys, tptoken)
+  ydb_get_db(name, keys, tptoken)
 
 proc ydb_data*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
-  return ydb_data_db(name, keys, tptoken)
+  ydb_data_db(name, keys, tptoken)
 
 proc ydb_delete_node*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
   ydb_delete_node_db(name, keys, tptoken)
@@ -24,10 +21,8 @@ proc ydb_delete_tree*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
   ydb_delete_tree_db(name, keys, tptoken)
 
 proc ydb_delete_excl*(names: seq[string] = @[], tptoken:uint64 = 0) =
-  if names.len > 35: raise newException(YdbDbError, fmt"Too many names. Only {YDB_MAX_NAMES} are allowed")
   # Default names to empty -> clear all local variables
   ydb_delete_excl_db(names, tptoken)
-
 
 proc ydb_increment*(name: string, keys: Subscripts, increment: int = 1, tptoken:uint64 = 0): int =
   ydb_increment_db(name, keys, increment, tptoken)
@@ -40,10 +35,10 @@ proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: string, transid:string = ""): int 
 
 # ------------------ Next/Previous Node -----------------
 proc ydb_node_next*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
-  return ydb_node_next_db(global, subscripts, tptoken)
+  ydb_node_next_db(global, subscripts, tptoken)
   
 proc ydb_node_previous*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
-  return ydb_node_previous_db(global, subscripts, tptoken)
+  ydb_node_previous_db(global, subscripts, tptoken)
 
 # ------------------ Iterators for Next/Previous Node -----------------
 iterator ydb_node_next_iter*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
@@ -64,10 +59,10 @@ iterator ydb_node_previous_iter*(global: string, subscripts: var Subscripts, tpt
 
 # ------------------ Next/Previous subscripts -----------------
 proc ydb_subscript_next*(name: string, subs: var Subscripts): (int, Subscripts) =
-  return ydb_subscript_next_db(name, subs)
+  ydb_subscript_next_db(name, subs)
 
 proc ydb_subscript_previous*(name: string, subs: var Subscripts): (int, Subscripts) =
-  return ydb_subscript_previous_db(name, subs)
+  ydb_subscript_previous_db(name, subs)
 
 # ------------------ Iterators for Next/Previous Subscript-------------
 iterator ydb_subscript_next_iter*(global: string, subscripts: var Subscripts): Subscripts =
@@ -157,7 +152,6 @@ proc subscriptsToValue*(global: string, subscript: Subscripts): string =
   else:
     result = keysToString(global, subscript) & "=" & value
 
-
 # Get the global variables from the ydb ^%GD utility
 proc getGlobals*(): seq[string] =
     result = @[]
@@ -199,4 +193,4 @@ proc getLocksFromYottaDb*(): seq[string] =
       result.add(line)    
 
 proc getLockCountFromYottaDb*(): int =
-  return getLocksFromYottaDb().len
+  getLocksFromYottaDb().len
