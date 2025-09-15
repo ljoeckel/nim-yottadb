@@ -54,21 +54,33 @@ proc simpleDelete(global: string, cnt: int) =
     ydb_delete_node(global, subs)
     discard subs.pop()
 
+proc setWithError() =
+  # set with empty global
+  doAssertRaises(YdbDbError): ydb_set("", @["x"], "x") # -151027762, %YDB-E-INVVARNAME
+  
+  # Write global without subscript -> ^x="x"
+  ydb_set("^x", @[], "x")
+  assert "x" == ydb_get("^x", @[])
+
+  # Write global without value
+  ydb_set("^x", @["x"])
+  assert "" == ydb_get("^x", @["x"])
+
+
+
 proc testYdbVar() =
   for i in 0..MAX:
     discard newYdbVar("^LJ", @["LAND", "ORT", $i], $i)
 
   for i in 0..MAX:
     var v = newYdbVar("^LJ", @["LAND", "ORT", $i])
-    if v.value != $i: 
-      raise newException(YdbDbError, "Invalid data in db for {i}")
+    assert v.value == $i
     # update db with new value
     v[] = "New " & v.value
 
   for i in 0..MAX:
     var v = newYdbVar("^LJ", @["LAND", "ORT", $i])
-    if v.value != "New " & $i: 
-      raise newException(YdbDbError, "Invalid data in db for {i}")
+    assert v.value == "New " & $i
 
 # Test the maximum record length of 1MB
 proc testMaxValueSize() =
@@ -355,6 +367,7 @@ proc test() =
       test "simpleGet": simpleGet("^X", MAX)
       test "simpleDelete": simpleDelete("^X", MAX)
       test "testYdbVar": testYdbVar()
+      test "testWithError": setWithError()
     test "Write and Read Data":
       test "testYdbSetGet": testYdbSetGet()
       test "testMaxValueSize": testMaxValueSize()

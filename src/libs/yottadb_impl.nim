@@ -159,7 +159,7 @@ proc ydbMessage_db*(status: cint, tptoken:uint64 = 0): string =
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
 
 
-proc ydb_set_db*(name: string, keys: Subscripts = @[], value: string = "", tptoken:uint64 = 0) =
+proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken:uint64 = 0) =
   ## Store a value into a local or global node
   check()
   setYdbBuffer(GLOBAL, name)

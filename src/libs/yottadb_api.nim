@@ -5,7 +5,7 @@ import yottadb_impl
 proc ydbMessage*(status: cint): string =
   ydbMessage_db(status)
 
-proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "", tptoken:uint64 = 0) =
+proc ydb_set*(name: string, keys: Subscripts; value: string="", tptoken:uint64 = 0) =
   ydb_set_db(name, keys, value, tptoken)
 
 proc ydb_get*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
@@ -83,7 +83,7 @@ iterator ydb_subscript_previous_iter*(global: string, subscripts: var Subscripts
 
 # ------------------ Locks -----------------
 # Max of 35 variable names in one call
-proc ydb_lock*(timeout_nsec: culonglong, keys: seq[Subscripts] = @[]) =
+proc ydb_lock*(timeout_nsec: culonglong, keys: seq[Subscripts]) =
   ydb_lock_db(timeout_nsec, keys)
 
 # Only one variable name in one call
@@ -95,7 +95,7 @@ proc ydb_lock_decr*(name: string, keys: Subscripts) =
   ydb_lock_decr_db(name, keys)
 
 # ------------------ YdbVar ----------------
-proc newYdbVar*(global: string, subscripts: Subscripts, value: string = ""): YdbVar =
+proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = ""): YdbVar =
   if global.isEmptyOrWhitespace: raise newException(YdbDbError, "Empty 'global' param")
 
   result.global = global
