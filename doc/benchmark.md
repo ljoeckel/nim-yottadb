@@ -18,16 +18,16 @@ Each test runs with 10_000_000 iterations.
 nim c --mm:xx -r -d:release -d:danger --threads:off benchmark (arc, mAS=markAndSweep)
                System A         System B
 Test           arc   mAS        arc   mAS
-upcount        9685  8941       3137  2686 
-upcount dsl    9885  9029       3202  2713
-set            8304  7186       2520  2172
-set dsl        8951  7805       2669  2365
-nextnode       4504  5657       1370  1861
-nextnode dsl   4551  5636       1373  1854
-delnode        8829  7902       2833  2552
-delnode dsl    9236  8262       2897  2698
+upcount        9685  8877       3137  2686 
+upcount dsl    9885  8823       3202  2713
+set            8304  7138       2520  2172
+set dsl        8951  7761       2669  2365
+nextnode       4504  5529       1370  1861
+nextnode dsl   4551  5647       1373  1854
+delnode        8829  7949       2833  2552
+delnode dsl    9236  8375       2897  2698
 
-A - mAS: real: 1m 1.378s, user: 1m 0.263s, sys: 0m0.322s
+A - mAS: real: 1m 0.501s, user: 0m 59.814s, sys: 0m0.323s
 B - mAS: real: 0m19.019s, user: 0m18.743s, sys: 0m0.180s
 ````
 

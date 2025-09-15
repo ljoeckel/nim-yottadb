@@ -11,7 +11,6 @@ const
 
 # Thread-local buffers to avoid re-allocating buffers on every call and keep state per-thread.
 var
-  buf_initialized {.threadvar.}: bool
   ERRMSG {.threadvar.}: ydb_buffer_t
   DATABUF {.threadvar.}: ydb_buffer_t
   GLOBAL {.threadvar.}: ydb_buffer_t
@@ -24,6 +23,21 @@ var
 {.push header: "<stdlib.h>".}
 proc atexit(f: proc() {.noconv.}) {.importc.}
 {.pop.}
+
+# Forward declarations to initialize buffers once
+proc stringToYdbBuffer(name: string = "", len_used:int = -1): ydb_buffer_t
+proc zeroBuffer(size: int): string
+
+## Ensure buffers are allocated before first use.
+ERRMSG = stringToYdbBuffer(zeroBuffer(YDB_MAX_ERRORMSG))
+DATABUF = stringToYdbBuffer(zeroBuffer(BUFFER_DATABUF_SIZE))
+GLOBAL = stringToYdbBuffer(zeroBuffer(BUFFER_GLOBAL_SIZE))
+for idx in 0..<IDXARR.len:
+  IDXARR[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
+for idx in 0..<YDB_MAX_NAMES:
+  NAMES[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
+
+
 
 # ------------------------------------------------------------------------
 # Utility functions for buffer allocation and management
@@ -100,21 +114,8 @@ proc setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string] = @[]) =
     arr[idx].buf_addr[0] = '\0'
 
 # ------------------------------------------------------------------------
-# Buffer initialization & cleanup
+# Buffer cleanup
 # ------------------------------------------------------------------------
-
-proc check() =
-  ## Ensure buffers are allocated before first use.
-  if not buf_initialized:
-    ERRMSG = stringToYdbBuffer(zeroBuffer(YDB_MAX_ERRORMSG))
-    DATABUF = stringToYdbBuffer(zeroBuffer(BUFFER_DATABUF_SIZE))
-    GLOBAL = stringToYdbBuffer(zeroBuffer(BUFFER_GLOBAL_SIZE))
-    buf_initialized = true
-    for idx in 0..<IDXARR.len:
-      IDXARR[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
-    for idx in 0..<YDB_MAX_NAMES:
-      NAMES[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
-
 
 proc cleanupBuffers() {.noconv} =
   # Free all thread-local buffers at exit
@@ -161,7 +162,6 @@ proc ydbMessage_db*(status: cint, tptoken:uint64 = 0): string =
 
 proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken:uint64 = 0) =
   ## Store a value into a local or global node
-  check()
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF, value)
   setIdxArr(IDXARR, keys)
@@ -176,7 +176,6 @@ proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken:uint64 =
 
 proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
   ## Retrieve a value from a local or global node
-  check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
@@ -197,7 +196,6 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): stri
 proc ydb_data_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
   ## Check existence/type of a global node
   ## Return codes: 0 = no data, 1 = data, 10 = child nodes, 11 = both
-  check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
   var value: cuint = 0
@@ -216,7 +214,6 @@ proc ydb_data_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
 # --- Delete node/tree ---
 proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64 = 0) =
   ## Internal helper to delete either a node or a subtree
-  check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
@@ -239,7 +236,6 @@ proc ydb_delete_tree_db*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
 
 proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64 = 0) =
   ## Delete all locals except the specified names  
-  check()
   setYdbBuffer(NAMES, names)
 
   when compileOption("threads"):
@@ -253,7 +249,6 @@ proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64 = 0) =
 
 proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken:uint64 = 0): int =
   ## Increment a node value and return new value  
-  check()
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF, $increment)
   setIdxArr(IDXARR, keys)
@@ -278,7 +273,6 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken:u
 # --- Node traversal (next/previous) ---
 proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
   ## Traverse to the next/previous node and return subscripts  
-  check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
   var ret_subs_used: cint = YDB_MAX_SUBS
@@ -316,7 +310,6 @@ proc ydb_node_previous_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): 
 # --- Subscript traversal (next/previous) ---
 proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts, tptoken: uint64): (int, Subscripts) =
   ## Traverse subscripts at current level  
-  check()
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF)
   if keys.len == 0: keys = @[""] # special case for empty subscript
@@ -355,7 +348,6 @@ proc ydb_subscript_previous_db*(name: string, keys: var Subscripts, tptoken:uint
 # --- Locks ---
 proc ydb_lock_incr_db*(timeout_nsec: culonglong, name: string, keys: Subscripts, tptoken:uint64 = 0) =
   ## Increment lock for variable
-  check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
   when compileOption("threads"):
@@ -369,7 +361,6 @@ proc ydb_lock_incr_db*(timeout_nsec: culonglong, name: string, keys: Subscripts,
 
 proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
   ## Increment lock variable
-  check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
@@ -385,7 +376,6 @@ proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
 proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]], tptoken: uint64 = 0): cint =
   ## Pass all potential lock parameters to the variadic c-function
   ## Setting the numOfLocks controls how many parameters are read by c-function
-  check()
   if numOfLocks == 0:  # release all locks
     when compileOption("threads"):
       rc = ydb_lock_st(tptoken, ERRMSG.addr, timeout, 0.cint) 
