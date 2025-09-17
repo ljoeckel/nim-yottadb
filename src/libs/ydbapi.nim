@@ -1,6 +1,7 @@
 import std/[strutils, os, osproc, streams]
-import yottadb_types
-import yottadb_impl
+import ydbtypes
+import ydbimpl
+import libydb
 
 proc ydbMessage*(status: cint): string =
   ydbMessage_db(status)

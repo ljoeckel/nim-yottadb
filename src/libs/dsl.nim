@@ -1,6 +1,6 @@
 import macros
-import yottadb_api
-import yottadb_types
+import ydbapi
+import ydbtypes
 import std/strutils
 
 # TODO: Consolidate and refactor transformation logic for DSL macros

@@ -1,6 +1,6 @@
 import macros, strutils, options, tables, sets
-import yottadb_api
-import yottadb_types
+import ydbapi
+import ydbtypes
 
 
 

@@ -6,8 +6,12 @@ when compileOption("threads"):
   {.fatal: "Must be compiled with --threads:off".}
 
 const
-  MAX = 100
+  MAX = 20
   THS = "S"
+
+# Calculate the highest value to enforce a timeout
+let minFibonacci = calcFibonacciValueFor1000ms(50)
+let maxFibonacci = calcFibonacciValueFor1000ms(1200)
 
 proc myTxn(p0: pointer): cint {.cdecl.} =
   let someParam = $cast[cstring](p0)
@@ -15,7 +19,7 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
 
   try:
     let (ms, fibresult) = timed_rc:
-      let fib = rand(30..43)
+      let fib = rand(minFibonacci .. maxFibonacci)
       fibonacci_recursive(fib) # do some cpu intense work
     
     # Increment transaction counter and save application data
@@ -29,7 +33,7 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
   YDB_OK # commit the transaction
 
 
-# Set transaction timeout to 1 second
+
 set: $ZMAXTPTIME()="1"
 for i in 1..MAX:
   let (ms, rc) = timed_rc:

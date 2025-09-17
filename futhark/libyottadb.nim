@@ -99,16 +99,16 @@ when 31 is static:
     YDB_MAX_IDENT* = 31      ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:73:9
 else:
   let YDB_MAX_IDENT* = 31    ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:73:9
-when 35 is static:
-  const
-    YDB_MAX_NAMES* = 35      ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:74:9
-else:
-  let YDB_MAX_NAMES* = 35    ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:74:9
-when 31 is static:
-  const
-    YDB_MAX_SUBS* = 31       ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:80:9
-else:
-  let YDB_MAX_SUBS* = 31     ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:80:9
+# when 35 is static:
+#   const
+#     YDB_MAX_NAMES* = 35      ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:74:9
+# else:
+#   let YDB_MAX_NAMES* = 35    ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:74:9
+# when 31 is static:
+#   const
+#     YDB_MAX_SUBS* = 31       ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:80:9
+# else:
+#   let YDB_MAX_SUBS* = 31     ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:80:9
 when 32766 is static:
   const
     YDB_MAX_M_LINE_LEN* = 32766 ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:86:9
@@ -119,11 +119,11 @@ when 32 is static:
     YDB_MAX_PARMS* = 32      ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:88:9
 else:
   let YDB_MAX_PARMS* = 32    ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:88:9
-when 1024 is static:
-  const
-    YDB_MAX_ERRORMSG* = 1024 ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:91:9
-else:
-  let YDB_MAX_ERRORMSG* = 1024 ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:91:9
+# when 1024 is static:
+#   const
+#     YDB_MAX_ERRORMSG* = 1024 ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:91:9
+# else:
+#   let YDB_MAX_ERRORMSG* = 1024 ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:91:9
 # when 0 is static:
 #   const
 #     YDB_OK* = 0              ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:98:9

@@ -118,6 +118,13 @@ For the project's architecture details look at https://deepwiki.com/ljoeckel/nim
 This project was started to learn NIM (https://nim-lang.org)
 I'm truly impressed by the simplicity, power, and flexibility of Nim. The possibilities offered by macros and templates, in particular, make Nim a powerful tool. Developing software is finally fun again.
 
+### Test's and Examples
+In a cloned repo, you can run the tests and examples with
+```bash
+nimble test
+nimble examples
+```
+
 ### Feedback
 nim-yottadb is a **work in progress** and any feedback or suggestions are welcome. It is hosted on GitHub [nim-yottadb](https://github.com/ljoeckel/nim-yottadb) with an MIT license so issues, forks and PRs are most appreciated. 
 

@@ -81,3 +81,15 @@ proc fibonacci_recursive*(n: int): int =
     result = n
   else:
     result = fibonacci_recursive(n - 1) + fibonacci_recursive(n - 2)
+
+proc calcFibonacciValueFor1000ms*(durationMs: int): int =
+  echo "Calculate highest Fibonacci value for ", durationMs, " ms."
+  for i in 25..100:
+    let t1 = getTime()
+    let fib = fibonacci_recursive(i)
+    let tdiff = (getTime() - t1).inMilliseconds
+    if tdiff > durationMs:
+      echo "Fibonacci(",i,") took ", tdiff, " ms. to calculate"
+      return i
+  
+  0

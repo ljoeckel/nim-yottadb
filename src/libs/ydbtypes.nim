@@ -1,7 +1,14 @@
-import libyottadb
+import libydb
 
 const
     YDB_OK* = 0
+    YDB_MAX_ERRORMSG* = 1024
+    YDB_MAX_NAMES* = 35
+    YDB_MAX_SUBS* = 31
+
+    YDB_ERR_NODEEND* = -151027922
+
+
 
 
 type
@@ -36,6 +43,6 @@ type
     value*: string
 
 const
-  YDB_TP_RESTART* = - 1
-  YDB_TP_ROLLBACK* = - 2
-  #YDB_ERR_TPTIMEOUT* = -150377322
+  YDB_INT_MAX =  0x7fffffff
+  YDB_TP_RESTART* = (YDB_INT_MAX - 1)
+  YDB_TP_ROLLBACK* = (YDB_INT_MAX - 2)

@@ -1,11 +1,11 @@
-import libs/libyottadb
-import libs/yottadb_types
-import libs/yottadb_api
+import libs/libydb
+import libs/ydbtypes
+import libs/ydbapi
 import libs/dsl
 import libs/bingo
 
-export libyottadb
-export yottadb_types
-export yottadb_api
+export libydb
+export ydbtypes
+export ydbapi
 export dsl
 export bingo

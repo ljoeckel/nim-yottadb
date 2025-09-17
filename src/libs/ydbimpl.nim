@@ -1,7 +1,6 @@
-import strutils, std/strformat
-import yottadb_types
-
-include "libyottadb.nim"
+import std/[strutils, strformat]
+import ydbtypes
+import libydb
 
 # Constants for buffer sizes used throughout YottaDB API calls
 const
