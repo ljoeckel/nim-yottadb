@@ -1,7 +1,5 @@
 import std/sets
-import ../libs/bingo
-
-
+import yottadb
 
 type 
   Address* = object of RootObj
@@ -140,4 +138,3 @@ when isMainModule:
     echo "responder      id:", responder.id, " name:", responder.name
     for sibling in responder.siblings:
       echo "  sibling:", sibling
-

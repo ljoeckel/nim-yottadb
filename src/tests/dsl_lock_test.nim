@@ -1,6 +1,6 @@
 import std/unittest
-import ../libs/dsl
-import ../libs/utils
+import yottadb
+import utils
 import malebolgia
 
 

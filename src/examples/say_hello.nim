@@ -1,11 +1,11 @@
 import std/[times]
-import ../yottadb
-import ../libs/utils
-import ../libs/dsl
+import yottadb
+import utils
 
 proc sayHello() =
     #for id in 0..<10000000:
     #    set: ^hello($id)="hello"
+
     for id in 0..<10000000:
         ydb_set("^hello",@[$id],$id)
 

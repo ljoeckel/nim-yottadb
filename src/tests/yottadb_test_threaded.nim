@@ -3,8 +3,8 @@ import std/[times]
 import malebolgia
 import std/sets
 
-import ../yottadb
-import ../libs/utils
+import yottadb
+import utils
 
 # nim -c r --threads:on yottadb_test_threaded
 

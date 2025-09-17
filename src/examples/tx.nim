@@ -1,9 +1,6 @@
 import std/[random, strformat, times]
-import ../libs/yottadb_types
-import ../libs/libyottadb
-import ../libs/dsl
-import ../libs/yottadb_api
-import ../libs/utils
+import yottadb
+import utils
 
 when compileOption("threads"):
   {.fatal: "Must be compiled with --threads:off".}

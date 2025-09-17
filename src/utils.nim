@@ -1,11 +1,16 @@
 import posix
 import std/[times, strformat]
 
+# withlock:
+
 template withlock*(lockid: untyped, body: untyped): untyped =
     ## Create a database lock named ^LOCKS(lockid) while executing the body
     lockincr: ^LOCKS(lockid)
     body
     lockdecr: ^LOCKS(lockid)
+
+
+# timed: templates
 
 template timed_execute(body: untyped): auto =
   let t1 = getTime()
@@ -44,6 +49,9 @@ template timed_rc*(info: string, body: untyped) =
   (ms, rc) = timed_rc: body
   echo $info & ": ", ms," ms, rc:", rc
 
+
+# nimSleep
+
 proc nimSleep*(ms: int) =
   ## Sleep for the given ms. but handle signal interruption
   var req: Timespec
@@ -65,12 +73,7 @@ proc nimSleep*(ms: int) =
       break
 
 
-# proc showIdxArr*(idxarr: array[0..YDB_MAX_SUBS, ydb_buffer_t]) = 
-#   for i in 0..<idxarr.len:
-#     if idxarr[i].len_used > 0:
-#       echo "idxarr[", i, "]=", idxarr[i]
-#     else:
-#       break
+# fibonacci
 
 proc fibonacci_recursive*(n: int): int =
   ## Simulate some CPU intense work

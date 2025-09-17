@@ -1,6 +1,7 @@
 import macros, strutils, options, tables, sets
 import yottadb_api
-import libyottadb
+import yottadb_types
+
 
 
 proc saveInYdb(global: string, subs: seq[string], key: string, value: string) =

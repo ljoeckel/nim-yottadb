@@ -1,7 +1,5 @@
 import std/strformat
-import ../libs/dsl
-import ../libs/yottadb_types
-import ../libs/libyottadb
+import yottadb
 
 proc main() =
   set:

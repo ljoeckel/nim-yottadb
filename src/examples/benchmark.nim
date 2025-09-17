@@ -1,7 +1,6 @@
 import std/[times]
-import ../yottadb
-import ../libs/utils
-import ../libs/dsl
+import yottadb
+import utils
 
 const MAX = 10_000_000
 

@@ -1,4 +1,4 @@
-import ../yottadb
+import yottadb
 import tui_widget
 
 const header = @["Key","Value"]

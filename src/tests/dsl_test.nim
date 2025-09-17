@@ -1,6 +1,6 @@
 import std/[times, os, unittest, strutils]
-import ../yottadb
-import ../libs/utils
+import yottadb
+import utils
 
 proc setupLL() =
   set:

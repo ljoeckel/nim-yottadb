@@ -124,11 +124,11 @@ when 1024 is static:
     YDB_MAX_ERRORMSG* = 1024 ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:91:9
 else:
   let YDB_MAX_ERRORMSG* = 1024 ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:91:9
-when 0 is static:
-  const
-    YDB_OK* = 0              ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:98:9
-else:
-  let YDB_OK* = 0            ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:98:9
+# when 0 is static:
+#   const
+#     YDB_OK* = 0              ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:98:9
+# else:
+#   let YDB_OK* = 0            ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:98:9
 when 32 is static:
   const
     DEFAULT_DATA_SIZE* = 32  ## Generated based on /usr/local/lib/yottadb/r202/libyottadb.h:111:9

@@ -1,10 +1,7 @@
 import std/[times]
 import tables
-import ../libs/yottadb_types
-import ../libs/libyottadb
-import ../libs/yottadb_api
-import ../libs/dsl
-import ../libs/utils
+import yottadb
+import utils
 import malebolgia
 
 when not compileOption("threads"):
