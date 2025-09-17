@@ -36,7 +36,8 @@ Comparing the nim-yottadb implementation with the official YottaDB Rust implemen
 proc setSimple() =
     for id in 0..<10000000:
         set: ^hello($id)="hello"
-    timed("set simple"): setSimple()
+
+timed("set simple"): setSimple()
 ```
 **Rust**
 ```rust
