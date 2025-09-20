@@ -44,6 +44,18 @@ The DSL allows to write programs with globals in very natural way.
   echo "Done"
   # lock automatically released here
 ```
+To set an id for a global some different variants are available
+```nim
+set:
+  ^gbl(1)=1
+  ^gbl(1,1)=1.1
+  ^gbl("B")="..."
+  ^gbl("B","C")="..."
+  let (id1, id2, id3) = (4711, "CSTM", 1.0)
+  ^gbl(id1, id2, id3) = "....."
+  let subs: Subscripts = @["ACCNT", "4711", "1.1"]
+  ^gbl(subs)="...."
+```
 
 ### Currently the following DSL is supported:
 - ### set: 
