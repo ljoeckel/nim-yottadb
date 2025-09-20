@@ -3,6 +3,19 @@ import ydbapi
 import ydbtypes
 import std/strutils
 
+proc stringToSeq(s: string): Subscripts =
+  if s.startsWith("@["):
+    for arg in s.split(","):
+      var ss = arg
+      ss = replace(ss, "@")
+      ss = replace(ss, "[")
+      ss = replace(ss, "]")
+      ss = replace(ss, "\"")
+      result.add(ss.strip())
+  else:
+      result.add(s)
+
+
 # TODO: Consolidate and refactor transformation logic for DSL macros
 
 type
@@ -12,12 +25,21 @@ type
     tkGet        # Get transformation
     tkDelExcl    # del exclude
 
-
-template transformBody(body: untyped): untyped =
+template transformBodyStmt(body: untyped): untyped =
+  ## For macros that transform *statements*
   if body.kind == nnkStmtList:
     result = newStmtList()
     for stmt in body:
       result.add transform(stmt)
+  else:
+    result = transform(body)
+
+template transformBodyExpr(body: untyped): untyped =
+  ## For macros that must yield a single *expression*
+  ## If the macro was invoked with a statement-list containing exactly one item,
+  ## unwrap to that item; otherwise just transform the node.
+  if body.kind == nnkStmtList and body.len == 1:
+    result = transform(body[0])
   else:
     result = transform(body)
 
@@ -61,7 +83,7 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
       # Handle literals vs other expressions differently for Next transformation
       if kind == tkNext or kind == tkGet:
         case arg.kind
-        of nnkStrLit, nnkRStrLit, nnkIntLit:
+        of nnkStrLit, nnkRStrLit, nnkIntLit, nnkFloatLit:
           result.add newCall(ident"$", arg)
         else:
           result.add arg
@@ -90,9 +112,8 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
       let args = makeBaseArgsNext(rhs)
       let globalArg = args[0]
       let transformedArgs = args[1..^1]
-      
-      if transformedArgs.len == 1 and 
-         transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit}:
+      # for @["x"] but also for ^gbl(id) (a single variable)
+      if transformedArgs.len == 1 and transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit}:
         let p = procPrefix & "yyy1"
         return newCall(ident(p), globalArg, transformedArgs[0])
       else:
@@ -104,7 +125,7 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
   of tkGet:
     # Handle get transformation with type conversion
     if rhs.kind == nnkCall:
-      let args = makeBaseArgsNext(rhs)
+      let args = makeBaseArgs(rhs)
       let globalArg = args[0]
       let transformedArgs = args[1..^1]
       if transformedArgs.len == 1 and transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit}:
@@ -117,15 +138,25 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
     elif rhs.kind == nnkDotExpr:
       let callPart = rhs[0]
       let fieldPart = rhs[1]
-      let args = makeBaseArgs(callPart)
+      let args = makeBaseArgsNext(callPart)
       let suffix = fieldPart.strVal
       let procName = case suffix
         of "float": "getfloat"
         of "int": "getint"
-        of "string": "getstring"
         else: error("Unsupported suffix: " & suffix)
-                   
-      return newCall(ident(procName), args)
+      var call = newCall(ident(procName))
+      call.add(args[0]) # global name
+      let transformedArgs = args[1..^1]
+      for x in transformedArgs:
+        case x.kind
+        of nnkStrLit, nnkRStrLit, nnkIntLit, nnkFloatLit:
+          call.add newCall(ident"$", x)
+        of nnkIdent:
+          call.add newCall(ident"$", x) # ^X("id","i") -> ^X("1","i")
+        else:
+          #call.add x
+          call.add newCall(ident"$", x)
+      return call
     elif rhs.kind == nnkIdent:
       return newCall(ident"getstring", @[newLit(prefix & rhs.strVal)])
 
@@ -139,12 +170,11 @@ proc transformCallNode(node: NimNode): seq[NimNode] =
 proc transformCallNodeNext(node: NimNode, procPrefix:string = ""): NimNode =
   transformCallNodeBase(node, tkNext, procPrefix)
 
-proc transformCallNodeGET(node: NimNode): NimNode = 
-  transformCallNodeBase(node, tkGet)
+proc transformCallNodeGET(node: NimNode, procPrefix:string = ""): NimNode = 
+  transformCallNodeBase(node, tkGet, procPrefix)
 
 
-# ------------------- DSL macros -------------------
-
+# ------------------- Statement-context DSL macros -------------------
 macro set*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkAsgn:
@@ -156,87 +186,24 @@ macro set*(body: untyped): untyped =
         return newCall(ident"setxxx", args)
     else:
       return node
-  transformBody body
+  transformBodyStmt body
 
 
 macro incr*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
-    if node.kind == nnkAsgn:  # assignment ^CNT("AUTO")=<increment>
+    if node.kind == nnkAsgn:  # ^CNT("AUTO")=<increment>
       let lhs = node[0]
       let rhs = node[1]
       if lhs.kind == nnkPrefix:
         var args = transformCallNode(lhs)
-        args.add newCall(ident"$", rhs) # the value to assign
+        args.add newCall(ident"$", rhs)
         return newCall(ident"incrxxx", args)
-    elif node.kind == nnkPrefix:  # ^CNT("AUTO"). (Increment defaults to 1)
+    elif node.kind == nnkPrefix:  # ^CNT("AUTO").
       var args = transformCallNode(node)
       return newCall(ident"incr1xxx", args)
     else:
       return node
-  transformBody body
-
-
-macro get*(body: untyped): untyped =
-  proc transform(node: NimNode): NimNode =
-    if node.kind == nnkPrefix or node.kind == nnkCall:
-      return transformCallNodeGET(node)
-    elif node.kind == nnkStmtList:
-      result = newStmtList()
-      for ch in node:
-        result.add transform(ch)
-    else:
-      return node
-  transformBody body
-
-
-macro nextn*(body: untyped): untyped =
-  proc transform(node: NimNode): NimNode =
-    if node.kind == nnkPrefix:
-      var args = transformCallNodeNext(node, "nextnode")
-      return args
-    else:
-      return node
-  transformBody body
-
-
-macro prevn*(body: untyped): untyped =
-  proc transform(node: NimNode): NimNode =
-    if node.kind == nnkPrefix:
-      var args = transformCallNodeNext(node, "prevnode")
-      return args
-    else:
-      return node
-  transformBody body
-
-
-macro nextsub*(body: untyped): untyped =
-  proc transform(node: NimNode): NimNode =
-    if node.kind == nnkPrefix:
-      var args = transformCallNodeNext(node, "nextsub")
-      return args
-    else:
-      return node
-  transformBody body
-
-
-macro prevsub*(body: untyped): untyped =
-  proc transform(node: NimNode): NimNode =
-    if node.kind == nnkPrefix:
-      var args = transformCallNodeNext(node, "prevsub")
-      return args
-    else:
-      return node
-  transformBody body
-
-
-macro data*(body: untyped): untyped =
-  proc transform(node: NimNode): NimNode =
-    if node.kind == nnkPrefix:
-      var args = transformCallNode(node)
-      return newCall(ident"dataxxx", args)
-    else:
-      return node
-  transformBody body
+  transformBodyStmt body
 
 
 macro delnode*(body: untyped): untyped =
@@ -246,7 +213,7 @@ macro delnode*(body: untyped): untyped =
       return newCall(ident"delnodexxx", args)
     else:
       return node
-  transformBody body
+  transformBodyStmt body
 
 
 macro deltree*(body: untyped): untyped =
@@ -256,11 +223,10 @@ macro deltree*(body: untyped): untyped =
       return newCall(ident"deltreexxx", args)
     else:
       return node
-  transformBody body
-
+  transformBodyStmt body
 
 macro delexcl*(body: untyped): untyped =
-  var args:seq[NimNode] = @[]
+  var args: seq[NimNode] = @[]
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkCurly:
       for n in 0..<node.len:
@@ -268,11 +234,10 @@ macro delexcl*(body: untyped): untyped =
       return newCall(ident"delexclxxx", args)
     else:
       return node
-  transformBody body
-
+  transformBodyStmt body
 
 macro lock*(body: untyped): untyped =
-  var args:seq[NimNode] = @[]
+  var args: seq[NimNode] = @[]
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
       args.add(transformCallNode(node))
@@ -284,8 +249,7 @@ macro lock*(body: untyped): untyped =
       return newCall(ident"lockxxx", args)
     else:
       return node
-  transformBody body
-
+  transformBodyStmt body
 
 macro lockincr*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
@@ -294,8 +258,7 @@ macro lockincr*(body: untyped): untyped =
       return newCall(ident"lockincrxxx", args)
     else:
       return node
-  transformBody body
-
+  transformBodyStmt body
 
 macro lockdecr*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
@@ -304,7 +267,67 @@ macro lockdecr*(body: untyped): untyped =
       return newCall(ident"lockdecrxxx", args)
     else:
       return node
-  transformBody body
+  transformBodyStmt body
+
+
+# ------------------- Expression-context macros -------------------
+
+macro get*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix or node.kind == nnkCall:
+      return transformCallNodeGET(node)  # your helper builds getstring(...)
+    else:
+      return node
+
+  # unwrap stmtlist if present
+  if body.kind == nnkStmtList:
+    if body.len != 1:
+      error("get: expects exactly one expression", body)
+    result = transform(body[0])
+  else:
+    result = transform(body)
+
+
+macro nextn*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      return transformCallNodeNext(node, "nextnode")
+    else:
+      return node
+  transformBodyExpr body
+
+macro prevn*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      return transformCallNodeNext(node, "prevnode")
+    else:
+      return node
+  transformBodyExpr body
+
+macro nextsub*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      return transformCallNodeNext(node, "nextsub")
+    else:
+      return node
+  transformBodyExpr body
+
+macro prevsub*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      return transformCallNodeNext(node, "prevsub")
+    else:
+      return node
+  transformBodyExpr body
+
+
+macro data*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind == nnkPrefix:
+      return transformCallNodeNext(node, "data")
+    else:
+      return node
+  transformBodyExpr body
 
 
 # Proc^s that implement the ydb call's
@@ -318,14 +341,26 @@ proc getstring*(args: varargs[string]): string =
 proc getstring1*(global: string, args: seq[string]): string =
   ydb_get(global, args[0..^1])
 
-proc getstring1*(global: string, args: string): string =
-  ydb_get(global, @[args])
+proc getstring1*(global: string, s: string): string =
+  ydb_get(global, stringToSeq(s))
 
-proc getfloat*(args: varargs[string]): float =
-  parseFloat(ydb_get(args[0], args[1..^1]))
+proc getfloat*(global:string, args: varargs[string]): float =
+  var subs:Subscripts
+  for arg in args:
+    if arg.startsWith("@["):
+      subs.add(stringToSeq(arg))
+    else:
+      subs.add(arg)
+  parseFloat(ydb_get(global, subs))
 
-proc getint*(args: varargs[string]): int =
-  parseInt(ydb_get(args[0], args[1..^1]))
+proc getint*(global:string, args: varargs[string]): int =
+  var subs:Subscripts
+  for arg in args:
+    if arg.startsWith("@["):
+      subs.add(stringToSeq(arg))
+    else:
+      subs.add(arg)
+  parseInt(ydb_get(global, subs))
 
 
 # -------------------
@@ -335,7 +370,7 @@ proc nextnodeyyy*(args: varargs[string]): (int, Subscripts) =
   var subscripts = args[1..^1]
   ydb_node_next(args[0], subscripts)
 
-proc nextnodeyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
+proc nextnodeyyy1*(global: string, subscripts: seq[string]): (int, Subscripts) =
   ydb_node_next(global, subscripts)
 
 proc nextnodeyyy1*(global: string, sub: string): (int, Subscripts) =
@@ -396,7 +431,22 @@ proc prevnodeyyy1*(global: string, sub: string): (int, Subscripts) =
 # set proc
 # ---------------------
 proc setxxx*(args: varargs[string]) =
-  ydb_set(args[0], args[1..^2], args[^1])
+  # TODO: handle case with macro where seq[string] is stringified
+  # setxxx args:["^hello", "@[\"users\", \"46\", \"name\"]", "Martina"] len:3
+  if args.len == 3 and args[1].startsWith("@["):
+    var subs: Subscripts
+    subs.add(args[0]) # the global
+    for arg in args[1].split(","):
+      var s = arg
+      s = replace(s, "@")
+      s = replace(s, "[")
+      s = replace(s, "]")
+      s = replace(s, "\"")
+      subs.add(s.strip())
+    subs.add(args[2]) # the value
+    ydb_set(subs[0], subs[1..^2], subs[^1])
+  else:
+    ydb_set(args[0], args[1..^2], args[^1])
 
 
 # ----------------------
@@ -412,15 +462,28 @@ proc incrxxx*(args: varargs[string]): int =
 # -------------------
 # data proc
 # -------------------
-proc dataxxx*(args: varargs[string]): int =
-  result = ydb_data(args[0], args[1..^1])
+proc datayyy*(args: varargs[string]): int =
+ var subscripts = args[1..^1]
+ ydb_data(args[0], subscripts)
+
+proc datayyy1*(global: string, subscripts: seq[string]): int =
+  ydb_data(global, subscripts)
+
+proc datayyy1*(global: string, sub: string): int =
+  var subscripts:seq[string] = @[sub]
+  ydb_data(global, subscripts)
+
 
 
 # -------------------
 # del Node/Tree procs
 # -------------------
 proc delnodexxx*(args: varargs[string]) =
-  ydb_delete_node(args[0], args[1..^1])
+  var subs: Subscripts
+  for arg in args[1..^1]:
+    subs.add(stringToSeq(arg))
+  ydb_delete_node(args[0], subs)
+
 
 proc deltreexxx*(args: varargs[string]) =
   ydb_delete_tree(args[0], args[1..^1])

@@ -33,7 +33,20 @@ for i in 0..MAX:
     v[] = "New " & v.value
 ```
 ### DSL
-- set: 
+The DSL allows to write programs with globals in very natural way.
+```nim
+  withlock(4711):
+    set:
+      let id = @["4711", "Acc123"]
+      var amount = get: ^account(id).float
+      amount += 1500.0
+      ^account(id) = amount # update db
+  echo "Done"
+  # lock automatically released here
+```
+
+### Currently the following DSL is supported:
+- ### set: 
 ```nim
 set: ^Customer(4711,"Name")="John Doe"
 ```
@@ -41,31 +54,31 @@ set: ^Customer(4711,"Name")="John Doe"
 ```nim
 let: int txid = incr: ^CNT("TXID")
 ```
-- get:
+- ### get:
 ```nim
 let name = get: ^Customer(4711,"Name")
 let f: float = get: ^Customer(4711, accountId, transactionId, "amount").float
-nim let i: int = get: ^Customer(4711, accountId, "somevalue").int
+let i: int = get: ^Customer(4711, accountId, "somevalue").int
 ```
-- nextn:
+- ### nextn:
 ```nim var
   rc: int
   node: Subscripts
 (rc, node) = nextn: ^House("FLOOR")
 ```
-- prevn:
+- ### prevn:
 ```nim
 (rc, node) = prevn: ^House("FLOOR", "9999")
 ```
-- nextsub:
+- ### nextsub:
 ```nim
 (rc, node) = nextsub: ^House("ELECTRIC")
 ```
-- prevsub:
+- ### prevsub:
 ```nim
 (rc, node) = prevsub: ^House("ELECTIRC", "CABLES")
 ```
-- data:
+- ### data:
 ```nim
 let dta: int = data: ^House("FLOOR")
 'dta' can have the following values:
@@ -75,31 +88,30 @@ enum YdbData:
   DATA_AND_SUBTREE
   NO_DATA_WITH_SUBTREE
 ```
-- delnode:
+- ### delnode:
 ```nim
 delnode: ^House("FLOOR",1)
 ```
-- deltree:
+- ### deltree:
 ```nim
 deltree: ^House("FLOOR")
 ```
-- delexcl:
+- ### delexcl:
 ```nim
 delexcl: { DELTEST1, DELTEST3, DELTEST5 }
 ```
-- lock:
+- ### lock:
 ```nim
 lock: { ^House("FLOOR", 11), ^House("FLOOR", 12) }
 ```
-- lockincr:
+- ### lockincr:
 ```nim
 lockincr: ^House("FLOOR", 11)
 ```
-- lockdecr:
+- ### lockdecr:
 ```nim
 lockdecr: ^House("FLOOR", 11)
 ```
-
 
 All API-Calls are available in a single- or multi-threaded version and ara automatically selected via the **when compileOption("threads")**
 

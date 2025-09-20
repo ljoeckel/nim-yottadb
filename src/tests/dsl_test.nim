@@ -69,28 +69,23 @@ proc testData() =
   
   var dta = data: ^X(0)
   assert YdbData(dta) == NO_DATA_NO_SUBTREE
-  dta = data: ^X(6)
-  assert YdbData(dta) == DATA_NO_SUBTREE
-  dta = data: ^X(5)
-  assert YdbData(dta) == DATA_AND_SUBTREE
-  dta = data: ^X(7)
-  assert YdbData(dta) == NO_DATA_WITH_SUBTREE
+  assert ord(NO_DATA_NO_SUBTREE) == data ^x(0)
+  assert ord(DATA_NO_SUBTREE) == data ^X(6)
+  assert ord(DATA_AND_SUBTREE) == data ^X(5)
+  assert data(^X(7)) == ord(NO_DATA_WITH_SUBTREE)
 
 
 proc testSetGet() =
-  let id = 1
-  # Set
-  set: ^X(id, "s") = "pi"
-  let s = get: ^X(id, "s")
-  assert s == "pi"
-
-  set: ^X(id, "i") = 3
-  let i = get: ^X(id, "i").int
-  assert i == 3
-
-  set: ^X(id, "f") = 3.1414
-  let f = get: ^X(id, "f").float
-  assert f == 3.1414
+  let id = 123
+  set:
+    ^X(id, "s") = "pi"
+    assert "pi" == get ^X(id, "s")
+    ^X(id, "i", 4711) = 3
+    assert 3 == get ^X(id, "i", 4711).int
+    ^X(id, id, 4711, "i")=33
+    assert 33 == get ^X(id, id, 4711, "i").int
+    ^X(id, "f") = 3.1414
+    assert get(^X(id, "f").float) == 3.1414
   
   # Set multiple items
   set:
@@ -100,15 +95,13 @@ proc testSetGet() =
       #^X(id, ...) = "pi" # ... call to setxxx
 
   for i in 1..<3:
-    let s = get: ^X(id, i)
-    assert "pi" == s
+    assert "pi" == get ^X(id, i)
 
   # Set loop
   for id in 0..<5:
     let tm = cpuTime()
     set: ^CUST(id, "Timestamp") = tm
-    let s = get: ^CUST(id, "Timestamp").float
-    assert s == tm
+    assert tm == get ^CUST(id, "Timestamp").float
 
   # Set with exception, too many subscripts
   doAssertRaises(YdbDbError):
@@ -122,9 +115,8 @@ proc testSetGet() =
 proc testIncrement() =  
   # Increment
   delnode: ^CNT("TXID")
-  var incrval = incr: ^CNT("TXID")
-  assert 1 == incrval
-  incrval = incr: ^CNT("TXID") = 10
+  assert 1 == incr ^CNT("TXID")
+  let incrval = incr: ^CNT("TXID") = 10 # TODO: syntax should be ^CNT("TXID", "sub1", int)
   assert 11 == incrval
 
 
@@ -218,7 +210,6 @@ proc testNextNode() =
   assert node == @["HAUS"]
   (rc, node) = nextn: ^LL(node)
   assert node == @["HAUS", "ELEKTRIK"]
-
   (rc, node) = nextn: ^LL("HAUS")
   assert node == @["HAUS", "ELEKTRIK"]
   (rc, node) = nextn: ^LL(node)

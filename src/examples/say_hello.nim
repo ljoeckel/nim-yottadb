@@ -1,9 +1,24 @@
 import yottadb
 import utils
 
-proc sayHello() =
+proc create() =
     for id in 0..<10000000:
-        ydb_set("^hello",@[$id], $id)
+        set: ^hello(id)=id
+
+proc count() =
+    var cnt = 0
+    var (rc, subs) = nextn: ^hello()
+    while rc == YDB_OK:
+        inc(cnt)
+        (rc, subs) = nextn: ^hello(subs)
+    echo "Have ", cnt, " entries"
+
+proc delete() =
+    for id in 0..<10000000:
+        delnode: ^hello(id)
+
 
 when isMainModule:
-    timed("sayHello"): sayHello()
+    timed("sayHello"): create()
+    timed("sayHelloCount"): count()
+    timed("sayHelloDelete"): delete()

@@ -28,3 +28,6 @@ src/examples/benchmark
 src/examples/benchmark2
 src/examples/say_hello
 src/examples/hello_customer
+src/examples/dsl
+src/tests/dsl2_test
+src/tests/dsl3_test

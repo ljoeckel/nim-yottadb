@@ -35,7 +35,7 @@ proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: string, transid:string = ""): int 
   result = ydb_tp_start(myTxnProc, param, transid)
 
 # ------------------ Next/Previous Node -----------------
-proc ydb_node_next*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_node_next*(global: string, subscripts: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
   ydb_node_next_db(global, subscripts, tptoken)
   
 proc ydb_node_previous*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
@@ -153,8 +153,29 @@ proc subscriptsToValue*(global: string, subscript: Subscripts): string =
   else:
     result = keysToString(global, subscript) & "=" & value
 
-# Get the global variables from the ydb ^%GD utility
+proc listGlobal*(global: string) =
+  # List all globals with its value
+  var (rc, sub) = ydb_node_next(global, @[])
+  while rc == YDB_OK:
+    #let value = ydb_get(global, sub)
+    echo subscriptsToValue(global, sub)
+    (rc, sub)= ydb_node_next(global, sub)
+
+
+proc deleteGlobal*(global: string): bool =
+  var (rc, subs) = ydb_node_next(global, @[])
+  var cnt = 0
+  while rc == YDB_OK:
+    inc cnt
+    ydb_delete_node(global, subs)
+    (rc, subs) = ydb_node_next(global, subs)
+  # test if really empty
+  (rc, subs) = ydb_node_next(global, @[])
+  return rc == YDB_ERR_NODEEND
+
+
 proc getGlobals*(): seq[string] =
+  # Get the global variables from the ydb ^%GD utility
     result = @[]
     var lines: seq[string]
 
@@ -195,3 +216,12 @@ proc getLocksFromYottaDb*(): seq[string] =
 
 proc getLockCountFromYottaDb*(): int =
   getLocksFromYottaDb().len
+
+proc isLocked*(lock: string): bool =
+  for line in getLocksFromYottaDb():
+    if line.contains("^LOCKS(") and line.contains(lock):
+      return true
+  false
+
+proc isLocked*(lock: int | float): bool =
+  isLocked($lock)
