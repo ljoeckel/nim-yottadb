@@ -431,20 +431,8 @@ proc prevnodeyyy1*(global: string, sub: string): (int, Subscripts) =
 # set proc
 # ---------------------
 proc setxxx*(args: varargs[string]) =
-  # TODO: handle case with macro where seq[string] is stringified
-  # setxxx args:["^hello", "@[\"users\", \"46\", \"name\"]", "Martina"] len:3
   if args.len == 3 and args[1].startsWith("@["):
-    var subs: Subscripts
-    subs.add(args[0]) # the global
-    for arg in args[1].split(","):
-      var s = arg
-      s = replace(s, "@")
-      s = replace(s, "[")
-      s = replace(s, "]")
-      s = replace(s, "\"")
-      subs.add(s.strip())
-    subs.add(args[2]) # the value
-    ydb_set(subs[0], subs[1..^2], subs[^1])
+    ydb_set(args[0], stringToSeq(args[1]), args[^1])
   else:
     ydb_set(args[0], args[1..^2], args[^1])
 

@@ -1,4 +1,3 @@
-# testdsl.nim
 import std/[unittest]
 import yottadb
 
@@ -56,8 +55,7 @@ proc setget() =
   assert "4713,A" == get(^tmp(sub))
   doAssertRaises(ValueError): discard get(^tmp(sub).int)
   doAssertRaises(ValueError): discard get(^tmp(sub).float)
-  
-
+ 
   assert "2" == get(^tmp(2))
   assert 2 == get(^tmp(2).int)
   assert 2.0 == get(^tmp(2).float)
@@ -108,9 +106,11 @@ proc delnode() =
     (rc, subs) = nextn ^tmp2(subs)
   assert dbdata == refdata
 
+
 proc setup() =
   assert deleteGlobal("^tmp")
   assert deleteGlobal("^tmp2")
+
 
 when isMainModule:
   suite "setget Tests":
