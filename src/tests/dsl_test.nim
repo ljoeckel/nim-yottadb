@@ -43,7 +43,7 @@ proc testDel() =
   let s = get: ^X(1)
   assert "hello" == s
   delnode: ^X(1) # delete node
-  doAssertRaises(YdbDbError): # expect exception because node removed
+  doAssertRaises(YdbError): # expect exception because node removed
     discard get: ^X(1)
   
   # create a tree
@@ -52,7 +52,7 @@ proc testDel() =
   let dta = data: ^X(1) 
   assert 10 == dta # Expect no data but subtree
   deltree: ^X(1)
-  doAssertRaises(YdbDbError): # expect exception because node removed
+  doAssertRaises(YdbError): # expect exception because node removed
     discard  get: ^X(1)
 
 
@@ -104,7 +104,7 @@ proc testSetGet() =
     assert tm == get ^CUST(id, "Timestamp").float
 
   # Set with exception, too many subscripts
-  doAssertRaises(YdbDbError):
+  doAssertRaises(YdbError):
     set: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32)="xxx"
   # Should work without exception
   set: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31)="xxx"
@@ -354,7 +354,7 @@ proc testSpecialVars() =
 
 proc testDeleteExcl() =
   # Global's are not allowed
-  #doAssertRaises(YdbDbError):
+  #doAssertRaises(YdbError):
   #TODO: ^ not recognized
   delexcl: { ^SOMEGLOBAL }
 
@@ -383,12 +383,12 @@ proc testDeleteExcl() =
   discard get: DELTEST5()
 
   # Removed vars should raise exception on access
-  doAssertRaises(YdbDbError): discard get: DELTEST2()
-  doAssertRaises(YdbDbError): discard get: DELTEST4()
+  doAssertRaises(YdbError): discard get: DELTEST2()
+  doAssertRaises(YdbError): discard get: DELTEST4()
 
   # delete all variables
   delexcl: {}
-  doAssertRaises(YdbDbError): discard get: DELTEST1()
+  doAssertRaises(YdbError): discard get: DELTEST1()
 
 proc test_ydb_ci() =
   let ydb_ci = getEnv("ydb_ci")

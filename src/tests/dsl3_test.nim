@@ -7,16 +7,16 @@ proc setget() =
     ids:Subscripts = @["5"]
 
   set:
-    ^tmp(id)=1
-    ^tmp(2)=2
-    ^tmp("3")=3
-    ^tmp(@["4"])=4
-    ^tmp(ids)=5
-    ^tmp(id, 4711)=4711
-    ^tmp(id, "4712")="4712"
-    ^tmp(id, "4713", "A")="4713,A"
-    ^tmp(id + 10)=id + 10
-    ^tmp("X")="X"
+    ^tmp(id) = 1
+    ^tmp(2) = 2
+    ^tmp("3") = 3
+    ^tmp(@["4"]) = 4
+    ^tmp(ids) = 5
+    ^tmp(id, 4711) = 4711
+    ^tmp(id, "4712") = "4712"
+    ^tmp(id, "4713", "A") = "4713,A"
+    ^tmp(id + 10) = id + 10
+    ^tmp("X") = "X"
 
   assert "1" == get(^tmp(id))
   assert "1" == get(^tmp($id))
@@ -73,6 +73,26 @@ proc setget() =
   assert 5.0 == get(^tmp(ids).float)
 
 
+proc setlocals() =
+  set:
+    local(1) = 1
+    assert "1" == get(local(1))
+    #TODO: assert 1 == get(local(1).int) # Error: undeclared identifier 'local'
+    #assert 1.0 == get(local(1).float) # Error: undeclared identifier 'local'
+
+    local(1.1) = "1.1"
+    assert "1.1" == get(local(1.1))
+    
+    var id = 2
+    local(id) = id
+    assert $id == get(local(id))
+    local(id, id) = id
+    assert $id == get(local(id, id))
+    local(id,"X") = $id
+    assert $id == get(local(id, "X"))
+    doAssertRaises(YdbError): discard get(local(id, "Y"))
+
+
 proc delnode() =
   var id: int
   # create some records  
@@ -116,6 +136,7 @@ when isMainModule:
   suite "setget Tests":
     test "setup": setup()
     test "setget": setget()
+    test "setlocals": setlocals()
     test "delnode": delnode()
 
 

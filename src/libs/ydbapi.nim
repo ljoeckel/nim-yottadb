@@ -123,7 +123,7 @@ proc ydb_lock_decr*(name: string, keys: Subscripts) =
 # ------------------ YdbVar ----------------
 
 proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = ""): YdbVar =
-  if global.isEmptyOrWhitespace: raise newException(YdbDbError, "Empty 'global' param")
+  if global.isEmptyOrWhitespace: raise newException(YdbError, "Empty 'global' param")
 
   result.global = global
   result.subscripts = subscripts

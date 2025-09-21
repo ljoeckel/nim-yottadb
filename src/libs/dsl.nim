@@ -451,8 +451,7 @@ proc incrxxx*(args: varargs[string]): int =
 # data proc
 # -------------------
 proc datayyy*(args: varargs[string]): int =
- var subscripts = args[1..^1]
- ydb_data(args[0], subscripts)
+ ydb_data(args[0], args[1..^1])
 
 proc datayyy1*(global: string, subscripts: seq[string]): int =
   ydb_data(global, subscripts)
@@ -512,13 +511,9 @@ proc lockxxx*(args: varargs[string]) =
 # ----------------------
 proc lockincrxxx*(args: varargs[string]) =
   # Increment lock count for variable
-  let global = args[0]
-  let timeout:culonglong = 100000  #TODO make readable from DSL macro ^LL("HAUS"),100000 o.ä.
-  let subscripts = args[1..^1]
-  ydb_lock_incr(timeout, global, subscripts)
+  # TODO: make timeout readable from DSL macro ^LL("HAUS"),100000 o.ä.
+  ydb_lock_incr(100000.culonglong, args[0], args[1..^1])
 
 proc lockdecrxxx*(args: varargs[string]) =
   # Decrement lock count for variable
-  let global = args[0]
-  let subscripts = args[1..^1]
-  ydb_lock_decr(global, subscripts)
+  ydb_lock_decr(args[0], args[1..^1])

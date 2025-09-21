@@ -33,7 +33,7 @@ type
     NO_DATA_WITH_SUBTREE = 10,
     DATA_AND_SUBTREE = 11
 
-  YdbDbError* = object of CatchableError
+  YdbError* = object of CatchableError
 
   Subscripts* = seq[string]
 

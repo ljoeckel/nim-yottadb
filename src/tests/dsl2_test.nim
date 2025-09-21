@@ -76,10 +76,10 @@ proc setMixed() =
   assert "Martina" == get(^hello(sub))
   assert "Martina" == get(^hello(id1, id2, id3))
   assert "Martina" == get(^hello("users", "46", "name"))
-  doAssertRaises(YdbDbError): discard get(^hello("users", "47", "name"))
-  doAssertRaises(YdbDbError): discard get(^hello(id1, id2, id2))
+  doAssertRaises(YdbError): discard get(^hello("users", "47", "name"))
+  doAssertRaises(YdbError): discard get(^hello(id1, id2, id2))
   sub = @["users", "47", "name"]
-  doAssertRaises(YdbDbError): discard get(^hello(sub))
+  doAssertRaises(YdbError): discard get(^hello(sub))
 
 proc intUpdate() =
   let subs = @["4711", "Acc123"]

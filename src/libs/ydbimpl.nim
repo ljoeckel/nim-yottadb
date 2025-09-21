@@ -179,7 +179,7 @@ proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken:uint64 =
   else:
     rc = ydb_set_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
   if rc < YDB_OK:
-    raise newException(YdbDbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys & " value:" & $value)
+    raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys & " value:" & $value)
 
 
 proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
@@ -199,7 +199,7 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): stri
     DATABUF.buf_addr[DATABUF.len_used] = '\0'
     result = $DATABUF.buf_addr
   else:
-    raise newException(YdbDbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys)
+    raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys)
 
 
 proc ydb_data_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
@@ -216,7 +216,7 @@ proc ydb_data_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
     rc = ydb_data_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, value.addr)
 
   if rc < YDB_OK:
-    raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
+    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
   else:
     return value.int # 0,1,10,11
 
@@ -234,7 +234,7 @@ proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64 =
     rc = ydb_delete_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, deltype.cint)
 
   if rc < YDB_OK:
-    raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
+    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
 
 proc ydb_delete_node_db*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
   ## Delete a single node
@@ -256,7 +256,7 @@ proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64 = 0) =
     rc = ydb_delete_excl_s(names.len.cint, NAMES[0].addr)
 
   if rc < YDB_OK:
-    raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{names}")
+    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{names}")
 
 
 proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken:uint64 = 0): int =
@@ -273,13 +273,13 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken:u
     rc = ydb_incr_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr, INCRBUF.addr)
 
   if rc < YDB_OK:
-    raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
+    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
   else:
       let buf = $INCRBUF.buf_addr
       try:
         result = parseInt(buf)
       except:
-        raise newException(YdbDbError, "Illegal Number. Tried to parseInt(" & buf & ")")
+        raise newException(YdbError, "Illegal Number. Tried to parseInt(" & buf & ")")
 
 
 # --- Node traversal (next/previous) ---
@@ -372,7 +372,7 @@ proc ydb_lock_incr_db*(timeout_nsec: culonglong, name: string, keys: Subscripts,
     rc = ydb_lock_incr_s(timeout_nsec, GLOBAL.addr, keys.len.cint, IDXARR[0].addr)
 
   if rc < YDB_OK:
-    raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{keys}")
+    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{keys}")
 
 
 proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
@@ -387,7 +387,7 @@ proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
     rc = ydb_lock_decr_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr)
 
   if rc < YDB_OK:
-    raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{keys}")
+    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{keys}")
 
 
 proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]], tptoken: uint64 = 0): cint =
@@ -481,7 +481,7 @@ proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_b
 proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken:uint64 = 0) =
   ## Acquire lock on a node(s) with timeout in nsec
   if keys.len > YDB_MAX_NAMES:
-    raise newException(YdbDbError, fmt"Too many arguments. Only {YDB_MAX_NAMES} are allowed")    
+    raise newException(YdbError, fmt"Too many arguments. Only {YDB_MAX_NAMES} are allowed")    
 
   check()
 
@@ -506,7 +506,7 @@ proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken:uint6
  
   let rc = ydb_lock_db_variadic(keys.len, timeout_nsec, locknames, locksubs)  
   if rc < YDB_OK:
-    raise newException(YdbDbError, fmt"{ydbMessage_db(rc, tptoken)}, {keys})")
+    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, {keys})")
 
 
 # ----------- Call In Interface -------------
@@ -526,4 +526,4 @@ proc ydb_ci_db*(name: string, tptoken: uint64 = 0) =
     rc = ydb_ci(c_call_name)
 
   if rc < YDB_OK:
-    raise newException(YdbDbError, fmt"{ydbMessage_db(rc)}") 
+    raise newException(YdbError, fmt"{ydbMessage_db(rc)}") 

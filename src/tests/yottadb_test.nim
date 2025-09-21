@@ -56,7 +56,7 @@ proc simpleDelete(global: string, cnt: int) =
 
 proc setWithError() =
   # set with empty global
-  doAssertRaises(YdbDbError): ydb_set("", @["x"], "x") # -151027762, %YDB-E-INVVARNAME
+  doAssertRaises(YdbError): ydb_set("", @["x"], "x") # -151027762, %YDB-E-INVVARNAME
   
   # Write global without subscript -> ^x="x"
   ydb_set("^x", @[], "x")
@@ -92,7 +92,7 @@ proc testMaxValueSize() =
   # Illegal size > 1MB
   let i = 1024
   let value = "0".repeat(i*1024+1)
-  doAssertRaises(YdbDbError): ydb_set("^VARSIZE", @[$i], value)
+  doAssertRaises(YdbError): ydb_set("^VARSIZE", @[$i], value)
 
   var subs = @[""]
   for subs in ydb_node_next_iter("^VARSIZE", subs):
@@ -247,7 +247,7 @@ proc testLock() =
 
   # Too many locks
   toLock.add(@["^LL","HAUS", "36"])
-  doAssertRaises(YdbDbError): ydb_lock(100000, toLock)
+  doAssertRaises(YdbError): ydb_lock(100000, toLock)
 
 
 proc testLockIncrement() =
@@ -306,7 +306,7 @@ proc testMaxSubscripts() =
       ydb_set("^SUBS", keys, $i)
       assert $i == ydbget("^SUBS", keys)
     else:
-      doAssertRaises(YdbDbError): ydb_set("^SUBS", keys, $i)
+      doAssertRaises(YdbError): ydb_set("^SUBS", keys, $i)
 
 
 proc testDeleteExcl() =
@@ -325,17 +325,17 @@ proc testDeleteExcl() =
   ydb_delete_excl(@["DELTEST1","DELTEST3","DELTEST5"])
 
   # Global's are not allowed
-  doAssertRaises(YdbDbError): ydb_delete_excl(@["^DELTEST"])
+  doAssertRaises(YdbError): ydb_delete_excl(@["^DELTEST"])
 
   doAssert ydb_get("DELTEST1", @["A"]) == "1"
   doAssert ydb_get("DELTEST3", @["A"]) == "1"
   doAssert ydb_get("DELTEST5", @["A"]) == "1"
-  doAssertRaises(YdbDbError): discard ydb_get("DELTEST2", @["A"])
-  doAssertRaises(YdbDbError): discard ydb_get("DELTEST4", @["A"])
+  doAssertRaises(YdbError): discard ydb_get("DELTEST2", @["A"])
+  doAssertRaises(YdbError): discard ydb_get("DELTEST4", @["A"])
 
   # delete all variables
   ydb_delete_excl()
-  doAssertRaises(YdbDbError): discard ydb_get("DELTEST1", @["A"])
+  doAssertRaises(YdbError): discard ydb_get("DELTEST1", @["A"])
 
 
 proc test_ydb_ci() =
