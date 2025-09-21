@@ -307,7 +307,7 @@ proc testNextSubscriptCaret() =
   (rc, node) = nextsubscript: ^LL("")
   assert rc == YDB_OK and node == @["HAUS"]
   (rc, node) = nextsubscript: ^LL("ZZZZZZZ")
-  assert rc == YDB_ERR_NODEEND and node == @[""]
+  assert rc == YDB_ERR_NODEEND and node == @[]
 
 proc testPrevSubscriptCaret() =
   var rc:int
@@ -317,7 +317,7 @@ proc testPrevSubscriptCaret() =
   (rc, node) = prevsubscript: ^LL("LAND")
   assert rc == YDB_OK and node == @["HAUS"]
   (rc, node) = prevsubscript: ^LL("HAUS")
-  assert rc == YDB_ERR_NODEEND and node == @[""]
+  assert rc == YDB_ERR_NODEEND and node == @[]
 
 proc testNextSubscript(start: Subscripts, expected: Subscripts) =
   var rc:int
@@ -437,7 +437,7 @@ proc test() =
     test "testPrevSubscript":
       test "testPrevSubscript": testPrevSubscript(@["HAUS", "FLAECHEN"], @["HAUS", "ELEKTRIK"])
       test "testPrevSubscript": testPrevSubscript(@["HAUS", "FLA."], @["HAUS", "ELEKTRIK"])      
-      test "testPrevSubscript": testPrevSubscript(@["HAUS", "ELEKTRIK"], @["HAUS", ""])
+      test "testPrevSubscript": testPrevSubscript(@["HAUS", "ELEKTRIK"], @[])
       test "testPrevSubscript": testPrevSubscript(@["HAUS", "ELEKTRIK", "DOSEN", "9999"], @["HAUS", "ELEKTRIK", "DOSEN", "4"])
     test "SubscriptCaret":
       test "testNextSubscriptCaret": testNextSubscriptCaret()

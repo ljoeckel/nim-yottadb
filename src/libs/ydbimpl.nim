@@ -341,12 +341,15 @@ proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts
     else:
       rc = ydb_subscript_previous_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr,  DATABUF.addr)    
 
-  # update the key sequence as return value
-  DATABUF.buf_addr[DATABUF.len_used] = '\0' # null terminate
-  if keys.len == 0:
-    keys.add($DATABUF.buf_addr)
+  if rc == YDB_OK:
+    # update the key sequence as return value
+    DATABUF.buf_addr[DATABUF.len_used] = '\0' # null terminate
+    if keys.len == 0:
+      keys.add($DATABUF.buf_addr)
+    else:
+      keys[keys.len - 1] = $DATABUF.buf_addr
   else:
-    keys[keys.len - 1] = $DATABUF.buf_addr
+    keys = @[]
 
   return (rc.int, keys)
 
