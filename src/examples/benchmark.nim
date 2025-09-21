@@ -40,9 +40,9 @@ proc nextnode_dsl() =
         cnt = 0
         subs: Subscripts
 
-    (rc, subs) = nextn: ^BENCHMARK2()
+    (rc, subs) = nextnode: ^BENCHMARK2()
     while rc == YDB_OK:
-        (rc, subs) = nextn: ^BENCHMARK2(subs)
+        (rc, subs) = nextnode: ^BENCHMARK2(subs)
         inc(cnt)
     assert cnt == MAX
 

@@ -72,23 +72,23 @@ let name = get: ^Customer(4711,"Name")
 let f: float = get: ^Customer(4711, accountId, transactionId, "amount").float
 let i: int = get: ^Customer(4711, accountId, "somevalue").int
 ```
-- ### nextn:
+- ### nextnode:
 ```nim var
   rc: int
   node: Subscripts
-(rc, node) = nextn: ^House("FLOOR")
+(rc, node) = nextnode: ^House("FLOOR")
 ```
-- ### prevn:
+- ### prevnode:
 ```nim
-(rc, node) = prevn: ^House("FLOOR", "9999")
+(rc, node) = prevnode: ^House("FLOOR", "9999")
 ```
-- ### nextsub:
+- ### nextsubscript:
 ```nim
-(rc, node) = nextsub: ^House("ELECTRIC")
+(rc, node) = nextsubscript: ^House("ELECTRIC")
 ```
-- ### prevsub:
+- ### prevsubscript:
 ```nim
-(rc, node) = prevsub: ^House("ELECTIRC", "CABLES")
+(rc, node) = prevsubscript: ^House("ELECTIRC", "CABLES")
 ```
 - ### data:
 ```nim

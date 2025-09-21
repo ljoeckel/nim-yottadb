@@ -115,50 +115,50 @@ lock: {} # release all locks
 assert 0 == getLockCountFromYottaDb()
 ```
 
-## nextn
+## nextnode
 Traverse the global and get the next node in the collating sequence.
 ```nim
-(rc, node) = nextn: ^LL()
+(rc, node) = nextnode: ^LL()
 @["HAUS"]
-(rc, node) = nextn: ^LL(node)
+(rc, node) = nextnode: ^LL(node)
   @["HAUS", "ELEKTRIK"]
 ```
 
-## prevn
+## prevnode
 Traverse the global backward and get the previous node in the collating sequence.
 ```nim
-(rc, subs) = prevn: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
+(rc, subs) = prevnode: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
 assert subs = @["HAUS", "ELEKTRIK", "DOSEN"]
 
-(rc, subs) = prevn: ^LL("HAUS", "ELEKTRIK")
+(rc, subs) = prevnode: ^LL("HAUS", "ELEKTRIK")
 assert subs = @["HAUS"]
 ```
 
-## nextsub
+## nextsubscript
 Traverse on the globals on a given index level.
 ```nim
   var rc:int
   var subs: Subscripts
-  (rc, subs) = nextsub: ^LL("HAUS", "ELEKTRIK")
+  (rc, subs) = nextsubscript: ^LL("HAUS", "ELEKTRIK")
   assert subs == @["HAUS", "FLAECHEN"]
-  (rc, subs) = nextsub: ^LL("HAUS")
+  (rc, subs) = nextsubscript: ^LL("HAUS")
   assert subs == @["LAND"]
-  (rc, subs) = nextsub: ^LL("")
+  (rc, subs) = nextsubscript: ^LL("")
   assert subs == @["HAUS"]
-  (rc, subs) = nextsub: ^LL("ZZZZZZZ")
+  (rc, subs) = nextsubscript: ^LL("ZZZZZZZ")
   assert rc == YDB_ERR_NODEEND and subs == @[""]
 ```
 
-## prevsub
+## prevsubscript
 Traverse the globals backwards on a given index level.
 ```nim
   var rc:int
   var subs: Subscripts
-  (rc, subs) = prevsub: ^LL("HAUS", "FLAECHEN")
+  (rc, subs) = prevsubscript: ^LL("HAUS", "FLAECHEN")
   assert subs == @["HAUS", "ELEKTRIK"]
-  (rc, subs) = prevsub: ^LL("LAND")
+  (rc, subs) = prevsubscript: ^LL("LAND")
   assert subs == @["HAUS"]
-  (rc, subs) = prevsub: ^LL("HAUS")
+  (rc, subs) = prevsubscript: ^LL("HAUS")
   assert rc == YDB_ERR_NODEEND and subs == @[""]
 ```
 

@@ -288,7 +288,7 @@ macro get*(body: untyped): untyped =
     result = transform(body)
 
 
-macro nextn*(body: untyped): untyped =
+macro nextnode*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
       return transformCallNodeNext(node, "nextnode")
@@ -296,7 +296,7 @@ macro nextn*(body: untyped): untyped =
       return node
   transformBodyExpr body
 
-macro prevn*(body: untyped): untyped =
+macro prevnode*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
       return transformCallNodeNext(node, "prevnode")
@@ -304,7 +304,7 @@ macro prevn*(body: untyped): untyped =
       return node
   transformBodyExpr body
 
-macro nextsub*(body: untyped): untyped =
+macro nextsubscript*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
       return transformCallNodeNext(node, "nextsub")
@@ -312,7 +312,7 @@ macro nextsub*(body: untyped): untyped =
       return node
   transformBodyExpr body
 
-macro prevsub*(body: untyped): untyped =
+macro prevsubscript*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
       return transformCallNodeNext(node, "prevsub")
@@ -379,7 +379,7 @@ proc nextnodeyyy1*(global: string, sub: string): (int, Subscripts) =
 
 
 # -------------------
-# nextsub procs
+# nextsubscript procs
 # -------------------
 proc nextsubyyy*(args: varargs[string]): (int, Subscripts) =
   var subscripts = args[1..^1]
@@ -398,7 +398,7 @@ proc nextsubyyy1*(global: string, sub: Subscripts): (int, Subscripts) =
 
 
 # -------------------
-# prevsub procs
+# prevsubscript procs
 # -------------------
 proc prevsubyyy*(args: varargs[string]): (int, Subscripts) =
   var subscripts = args[1..^1]

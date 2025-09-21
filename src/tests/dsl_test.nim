@@ -206,22 +206,22 @@ proc testNextNode() =
   var rc:int
   var node:Subscripts
 
-  (rc, node) = nextn: ^LL()
+  (rc, node) = nextnode: ^LL()
   assert node == @["HAUS"]
-  (rc, node) = nextn: ^LL(node)
+  (rc, node) = nextnode: ^LL(node)
   assert node == @["HAUS", "ELEKTRIK"]
-  (rc, node) = nextn: ^LL("HAUS")
+  (rc, node) = nextnode: ^LL("HAUS")
   assert node == @["HAUS", "ELEKTRIK"]
-  (rc, node) = nextn: ^LL(node)
+  (rc, node) = nextnode: ^LL(node)
   assert node == @["HAUS", "ELEKTRIK", "DOSEN"]
 
-  (rc, node) = nextn: ^LL("HAUS", "ELEKTRIK")
+  (rc, node) = nextnode: ^LL("HAUS", "ELEKTRIK")
   assert node == @["HAUS", "ELEKTRIK", "DOSEN"]
-  (rc, node) = nextn: ^LL(node)  
+  (rc, node) = nextnode: ^LL(node)  
   assert node == @["HAUS", "ELEKTRIK", "DOSEN", "1"]
 
   node = @["HAUS", "ELEKTRIK", "DOSEN"]
-  (rc, node) = nextn: ^LL(node)
+  (rc, node) = nextnode: ^LL(node)
   let val = get: ^LL(node)
   assert val == "Telefondose"
   let val2 = get: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
@@ -235,7 +235,7 @@ proc testOrder() =
     var rc:int = YDB_OK
     var node:Subscripts = @[]
     while rc == YDB_OK:
-      (rc, node) = nextn: ^XX(node)
+      (rc, node) = nextnode: ^XX(node)
       if rc == YDB_OK:
         results.add(subscriptsToValue("^XX", node))
     assert results.len == 6
@@ -252,7 +252,7 @@ proc testOrder() =
     var rc:int = YDB_OK
     var node:Subscripts = @["B","9999999999"]
     while rc == YDB_OK:
-      (rc, node) = prevn: ^XX(node)
+      (rc, node) = prevnode: ^XX(node)
       if rc == YDB_OK:
         results.add(subscriptsToValue("^XX", node))
     assert results.len == 6
@@ -270,10 +270,10 @@ proc testNextCount() =
     rc:int
     node:Subscripts
 
-  (rc, node) = nextn: ^LL()
+  (rc, node) = nextnode: ^LL()
   while rc == YDB_OK:
     inc(cnt)
-    (rc, node) = nextn: ^LL(node)
+    (rc, node) = nextnode: ^LL(node)
   assert cnt == 21
 
 
@@ -281,53 +281,53 @@ proc testPrevNode() =
   var rc:int
   var node:Subscripts
   block:
-    (rc, node) = prevn: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
+    (rc, node) = prevnode: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
     assert node == @["HAUS", "ELEKTRIK", "DOSEN"]
 
   block:
-    (rc, node) = prevn: ^LL("HAUS", "ELEKTRIK")
+    (rc, node) = prevnode: ^LL("HAUS", "ELEKTRIK")
     assert node == @["HAUS"]
 
   block:
-    (rc, node) = prevn: ^LL("HAUS")
+    (rc, node) = prevnode: ^LL("HAUS")
     assert node.len == 0
 
   block:
-    (rc, node) = prevn: ^LL()
+    (rc, node) = prevnode: ^LL()
     assert node.len == 0
 
 proc testNextSubscriptCaret() =
   var rc:int
   var node: Subscripts
-  (rc, node) = nextsub: ^LL("HAUS", "ELEKTRIK")
+  (rc, node) = nextsubscript: ^LL("HAUS", "ELEKTRIK")
   assert rc == YDB_OK and node == @["HAUS", "FLAECHEN"]
-  (rc, node) = nextsub: ^LL("HAUS")
+  (rc, node) = nextsubscript: ^LL("HAUS")
   assert rc == YDB_OK and node == @["LAND"]
-  (rc, node) = nextsub: ^LL("")
+  (rc, node) = nextsubscript: ^LL("")
   assert rc == YDB_OK and node == @["HAUS"]
-  (rc, node) = nextsub: ^LL("ZZZZZZZ")
+  (rc, node) = nextsubscript: ^LL("ZZZZZZZ")
   assert rc == YDB_ERR_NODEEND and node == @[""]
 
 proc testPrevSubscriptCaret() =
   var rc:int
   var node: Subscripts
-  (rc, node) = prevsub: ^LL("HAUS", "FLAECHEN")
+  (rc, node) = prevsubscript: ^LL("HAUS", "FLAECHEN")
   assert rc == YDB_OK and node == @["HAUS", "ELEKTRIK"]
-  (rc, node) = prevsub: ^LL("LAND")
+  (rc, node) = prevsubscript: ^LL("LAND")
   assert rc == YDB_OK and node == @["HAUS"]
-  (rc, node) = prevsub: ^LL("HAUS")
+  (rc, node) = prevsubscript: ^LL("HAUS")
   assert rc == YDB_ERR_NODEEND and node == @[""]
 
 proc testNextSubscript(start: Subscripts, expected: Subscripts) =
   var rc:int
   var node: Subscripts = start 
-  (rc, node) = nextsub: ^LL(node)
+  (rc, node) = nextsubscript: ^LL(node)
   assert rc == YDB_OK and node == expected
 
 proc testPrevSubscript(start: Subscripts, expected: Subscripts) =
   var rc:int
   var node: Subscripts = start 
-  (rc, node) = prevsub: ^LL(node)
+  (rc, node) = prevsubscript: ^LL(node)
   if rc == YDB_ERR_NODEEND:
     assert node == expected
   else:
@@ -339,7 +339,7 @@ proc testNextSubsIter(start: Subscripts, expected: Subscripts) =
   var rc = YDB_OK
   while rc == YDB_OK:
     lastnode = node
-    (rc, node) = nextsub: ^LL(node)
+    (rc, node) = nextsubscript: ^LL(node)
   assert lastnode == expected
 
 proc testSpecialVars() =

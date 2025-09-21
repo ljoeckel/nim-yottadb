@@ -119,11 +119,11 @@ proc delnode() =
     ^tmp2(sub)
 
   let refdata = @["1000", "1002", "1010", "1015"]
-  var (rc, subs) = nextn ^tmp2()
+  var (rc, subs) = nextnode ^tmp2()
   var dbdata: Subscripts
   while rc == YDB_OK:
     dbdata.add(subs)
-    (rc, subs) = nextn ^tmp2(subs)
+    (rc, subs) = nextnode ^tmp2(subs)
   assert dbdata == refdata
 
 

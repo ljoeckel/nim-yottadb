@@ -5,21 +5,21 @@ import utils
 
 proc setup() =
   # remove all nodes from ^hello
-  var (rc, subs) = nextn: ^hello()
+  var (rc, subs) = nextnode: ^hello()
   while rc == YDB_OK:
     delnode: ^hello(subs)
-    (rc, subs) = nextn ^hello(subs)
+    (rc, subs) = nextnode ^hello(subs)
 
   # test if all nodes are removed
-  (rc, subs) = nextn ^hello()
+  (rc, subs) = nextnode ^hello()
   assert rc == YDB_ERR_NODEEND
 
   # clear hello2
-  (rc, subs) = nextn: ^hello2()
+  (rc, subs) = nextnode: ^hello2()
   while rc == YDB_OK:
     delnode: ^hello2(subs)
-    (rc, subs) = nextn ^hello2(subs)
-  assert nextn(^hello())[0] == YDB_ERR_NODEEND  # extract rc from tuple
+    (rc, subs) = nextnode ^hello2(subs)
+  assert nextnode(^hello())[0] == YDB_ERR_NODEEND  # extract rc from tuple
 
   # create new nodes in hello2
   for id in 0..5000:
@@ -139,10 +139,10 @@ proc readnext() =
     @["a"],@["a", "1", "b"],@["a", "b"],@["users", "46", "name"]
   ]
   var dbdata :seq[Subscripts]
-  var (rc, subs) = nextn: ^hello()
+  var (rc, subs) = nextnode: ^hello()
   while rc == YDB_OK:
     dbdata.add(subs)
-    (rc, subs) = nextn: ^hello(subs)
+    (rc, subs) = nextnode: ^hello(subs)
   assert rc == YDB_ERR_NODEEND
   assert dbdata == refdata
 
@@ -210,28 +210,28 @@ proc echoTest() =
 
 proc nextTest() =
   # NEXTSUB / PREVSUB example
-  var (rc, subs) = nextsub(^test("users", "42"))
+  var (rc, subs) = nextsubscript(^test("users", "42"))
   assert rc == YDB_OK
   assert @["users", "43"] == subs
-  (rc, subs) = prevsub(^test(subs))
+  (rc, subs) = prevsubscript(^test(subs))
   assert @["users", "42"] == subs
 
   # NEXTNODE / PREVNODE example
-  (rc, subs) = nextn(^test("users"))
+  (rc, subs) = nextnode(^test("users"))
   assert @["users", "42", "name"] == subs
 
-  (rc, subs) = prevn(^test("users"))
+  (rc, subs) = prevnode(^test("users"))
   assert rc == YDB_ERR_NODEEND
   assert subs.len == 0
 
-  # nextn from beginning
-  (rc, subs) = nextn ^test()
+  # nextnode from beginning
+  (rc, subs) = nextnode ^test()
   assert rc == YDB_OK and subs.len > 0
-  (rc, subs) = nextn ^test("xxxxxxxx")
+  (rc, subs) = nextnode ^test("xxxxxxxx")
   assert rc == YDB_ERR_NODEEND and subs.len == 0
 
-  # prevn from beginning
-  (rc, subs) = prevn ^test()
+  # prevnode from beginning
+  (rc, subs) = prevnode ^test()
   assert rc == YDB_ERR_NODEEND and subs.len == 0
 
 
@@ -266,7 +266,7 @@ proc dataTest() =
   assert 11 == data ^hello2("4711")
   assert 11 == data ^hello2(@["4711"])
 
-  (rc, subs) = nextn(^hello2(@["4710"]))
+  (rc, subs) = nextnode(^hello2(@["4710"]))
   assert 11 == data ^hello2(subs)
 
   echo fmt"echo fmt: data ^hello({subs})={data(^hello2(subs))}"

@@ -7,10 +7,10 @@ proc create() =
 
 proc count() =
     var cnt = 0
-    var (rc, subs) = nextn: ^hello()
+    var (rc, subs) = nextnode: ^hello()
     while rc == YDB_OK:
         inc(cnt)
-        (rc, subs) = nextn: ^hello(subs)
+        (rc, subs) = nextnode: ^hello(subs)
     echo "Have ", cnt, " entries"
 
 proc delete() =

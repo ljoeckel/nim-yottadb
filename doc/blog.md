@@ -72,10 +72,10 @@ proc traverse(start: Subscripts = @[]) =
     echo "Traverse tree from ": start
     var rc: int
     var nodeData = start
-    (rc, nodeData) = nextsub: ^LL(start)
+    (rc, nodeData) = nextsubscript: ^LL(start)
     while rc == YDB_OK:
         echo nodeData.repr  # inspect the subscript list
-        (rc, nodeData) = nextsub: ^LL(nodeData)
+        (rc, nodeData) = nextsubscript: ^LL(nodeData)
 
 traverse()
 traverse(@["HAUS", "ELEKT.."])

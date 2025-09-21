@@ -85,7 +85,7 @@ proc main() =
 
   echo "Iterate over all customers"
   while rc == YDB_OK:
-    (rc, subs) = nextsub: ^CUSTOMER(subs)
+    (rc, subs) = nextsubscript: ^CUSTOMER(subs)
     if rc == YDB_OK:
       let id = subs[0]
       let name = get: ^CUSTOMER(id, "Name")
@@ -96,7 +96,7 @@ proc main() =
   subs = @[]
   rc = YDB_OK
   while rc == YDB_OK:
-    (rc, subs) = nextn: ^CUSTOMER(subs)
+    (rc, subs) = nextnode: ^CUSTOMER(subs)
     if rc == YDB_OK:
       let value = get: ^CUSTOMER(subs)
       echo fmt"Node {subs} = {value}"
