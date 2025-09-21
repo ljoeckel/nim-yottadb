@@ -342,7 +342,10 @@ proc getstring1*(global: string, args: seq[string]): string =
   ydb_get(global, args[0..^1])
 
 proc getstring1*(global: string, s: string): string =
-  ydb_get(global, stringToSeq(s))
+  if s.startsWith("@["):
+    ydb_get(global, stringToSeq(s))
+  else:
+    ydb_get(global, @[s])
 
 proc getfloat*(global:string, args: varargs[string]): float =
   var subs:Subscripts
@@ -468,7 +471,10 @@ proc datayyy1*(global: string, sub: string): int =
 proc delnodexxx*(args: varargs[string]) =
   var subs: Subscripts
   for arg in args[1..^1]:
-    subs.add(stringToSeq(arg))
+    if arg.startsWith("@["):
+      subs.add(stringToSeq(arg))
+    else:
+      subs.add(arg)
   ydb_delete_node(args[0], subs)
 
 

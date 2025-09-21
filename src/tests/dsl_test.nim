@@ -278,23 +278,24 @@ proc testNextCount() =
 
 
 proc testPrevNode() =
-  var rc:int
-  var node:Subscripts
-  block:
-    (rc, node) = prevnode: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
-    assert node == @["HAUS", "ELEKTRIK", "DOSEN"]
+  var (rc, node) = prevnode: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
+  assert node == @["HAUS", "ELEKTRIK", "DOSEN"]
+  (rc, node) = prevnode: ^LL("HAUS", "ELEKTRIK")
+  assert node == @["HAUS"]
+  (rc, node) = prevnode: ^LL("HAUS")
+  assert node.len == 0
+  (rc, node) = prevnode: ^LL()
+  assert node.len == 0
+  assert rc == YDB_ERR_NODEEND
 
-  block:
-    (rc, node) = prevnode: ^LL("HAUS", "ELEKTRIK")
-    assert node == @["HAUS"]
+  let (haus, elektrik, dosen) = ("HAUS", "ELEKTRIK", "DOSEN")
+  (rc, node) = prevnode: ^LL(haus, elektrik, dosen, 1)
+  assert node == @["HAUS", "ELEKTRIK", "DOSEN"]
 
-  block:
-    (rc, node) = prevnode: ^LL("HAUS")
-    assert node.len == 0
+  node = @["HAUS", "ELEKTRIK"]
+  (rc, node) = prevnode: ^LL(node)
+  assert node == @["HAUS"]
 
-  block:
-    (rc, node) = prevnode: ^LL()
-    assert node.len == 0
 
 proc testNextSubscriptCaret() =
   var rc:int
@@ -354,9 +355,7 @@ proc testSpecialVars() =
 
 proc testDeleteExcl() =
   # Global's are not allowed
-  #doAssertRaises(YdbError):
-  #TODO: ^ not recognized
-  delexcl: { ^SOMEGLOBAL }
+  #doAssertRaises(YdbError): delexcl { ^SOMEGLOBAL } #TODO: ^ not raised
 
   # Set local variables
   set:
@@ -406,7 +405,6 @@ proc test_ydb_ci() =
   ydb_ci: "method1"
   let result = get: RESULT()  # Read the YottaDB variable from the Callin
   assert $tm == result
-
 
 
 proc test() =
