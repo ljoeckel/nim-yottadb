@@ -36,11 +36,10 @@ for i in 0..MAX:
 The DSL allows to write programs with globals in very natural way.
 ```nim
   withlock(4711):
-    set:
-      let id = @["4711", "Acc123"]
-      var amount = get: ^account(id).float
-      amount += 1500.0
-      ^account(id) = amount # update db
+    let id = @["4711", "Acc123"]
+    var amount = get: ^account(id).float
+    amount += 1500.0
+    set ^account(id) = amount # update db
   echo "Done"
   # lock automatically released here
 ```

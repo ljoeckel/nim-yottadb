@@ -50,57 +50,44 @@ proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: string, transid:string = ""): int 
 proc ydb_node_next*(global: string, subscripts: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
   ydb_node_next_db(global, subscripts, tptoken)
   
-proc ydb_node_previous*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_node_previous*(global: string, subscripts: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
   ydb_node_previous_db(global, subscripts, tptoken)
-
-
-# ------------------ Iterators for Next/Previous Node -----------------
-
-iterator ydb_node_next_iter*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
-  var i = -1
-  var rc:int
-  while i < len(subscripts):
-    (rc, subscripts) = ydb_node_next_db(global, subscripts, tptoken)
-    if rc != YDB_OK: break
-    yield subscripts
-
-
-iterator ydb_node_previous_iter*(global: string, subscripts: var Subscripts, tptoken:uint64 = 0): Subscripts =
-  var i = -1
-  var rc:int
-  while i < len(subscripts):
-    (rc, subscripts) = ydb_node_previous_db(global, subscripts, tptoken)
-    if rc != YDB_OK: break
-    yield subscripts
-
 
 # ------------------ Next/Previous subscripts -----------------
 
-proc ydb_subscript_next*(name: string, subs: var Subscripts): (int, Subscripts) =
-  ydb_subscript_next_db(name, subs)
+proc ydb_subscript_next*(name: string, subs: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+  ydb_subscript_next_db(name, subs, tptoken)
 
-proc ydb_subscript_previous*(name: string, subs: var Subscripts): (int, Subscripts) =
-  ydb_subscript_previous_db(name, subs)
+proc ydb_subscript_previous*(name: string, subs: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+  ydb_subscript_previous_db(name, subs, tptoken)
 
+# ------------------ Iterators for Next/Previous Node -----------------
+
+iterator ydb_node_next_iter*(global: string, start: Subscripts, tptoken:uint64 = 0): Subscripts =
+  var (rc, subs) = ydb_node_next_db(global, start, tptoken)
+  while rc == YDB_OK:
+    yield subs
+    (rc, subs) = ydb_node_next_db(global, subs, tptoken)
+
+iterator ydb_node_previous_iter*(global: string, start: Subscripts, tptoken:uint64 = 0): Subscripts =
+  var (rc, subs) = ydb_node_previous_db(global, start, tptoken)
+  while rc == YDB_OK:
+    yield subs
+    (rc, subs) = ydb_node_previous_db(global, subs, tptoken)
 
 # ------------------ Iterators for Next/Previous Subscript-------------
 
-iterator ydb_subscript_next_iter*(global: string, subscripts: var Subscripts): Subscripts =
-  var i = -1
-  var rc = 0
-  while i < len(subscripts):
-    (rc, subscripts) = ydb_subscript_next(global, subscripts)
-    if rc != YDB_OK: break
-    yield subscripts
+iterator ydb_subscript_next_iter*(global: string, start: Subscripts, tptoken:uint64 = 0): Subscripts =
+  var (rc, subs) = ydb_subscript_next(global, start, tptoken)
+  while rc == YDB_OK:
+    yield subs
+    (rc, subs) = ydb_subscript_next(global, subs, tptoken)
 
-
-iterator ydb_subscript_previous_iter*(global: string, subscripts: var Subscripts): Subscripts =
-  var i = -1
-  var rc: int
-  while i < len(subscripts):
-    (rc, subscripts) = ydb_subscript_previous(global, subscripts)
-    if rc != YDB_OK: break
-    yield subscripts
+iterator ydb_subscript_previous_iter*(global: string, start: Subscripts, tptoken:uint64 = 0): Subscripts =
+  var (rc, subs) = ydb_subscript_previous(global, start, tptoken)
+  while rc == YDB_OK:
+    yield subs
+    (rc, subs) = ydb_subscript_previous(global, subs, tptoken)
 
 
 # ------------------ Locks -----------------

@@ -11,7 +11,7 @@ when not compileOption("threads"):
 
 const
   NUM_OF_THREADS = 4
-  ITERATIONS = 20
+  ITERATIONS = 10
   THS = "M"
   GLOBAL = "^TX" & THS
 

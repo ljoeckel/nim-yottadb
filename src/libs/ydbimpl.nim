@@ -321,43 +321,47 @@ proc ydb_node_previous_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): 
 
 
 # --- Subscript traversal (next/previous) ---
-proc subscript_traverse(direction: Direction, name: string, keys: var Subscripts, tptoken: uint64): (int, Subscripts) =
+proc subscript_traverse(direction: Direction, name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
   ## Traverse subscripts at current level  
   check()
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF)
-  if keys.len == 0: keys = @[""] # special case for empty subscript
-  setIdxArr(IDXARR, keys)
+  var subs: Subscripts
+  if keys.len == 0:
+    subs = @[""] # special case for empty subscript
+  else:
+    subs = keys
+  setIdxArr(IDXARR, subs)
 
   when compileOption("threads"):
     if direction == Direction.Next:
-      rc = ydb_subscript_next_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr,  DATABUF.addr)
+      rc = ydb_subscript_next_st(tptoken, ERRMSG.addr, GLOBAL.addr, subs.len.cint, IDXARR[0].addr,  DATABUF.addr)
     else:
-      rc = ydb_subscript_previous_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr,  DATABUF.addr)    
+      rc = ydb_subscript_previous_st(tptoken, ERRMSG.addr, GLOBAL.addr, subs.len.cint, IDXARR[0].addr,  DATABUF.addr)    
 
   else:
     if direction == Direction.Next:
-      rc = ydb_subscript_next_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr,  DATABUF.addr)
+      rc = ydb_subscript_next_s(GLOBAL.addr, subs.len.cint, IDXARR[0].addr,  DATABUF.addr)
     else:
-      rc = ydb_subscript_previous_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr,  DATABUF.addr)    
+      rc = ydb_subscript_previous_s(GLOBAL.addr, subs.len.cint, IDXARR[0].addr,  DATABUF.addr)    
 
   if rc == YDB_OK:
     # update the key sequence as return value
     DATABUF.buf_addr[DATABUF.len_used] = '\0' # null terminate
-    if keys.len == 0:
-      keys.add($DATABUF.buf_addr)
+    if subs.len == 0:
+      subs.add($DATABUF.buf_addr)
     else:
-      keys[keys.len - 1] = $DATABUF.buf_addr
+      subs[^1] = $DATABUF.buf_addr
   else:
-    keys = @[]
+    subs = @[]
 
-  return (rc.int, keys)
+  return (rc.int, subs)
 
-proc ydb_subscript_next_db*(name: string, keys: var Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_subscript_next_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
   ## Traverse to next subscript  
   subscript_traverse(Direction.Next, name, keys, tptoken)
 
-proc ydb_subscript_previous_db*(name: string, keys: var Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_subscript_previous_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
   ## Traverse to previous subscript  
   subscript_traverse(Direction.Previous, name, keys, tptoken)
 

@@ -392,12 +392,10 @@ proc testDeleteExcl() =
 proc test_ydb_ci() =
   let ydb_ci = getEnv("ydb_ci")
   if ydb_ci.isEmptyOrWhitespace:
-    echo "Could not find environment variable 'ydb_ci' to set the callin table."
-    echo "*** Test ignored ***"
+    echo "Could not find environment variable 'ydb_ci' to set the callin table. *** Test ignored ***"
     return
   if not fileExists(ydb_ci):
-    echo "Could not find callin file ", ydb_ci
-    echo "*** Test ignored ***"
+    echo "Could not find callin file ", ydb_ci, " *** Test ignored ***"
     return
 
   let tm = getTime()

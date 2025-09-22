@@ -94,7 +94,7 @@ proc testMaxValueSize() =
   let value = "0".repeat(i*1024+1)
   doAssertRaises(YdbError): ydb_set("^VARSIZE", @[$i], value)
 
-  var subs = @[""]
+  var subs: Subscripts
   for subs in ydb_node_next_iter("^VARSIZE", subs):
     ydb_delete_node("^VARSIZE", subs)
 
@@ -132,46 +132,70 @@ proc testPreviousNode(global: string, start: Subscripts = @[]) =
     inc(cnt)
   doAssert cnt == MAX * 2 + 2
 
+proc testNextNodeIterator(global: string, start: Subscripts = @[]) =
+  let refdata = @[
+    @["5", "1"], @["5", "2"], @["7", "3"], @["123", "1"], @["123", "2"], @["123", "3"], 
+    @["123", "123", "4711", "i"], @["123", "f"], @["123", "i", "4711"], @["123", "s"]
+  ]
+  var dbdata: seq[Subscripts]
+  var subs: Subscripts
+  for subs in ydb_node_next_iter(global, start):
+    dbdata.add(subs)
+  assert dbdata == refdata
+
+proc testPreviousNodeIterator(global: string, start: Subscripts = @[]) =
+  let refdata = @[
+    @["123", "s"], @["123", "i", "4711"], @["123", "f"], @["123", "123", "4711", "i"], @["123", "3"],
+    @["123", "2"], @["123", "1"], @["7", "3"], @["5", "2"], @["5", "1"]
+  ]
+  var dbdata: seq[Subscripts]
+  var subs: Subscripts
+  for subs in ydb_node_previous_iter(global, start):
+    dbdata.add(subs)
+  assert dbdata == refdata
 
 proc nextSubscript(global: string, start: Subscripts, expected: Subscripts) =
-  var subscript = start
-  var rc = YDB_OK
-  (rc, subscript) = ydb_subscript_next(global, subscript)
+  var (rc, subscript) = ydb_subscript_next(global, start)
   doAssert rc == YDB_OK and subscript == expected
 
 proc ydb_subscript_next_iterate(global: string, start: Subscripts, expected: Subscripts) =
-  var rc = YDB_OK
-  var subscript = start
   var last_subscript: Subscripts
+  var (rc, subscript) = ydb_subscript_next(global, start)
   while rc == YDB_OK:
     last_subscript = subscript
     (rc, subscript) = ydb_subscript_next(global, subscript)
   doAssert last_subscript == expected
 
 proc previousSubscript(global: string, start: Subscripts, expected: Subscripts) =
-  var subscript = start
   var lastSubscript: Subscripts
-  var rc = YDB_OK
+  var (rc, subscript) = ydb_subscript_previous(global, start)
   while rc == YDB_OK:
-    (rc, subscript) = ydb_subscript_previous(global, subscript)
-    if rc != YDB_OK: break
     lastSubscript = subscript
+    (rc, subscript) = ydb_subscript_previous(global, subscript)
   doAssert lastSubscript == expected
 
 proc nextSubsIter(global: string, start: Subscripts, expected: Subscripts) =
-  var subs = start
   var lastSubs: Subscripts
-  for subs in ydb_subscript_next_iter(global, subs):
+  for subs in ydb_subscript_next_iter(global, start):
     lastSubs = subs
   doAssert lastSubs == expected
+  let refdata = @[@["HAUS", "ELEKTRIK"], @["HAUS", "FLAECHEN"],@["HAUS", "HEIZUNG"]]
+  var dbdata: seq[Subscripts]
+  for subs in ydb_subscript_next_iter(global, start):
+    dbdata.add(subs)
+  assert dbdata == refdata
 
 proc previousSubsIter(global: string, start: Subscripts, expected: Subscripts) =
-  var subs = start
   var lastSubs: Subscripts
-  for subs in ydb_subscript_previous_iter(global, subs):
+  for subs in ydb_subscript_previous_iter(global, start):
     lastSubs = subs
   doAssert lastSubs == expected
 
+  let refdata = @[@["HAUS", "HEIZUNG"], @["HAUS", "FLAECHEN"],@["HAUS", "ELEKTRIK"]]
+  var dbdata: seq[Subscripts]
+  for subs in ydb_subscript_previous_iter(global, start):
+    dbdata.add(subs)
+  assert dbdata == refdata
 
 proc deleteTree() =
   ydb_delete_node("^LJ", @["LAND", "STRASSE"])
@@ -341,14 +365,11 @@ proc testDeleteExcl() =
 proc test_ydb_ci() =
   let ydb_ci = getEnv("ydb_ci")
   if ydb_ci.isEmptyOrWhitespace:
-    echo "Could not find environment variable 'ydb_ci' to set the callin table."
-    echo "*** Test ignored ***"
+    echo "Could not find environment variable 'ydb_ci' to set the callin table. *** Test ignored ***"
     return
   if not fileExists(ydb_ci):
-    echo "Could not find callin file ", ydb_ci
-    echo "*** Test ignored ***"
+    echo "Could not find callin file ", ydb_ci, " *** Test ignored ***"
     return
-
 
   let tm = getTime()
   set: VAR1()=tm                      # set a YottaDB variable
@@ -375,6 +396,8 @@ proc test() =
       test "testData": testData()
     test "next/previous Node":
       test "testNextNode ^LJ": testNextNode("^LJ")
+      test "testNextNodeIterator ^X": testNextNodeIterator("^X")
+      test "testPreviousNodeIterator ^X": testPreviousNodeIterator("^X", @["99999"])
       test "testPreviousNode": testPreviousNode("^LJ", @["LAND", "STRASSE"])
     test "nextSubscript":
       test "nextSubscript1": nextSubscript("^LL", @["HAUS", "ELE..."], @["HAUS", "ELEKTRIK"])
@@ -392,7 +415,7 @@ proc test() =
       test "previousSubscript3":previousSubscript("^LL", @["HAUS"], @[] )
     test "ydb_subscript_previous_iter4":
       test "ydb_subscript_next_iter":nextSubsIter("^LL", @["HAUS", "ELEKT..."], @["HAUS", "HEIZUNG"])
-      test "ydb_subscript_previous_iter":previousSubsIter("^LL", @["HAUS", "HEIZUNG"], @["HAUS", "ELEKTRIK"])
+      test "ydb_subscript_previous_iter":previousSubsIter("^LL", @["HAUS", "ZZZZ"], @["HAUS", "ELEKTRIK"])
     test "Delete Operations":
       test "deleteTree": deleteTree()
       test "deleteNode": deleteNode()
