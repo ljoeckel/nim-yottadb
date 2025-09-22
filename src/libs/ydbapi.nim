@@ -8,32 +8,32 @@ proc ydbMessage*(status: cint): string =
   ydbMessage_db(status)
 
 
-proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "", tptoken:uint64 = 0) =
+proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "", tptoken: uint64 = 0) =
   ydb_set_db(name, keys, value, tptoken)
 
 
-proc ydb_get*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
+proc ydb_get*(name: string, keys: Subscripts = @[], tptoken: uint64 = 0): string =
   ydb_get_db(name, keys, tptoken)
 
 
-proc ydb_data*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
+proc ydb_data*(name: string, keys: Subscripts, tptoken: uint64 = 0): int =
   ydb_data_db(name, keys, tptoken)
 
 
-proc ydb_delete_node*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
+proc ydb_delete_node*(name: string, keys: Subscripts, tptoken: uint64 = 0) =
   ydb_delete_node_db(name, keys, tptoken)
 
 
-proc ydb_delete_tree*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
+proc ydb_delete_tree*(name: string, keys: Subscripts, tptoken: uint64 = 0) =
   ydb_delete_tree_db(name, keys, tptoken)
 
 
-proc ydb_delete_excl*(names: seq[string] = @[], tptoken:uint64 = 0) =
+proc ydb_delete_excl*(names: seq[string] = @[], tptoken: uint64 = 0) =
   # Default names to empty -> clear all local variables
   ydb_delete_excl_db(names, tptoken)
 
 
-proc ydb_increment*(name: string, keys: Subscripts, increment: int = 1, tptoken:uint64 = 0): int =
+proc ydb_increment*(name: string, keys: Subscripts, increment: int = 1, tptoken: uint64 = 0): int =
   ydb_increment_db(name, keys, increment, tptoken)
 
 
@@ -47,29 +47,29 @@ proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: string, transid:string = ""): int 
 
 # ------------------ Next/Previous Node -----------------
 
-proc ydb_node_next*(global: string, subscripts: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_node_next*(global: string, subscripts: Subscripts, tptoken: uint64 = 0): (int, Subscripts) =
   ydb_node_next_db(global, subscripts, tptoken)
   
-proc ydb_node_previous*(global: string, subscripts: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_node_previous*(global: string, subscripts: Subscripts, tptoken: uint64 = 0): (int, Subscripts) =
   ydb_node_previous_db(global, subscripts, tptoken)
 
 # ------------------ Next/Previous subscripts -----------------
 
-proc ydb_subscript_next*(name: string, subs: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_subscript_next*(name: string, subs: Subscripts, tptoken: uint64 = 0): (int, Subscripts) =
   ydb_subscript_next_db(name, subs, tptoken)
 
-proc ydb_subscript_previous*(name: string, subs: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_subscript_previous*(name: string, subs: Subscripts, tptoken: uint64 = 0): (int, Subscripts) =
   ydb_subscript_previous_db(name, subs, tptoken)
 
 # ------------------ Iterators for Next/Previous Node -----------------
 
-iterator ydb_node_next_iter*(global: string, start: Subscripts, tptoken:uint64 = 0): Subscripts =
+iterator ydb_node_next_iter*(global: string, start: Subscripts, tptoken: uint64 = 0): Subscripts =
   var (rc, subs) = ydb_node_next_db(global, start, tptoken)
   while rc == YDB_OK:
     yield subs
     (rc, subs) = ydb_node_next_db(global, subs, tptoken)
 
-iterator ydb_node_previous_iter*(global: string, start: Subscripts, tptoken:uint64 = 0): Subscripts =
+iterator ydb_node_previous_iter*(global: string, start: Subscripts, tptoken: uint64 = 0): Subscripts =
   var (rc, subs) = ydb_node_previous_db(global, start, tptoken)
   while rc == YDB_OK:
     yield subs
@@ -77,13 +77,13 @@ iterator ydb_node_previous_iter*(global: string, start: Subscripts, tptoken:uint
 
 # ------------------ Iterators for Next/Previous Subscript-------------
 
-iterator ydb_subscript_next_iter*(global: string, start: Subscripts, tptoken:uint64 = 0): Subscripts =
+iterator ydb_subscript_next_iter*(global: string, start: Subscripts, tptoken: uint64 = 0): Subscripts =
   var (rc, subs) = ydb_subscript_next(global, start, tptoken)
   while rc == YDB_OK:
     yield subs
     (rc, subs) = ydb_subscript_next(global, subs, tptoken)
 
-iterator ydb_subscript_previous_iter*(global: string, start: Subscripts, tptoken:uint64 = 0): Subscripts =
+iterator ydb_subscript_previous_iter*(global: string, start: Subscripts, tptoken: uint64 = 0): Subscripts =
   var (rc, subs) = ydb_subscript_previous(global, start, tptoken)
   while rc == YDB_OK:
     yield subs
@@ -93,18 +93,18 @@ iterator ydb_subscript_previous_iter*(global: string, start: Subscripts, tptoken
 # ------------------ Locks -----------------
 
 # Max of 35 variable names in one call
-proc ydb_lock*(timeout_nsec: culonglong, keys: seq[Subscripts]) =
-  ydb_lock_db(timeout_nsec, keys)
+proc ydb_lock*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken: uint64 = 0) =
+  ydb_lock_db(timeout_nsec, keys, tptoken)
 
 
 # Only one variable name in one call
-proc ydb_lock_incr*(timeout_nsec: culonglong, name: string, keys: Subscripts) =
-  ydb_lock_incr_db(timeout_nsec, name, keys)
+proc ydb_lock_incr*(timeout_nsec: culonglong, name: string, keys: Subscripts, tptoken: uint64 = 0) =
+  ydb_lock_incr_db(timeout_nsec, name, keys, tptoken)
 
 
 # Only one variable name in one call
-proc ydb_lock_decr*(name: string, keys: Subscripts) =
-  ydb_lock_decr_db(name, keys)
+proc ydb_lock_decr*(name: string, keys: Subscripts, tptoken: uint64 = 0) =
+  ydb_lock_decr_db(name, keys, tptoken)
 
 
 # ------------------ YdbVar ----------------
@@ -132,8 +132,8 @@ proc `[]=`*(v: var YdbVar; val: string) =
 
 
 # Call-In Interface
-proc ydb_ci*(name: string) =
-  ydb_ci_db(name)
+proc ydb_ci*(name: string, tptoken: uint64 = 0) =
+  ydb_ci_db(name, tptoken)
 
 
 # ------- Helpers --------

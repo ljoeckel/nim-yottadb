@@ -141,16 +141,16 @@ proc ydb_tp_start*(myTxn: ydb_tpfnptr_t, param:string, transid:string): int =
 
   result = ydb_tp_s(myTxn, cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
 
-proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:string, transid:string, tptoken:uint64 = 0): int =
+proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:string, transid:string): int =
   ## Start a multi-threaded transaction
   check()
   setYdbBuffer(GLOBAL)
   setYdbBuffer(ERRMSG)
 
-  result = ydb_tp_st(tptoken, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
+  result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
 
 
-proc ydbMessage_db*(status: cint, tptoken:uint64 = 0): string =
+proc ydbMessage_db*(status: cint, tptoken: uint64 = 0): string =
   ## Return error message text for given status code
   if status == YDB_OK: return
   
@@ -167,7 +167,7 @@ proc ydbMessage_db*(status: cint, tptoken:uint64 = 0): string =
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
 
 
-proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken:uint64 = 0) =
+proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken: uint64) =
   ## Store a value into a local or global node
   check()
   setYdbBuffer(GLOBAL, name)
@@ -182,7 +182,7 @@ proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken:uint64 =
     raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys & " value:" & $value)
 
 
-proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): string =
+proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
   ## Retrieve a value from a local or global node
   check()
   setYdbBuffer(GLOBAL, name)
@@ -202,7 +202,7 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken:uint64 = 0): stri
     raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys)
 
 
-proc ydb_data_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
+proc ydb_data_db*(name: string, keys: Subscripts, tptoken: uint64): int =
   ## Check existence/type of a global node
   ## Return codes: 0 = no data, 1 = data, 10 = child nodes, 11 = both
   check()
@@ -222,7 +222,7 @@ proc ydb_data_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): int =
 
 
 # --- Delete node/tree ---
-proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64 = 0) =
+proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64) =
   ## Internal helper to delete either a node or a subtree
   check()
   setYdbBuffer(GLOBAL, name)
@@ -236,16 +236,16 @@ proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64 =
   if rc < YDB_OK:
     raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
 
-proc ydb_delete_node_db*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
+proc ydb_delete_node_db*(name: string, keys: Subscripts, tptoken: uint64) =
   ## Delete a single node
   ydb_delete(name, keys, YDB_DEL_NODE, tptoken)
 
-proc ydb_delete_tree_db*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
+proc ydb_delete_tree_db*(name: string, keys: Subscripts, tptoken: uint64) =
   ## Delete a node and its subtree  
   ydb_delete(name, keys, YDB_DEL_TREE, tptoken)
 
 
-proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64 = 0) =
+proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64) =
   ## Delete all locals except the specified names  
   check()
   setYdbBuffer(NAMES, names)
@@ -259,7 +259,7 @@ proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64 = 0) =
     raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{names}")
 
 
-proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken:uint64 = 0): int =
+proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken: uint64): int =
   ## Increment a node value and return new value  
   check()
   setYdbBuffer(GLOBAL, name)
@@ -311,11 +311,11 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken
   
   return (rc.int, sbscr)
 
-proc ydb_node_next_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_node_next_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
   ## Traverse to next node  
   node_traverse(Direction.Next, name, keys, tptoken)
 
-proc ydb_node_previous_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_node_previous_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
   ## Traverse to next node
   node_traverse(Direction.Previous, name, keys, tptoken)
 
@@ -357,17 +357,17 @@ proc subscript_traverse(direction: Direction, name: string, keys: Subscripts, tp
 
   return (rc.int, subs)
 
-proc ydb_subscript_next_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_subscript_next_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
   ## Traverse to next subscript  
   subscript_traverse(Direction.Next, name, keys, tptoken)
 
-proc ydb_subscript_previous_db*(name: string, keys: Subscripts, tptoken:uint64 = 0): (int, Subscripts) =
+proc ydb_subscript_previous_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
   ## Traverse to previous subscript  
   subscript_traverse(Direction.Previous, name, keys, tptoken)
 
 
 # --- Locks ---
-proc ydb_lock_incr_db*(timeout_nsec: culonglong, name: string, keys: Subscripts, tptoken:uint64 = 0) =
+proc ydb_lock_incr_db*(timeout_nsec: culonglong, name: string, keys: Subscripts, tptoken: uint64) =
   ## Increment lock for variable
   check()
   setYdbBuffer(GLOBAL, name)
@@ -382,7 +382,7 @@ proc ydb_lock_incr_db*(timeout_nsec: culonglong, name: string, keys: Subscripts,
     raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{keys}")
 
 
-proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
+proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken: uint64) =
   ## Increment lock variable
   check()
   setYdbBuffer(GLOBAL, name)
@@ -397,7 +397,7 @@ proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken:uint64 = 0) =
     raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{keys}")
 
 
-proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]], tptoken: uint64 = 0): cint =
+proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]], tptoken: uint64): cint =
   ## Pass all potential lock parameters to the variadic c-function
   ## Setting the numOfLocks controls how many parameters are read by c-function
   if numOfLocks == 0:  # release all locks
@@ -485,7 +485,7 @@ proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_b
   return rc
 
 
-proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken:uint64 = 0) =
+proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken: uint64) =
   ## Acquire lock on a node(s) with timeout in nsec
   if keys.len > YDB_MAX_NAMES:
     raise newException(YdbError, fmt"Too many arguments. Only {YDB_MAX_NAMES} are allowed")    
@@ -511,14 +511,14 @@ proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken:uint6
     subs.add(stringToYdbBuffer())
     locksubs.add(subs)
  
-  let rc = ydb_lock_db_variadic(keys.len, timeout_nsec, locknames, locksubs)  
+  let rc = ydb_lock_db_variadic(keys.len, timeout_nsec, locknames, locksubs, tptoken)  
   if rc < YDB_OK:
     raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, {keys})")
 
 
 # ----------- Call In Interface -------------
 
-proc ydb_ci_db*(name: string, tptoken: uint64 = 0) =
+proc ydb_ci_db*(name: string, tptoken: uint64) =
   ## Call into a M routine (CI = call-in) with NO arguments, and NO return argument  
   ## Pass variables via local or global variables back and forth
   check()
