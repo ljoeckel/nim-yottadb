@@ -231,13 +231,11 @@ proc testNextNode() =
 proc testOrder() =
   # Go forwards
   block:
-    var results: seq[string] = @[]
-    var rc:int = YDB_OK
-    var node:Subscripts = @[]
+    var results: seq[string]
+    var (rc, node) = nextnode: ^XX()
     while rc == YDB_OK:
+      results.add(subscriptsToValue("^XX", node))
       (rc, node) = nextnode: ^XX(node)
-      if rc == YDB_OK:
-        results.add(subscriptsToValue("^XX", node))
     assert results.len == 6
     assert results[0] == "^XX(1,2,3)=123"
     assert results[1] == "^XX(1,2,3,7)=1237"
@@ -248,13 +246,12 @@ proc testOrder() =
 
   # Go backwards
   block:
-    var results: seq[string] = @[]
-    var rc:int = YDB_OK
-    var node:Subscripts = @["B","9999999999"]
+    var results: seq[string]
+    var (rc, node) = prevnode: ^XX()
     while rc == YDB_OK:
+      results.add(subscriptsToValue("^XX", node))
       (rc, node) = prevnode: ^XX(node)
-      if rc == YDB_OK:
-        results.add(subscriptsToValue("^XX", node))
+
     assert results.len == 6
     assert results[5] == "^XX(1,2,3)=123"
     assert results[4] == "^XX(1,2,3,7)=1237"
@@ -285,8 +282,10 @@ proc testPrevNode() =
   (rc, node) = prevnode: ^LL("HAUS")
   assert node.len == 0
   (rc, node) = prevnode: ^LL()
-  assert node.len == 0
-  assert rc == YDB_ERR_NODEEND
+  assert node == @["ORT"]
+  (rc, node) = prevnode: ^LL("")
+  assert node == @["ORT"]
+  
 
   let (haus, elektrik, dosen) = ("HAUS", "ELEKTRIK", "DOSEN")
   (rc, node) = prevnode: ^LL(haus, elektrik, dosen, 1)

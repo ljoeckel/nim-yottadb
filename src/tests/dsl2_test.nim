@@ -230,9 +230,10 @@ proc nextTest() =
   (rc, subs) = nextnode ^test("xxxxxxxx")
   assert rc == YDB_ERR_NODEEND and subs.len == 0
 
-  # prevnode from beginning
+  # prevnode from end
   (rc, subs) = prevnode ^test()
-  assert rc == YDB_ERR_NODEEND and subs.len == 0
+  assert rc == YDB_OK and subs.len > 0
+  assert @["users", "46", "name"] == subs
 
 
 proc dataTest() =

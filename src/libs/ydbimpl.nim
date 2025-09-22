@@ -9,6 +9,12 @@ const
   BUFFER_IDX_SIZE = 64
   INCRBUF_SIZE = 32
 
+# create a seq that hold the highest possible key
+var LAST_INDEX:seq[string]
+for i in 0..<31:
+  LAST_INDEX.add(repeat("" & '\xff', 10))
+
+
 # Thread-local buffers to avoid re-allocating buffers on every call and keep state per-thread.
 var
   buf_initialized {.threadvar.}: bool
@@ -287,29 +293,38 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken
   ## Traverse to the next/previous node and return subscripts  
   check()
   setYdbBuffer(GLOBAL, name)
-  setIdxArr(IDXARR, keys)
+
+  var subs: Subscripts
+  if direction == Direction.Previous and keys == @[] or keys == @[""]:
+    subs = LAST_INDEX
+  else:
+    subs = keys
+  setIdxArr(IDXARR, subs)
   var ret_subs_used: cint = YDB_MAX_SUBS
 
   when compileOption("threads"):
     if direction == Direction.Next:
-      rc = ydb_node_next_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
+      rc = ydb_node_next_st(tptoken, ERRMSG.addr, GLOBAL.addr, subs.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
     else:
-      rc = ydb_node_previous_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
+      rc = ydb_node_previous_st(tptoken, ERRMSG.addr, GLOBAL.addr, subs.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
   else:
     if direction == Direction.Next:
-      rc = ydb_node_next_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
+      rc = ydb_node_next_s(GLOBAL.addr, subs.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
     else:
-      rc = ydb_node_previous_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
+      rc = ydb_node_previous_s(GLOBAL.addr, subs.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
 
   # construct the return key sequence
-  var sbscr:seq[string]
-  for i in 0..<ret_subs_used:
-    let len_used = IDXARR[i].len_used
-    if len_used > 0:
-      IDXARR[i].buf_addr[len_used] = '\0' # null terminate
-      sbscr.add($IDXARR[i].buf_addr)
+  if rc == YDB_OK:
+    var sbscr:seq[string]
+    for i in 0..<ret_subs_used:
+      let len_used = IDXARR[i].len_used
+      if len_used > 0:
+        IDXARR[i].buf_addr[len_used] = '\0' # null terminate
+        sbscr.add($IDXARR[i].buf_addr)
   
-  return (rc.int, sbscr)
+    return (rc.int, sbscr)
+  else:
+    return (rc.int, @[])
 
 proc ydb_node_next_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
   ## Traverse to next node  

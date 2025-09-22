@@ -422,7 +422,7 @@ proc prevnodeyyy*(args: varargs[string]): (int, Subscripts) =
   var subscripts = args[1..^1]
   ydb_node_previous(args[0], subscripts)
 
-proc prevnodeyyy1*(global: string, subscripts: var seq[string]): (int, Subscripts) =
+proc prevnodeyyy1*(global: string, subscripts: seq[string]): (int, Subscripts) =
   ydb_node_previous(global, subscripts)
 
 proc prevnodeyyy1*(global: string, sub: string): (int, Subscripts) =

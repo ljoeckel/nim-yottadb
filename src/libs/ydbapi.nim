@@ -3,7 +3,6 @@ import ydbtypes
 import ydbimpl
 import libydb
 
-
 proc ydbMessage*(status: cint): string =
   ydbMessage_db(status)
 
@@ -47,29 +46,29 @@ proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: string, transid:string = ""): int 
 
 # ------------------ Next/Previous Node -----------------
 
-proc ydb_node_next*(global: string, subscripts: Subscripts, tptoken: uint64 = 0): (int, Subscripts) =
+proc ydb_node_next*(global: string, subscripts: Subscripts = @[], tptoken: uint64 = 0): (int, Subscripts) =
   ydb_node_next_db(global, subscripts, tptoken)
   
-proc ydb_node_previous*(global: string, subscripts: Subscripts, tptoken: uint64 = 0): (int, Subscripts) =
+proc ydb_node_previous*(global: string, subscripts: Subscripts = @[], tptoken: uint64 = 0): (int, Subscripts) =
   ydb_node_previous_db(global, subscripts, tptoken)
 
 # ------------------ Next/Previous subscripts -----------------
 
-proc ydb_subscript_next*(name: string, subs: Subscripts, tptoken: uint64 = 0): (int, Subscripts) =
+proc ydb_subscript_next*(name: string, subs: Subscripts = @[], tptoken: uint64 = 0): (int, Subscripts) =
   ydb_subscript_next_db(name, subs, tptoken)
 
-proc ydb_subscript_previous*(name: string, subs: Subscripts, tptoken: uint64 = 0): (int, Subscripts) =
+proc ydb_subscript_previous*(name: string, subs: Subscripts = @[], tptoken: uint64 = 0): (int, Subscripts) =
   ydb_subscript_previous_db(name, subs, tptoken)
 
 # ------------------ Iterators for Next/Previous Node -----------------
 
-iterator ydb_node_next_iter*(global: string, start: Subscripts, tptoken: uint64 = 0): Subscripts =
+iterator ydb_node_next_iter*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
   var (rc, subs) = ydb_node_next_db(global, start, tptoken)
   while rc == YDB_OK:
     yield subs
     (rc, subs) = ydb_node_next_db(global, subs, tptoken)
 
-iterator ydb_node_previous_iter*(global: string, start: Subscripts, tptoken: uint64 = 0): Subscripts =
+iterator ydb_node_previous_iter*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
   var (rc, subs) = ydb_node_previous_db(global, start, tptoken)
   while rc == YDB_OK:
     yield subs
@@ -77,13 +76,13 @@ iterator ydb_node_previous_iter*(global: string, start: Subscripts, tptoken: uin
 
 # ------------------ Iterators for Next/Previous Subscript-------------
 
-iterator ydb_subscript_next_iter*(global: string, start: Subscripts, tptoken: uint64 = 0): Subscripts =
+iterator ydb_subscript_next_iter*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
   var (rc, subs) = ydb_subscript_next(global, start, tptoken)
   while rc == YDB_OK:
     yield subs
     (rc, subs) = ydb_subscript_next(global, subs, tptoken)
 
-iterator ydb_subscript_previous_iter*(global: string, start: Subscripts, tptoken: uint64 = 0): Subscripts =
+iterator ydb_subscript_previous_iter*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
   var (rc, subs) = ydb_subscript_previous(global, start, tptoken)
   while rc == YDB_OK:
     yield subs

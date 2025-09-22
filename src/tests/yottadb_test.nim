@@ -32,7 +32,7 @@ proc setupLL() =
 # ------------- Test cases are here ---------------------
 # Write ^X(0..1000000) in 800ms. 
 proc simpleSet(global: string, cnt: int) =
-  var subs:seq[string] = @[]
+  var subs:seq[string]
   for i in 0..cnt:
     subs.add($i)
     ydb_set(global, subs, $i)
@@ -40,7 +40,7 @@ proc simpleSet(global: string, cnt: int) =
 
 # Read ^X(0..100000000) in 600ms. 
 proc simpleGet(global: string, cnt: int) =
-  var subs:seq[string] = @[]
+  var subs:seq[string]
   for i in 0..cnt:
     subs.add($i)
     assert $i == ydb_get(global, subs)
@@ -48,7 +48,7 @@ proc simpleGet(global: string, cnt: int) =
 
 # Delete ^X(0..100000000) in 550ms. 
 proc simpleDelete(global: string, cnt: int) =
-  var subs:seq[string] = @[]
+  var subs:seq[string]
   for i in 0..cnt:
     subs.add($i)
     ydb_delete_node(global, subs)
@@ -119,16 +119,14 @@ proc testData() =
 
 proc testNextNode(global: string, start: Subscripts = @[]) =
   var cnt = 0
-  var subs = start
-  for subs in ydb_node_next_iter(global, subs):
+  for subs in ydb_node_next_iter(global, start):
     inc(cnt)
   doAssert cnt == MAX * 2 + 3
 
 
 proc testPreviousNode(global: string, start: Subscripts = @[]) =
   var cnt = 0
-  var subs = start
-  for subs in ydb_node_previous_iter(global, subs):
+  for subs in ydb_node_previous_iter(global, start):
     inc(cnt)
   doAssert cnt == MAX * 2 + 2
 
@@ -138,7 +136,6 @@ proc testNextNodeIterator(global: string, start: Subscripts = @[]) =
     @["123", "123", "4711", "i"], @["123", "f"], @["123", "i", "4711"], @["123", "s"]
   ]
   var dbdata: seq[Subscripts]
-  var subs: Subscripts
   for subs in ydb_node_next_iter(global, start):
     dbdata.add(subs)
   assert dbdata == refdata
@@ -149,7 +146,6 @@ proc testPreviousNodeIterator(global: string, start: Subscripts = @[]) =
     @["123", "2"], @["123", "1"], @["7", "3"], @["5", "2"], @["5", "1"]
   ]
   var dbdata: seq[Subscripts]
-  var subs: Subscripts
   for subs in ydb_node_previous_iter(global, start):
     dbdata.add(subs)
   assert dbdata == refdata
