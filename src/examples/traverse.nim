@@ -21,8 +21,7 @@ globalsView.onEnter = proc (lv: ListView, args: varargs[string]) =
   dataView.clearRows()
   
   var tableRows = newSeq[newSeq[string]()]()
-  var subs:Subscripts = @[""]
-  for subs in ydb_node_next_iter(global, subs):
+  for subs in ydb_node_next_iter(global):
     let value = ydb_get(global, subs)
     tableRows.add(@[keysToString(subs), value])
 
