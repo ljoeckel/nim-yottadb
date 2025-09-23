@@ -18,14 +18,14 @@ Each test runs with 10_000_000 iterations.
 
                System A         System B
 Test           arc   mAS        arc   mAS
-upcount        8746  7987       3137  2686 
-upcount dsl    8940  7958       3202  2713
-set            8278  6182       2520  2172
-set dsl        8905  6448       2669  2365
-nextnode       4602  5694       1370  1861
-nextnode dsl   4654  5649       1373  1854
-delnode        8824  8151       2833  2552
-delnode dsl    9082  8371       2897  2698
+upcount        8746  7987       2382  2474 
+upcount dsl    8940  7958       2439  2515
+set            8278  6182       2255  2227
+set dsl        8905  6448       2479  2387
+nextnode       4602  5694       1534  2129
+nextnode dsl   4654  5649       1536  2133
+delnode        8824  8151       2551  2628
+delnode dsl    9082  8371       2774  2882
 ````
 
 # Nim vs. Rust

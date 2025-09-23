@@ -1,4 +1,4 @@
-import std/[times]
+import std/[times, unittest]
 import yottadb
 import utils
 
@@ -23,27 +23,19 @@ proc setSimple_dsl() =
         set: ^BENCHMARK2(id)=id
 
 proc nextnode() =
-    var 
-        rc = YDB_OK
-        cnt = 0
-        subs: Subscripts
-
-    (rc, subs) = ydb_node_next("^BENCHMARK1", subs)
+    var cnt = 0
+    var (rc, subs) = ydb_node_next("^BENCHMARK1")
     while rc == YDB_OK:
         (rc, subs) = ydb_node_next("^BENCHMARK1", subs)
-        inc(cnt)
+        inc cnt
     assert cnt == MAX
 
 proc nextnode_dsl() =
-    var 
-        rc = YDB_OK
-        cnt = 0
-        subs: Subscripts
-
-    (rc, subs) = nextnode: ^BENCHMARK2()
+    var cnt = 0
+    var (rc, subs) = nextnode: ^BENCHMARK2()
     while rc == YDB_OK:
         (rc, subs) = nextnode: ^BENCHMARK2(subs)
-        inc(cnt)
+        inc cnt
     assert cnt == MAX
 
 proc delnode() =
@@ -56,11 +48,12 @@ proc delnode_dsl() =
 
 
 when isMainModule:
-    timed("upcount"): upcount()
-    timed("upcount dsl"): upcount_dsl()
-    timed("set simple"): setSimple()
-    timed("set simple dsl"): setSimple_dsl()
-    timed("nextnode"): nextnode()
-    timed("nextnode dsl"): nextnode_dsl()
-    timed("delnode"): delnode()
-    timed("delnode dsl"): delnode_dsl()
+  suite "Benchmark Tests":
+    test("upcount"): timed: upcount()
+    test ("upcount dsl"): timed: upcount_dsl()
+    test("set simple"): timed: setSimple()
+    test("set simple dsl"): timed: setSimple_dsl()
+    test("nextnode"): timed: nextnode()
+    test("nextnode dsl"): timed: nextnode_dsl()
+    test("delnode"): timed: delnode()
+    test("delnode dsl"): timed: delnode_dsl()
