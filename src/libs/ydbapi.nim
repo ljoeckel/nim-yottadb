@@ -184,10 +184,8 @@ proc listGlobal*(global: string) =
 
 
 proc deleteGlobal*(global: string): bool =
-  var (rc, subs) = ydb_node_next(global, @[])
-  var cnt = 0
+  var (rc, subs) = ydb_node_next(global)
   while rc == YDB_OK:
-    inc cnt
     ydb_delete_node(global, subs)
     (rc, subs) = ydb_node_next(global, subs)
   # test if really empty

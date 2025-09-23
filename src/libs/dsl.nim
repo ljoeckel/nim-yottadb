@@ -324,10 +324,11 @@ macro prevsubscript*(body: untyped): untyped =
 macro data*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix:
-      return transformCallNodeNext(node, "data")
+      var args = transformCallNode(node)
+      return newCall(ident"dataxxx", args)
     else:
       return node
-  transformBodyExpr body
+  transformBodyStmt body
 
 
 # Proc^s that implement the ydb call's
@@ -453,16 +454,11 @@ proc incrxxx*(args: varargs[string]): int =
 # -------------------
 # data proc
 # -------------------
-proc datayyy*(args: varargs[string]): int =
- ydb_data(args[0], args[1..^1])
-
-proc datayyy1*(global: string, subscripts: seq[string]): int =
-  ydb_data(global, subscripts)
-
-proc datayyy1*(global: string, sub: string): int =
-  var subscripts:seq[string] = @[sub]
-  ydb_data(global, subscripts)
-
+proc dataxxx*(args: varargs[string]): int =
+  if args.len == 2 and args[1].startsWith("@["):
+    ydb_data(args[0], stringToSeq(args[1]))
+  else:
+    ydb_data(args[0], args[1..^1])
 
 
 # -------------------

@@ -31,3 +31,4 @@ src/examples/hello_customer
 src/examples/dsl
 src/tests/dsl2_test
 src/tests/dsl3_test
+src/3n+1/solver

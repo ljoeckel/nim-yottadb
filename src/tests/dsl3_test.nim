@@ -127,6 +127,12 @@ proc delnode() =
   assert dbdata == refdata
 
 
+proc testData() =
+  var id = 1
+  set: ^tmp2(id) = 1
+  echo data(^tmp2(id))
+
+
 proc setup() =
   assert deleteGlobal("^tmp")
   assert deleteGlobal("^tmp2")
@@ -138,6 +144,7 @@ when isMainModule:
     test "setget": setget()
     test "setlocals": setlocals()
     test "delnode": delnode()
+    test "data": testData()
 
 
 #listGlobal("^tmp")
