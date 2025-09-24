@@ -22,7 +22,8 @@ type
   TransformKind = enum
     tkDefault,    # Default transformation
     tkNext,       # Next node transformation 
-    tkGet        # Get transformation
+    tkGet,        # Get transformation
+    tkData,
     tkDelExcl    # del exclude
 
 template transformBodyStmt(body: untyped): untyped =
@@ -134,7 +135,6 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
         result = newCall(ident"getstring", globalArg)
         for a in transformedArgs:
           result.add newCall(ident"$", a)
-
     elif rhs.kind == nnkDotExpr:
       let callPart = rhs[0]
       let fieldPart = rhs[1]
@@ -159,6 +159,20 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
       return call
     elif rhs.kind == nnkIdent:
       return newCall(ident"getstring", @[newLit(prefix & rhs.strVal)])
+  of tkData:
+    # Handle get transformation with type conversion
+    if rhs.kind == nnkCall:
+      let args = makeBaseArgs(rhs)
+      let globalArg = args[0]
+      let transformedArgs = args[1..^1]
+      if transformedArgs.len == 1 and transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit}:
+        return newCall(ident"dataxxx1", globalArg, transformedArgs[0])
+      else:
+        result = newCall(ident"dataxxx", globalArg)
+        for a in transformedArgs:
+          result.add newCall(ident"$", a)
+    elif rhs.kind == nnkIdent:
+      return newCall(ident"dataxxx", @[newLit(prefix & rhs.strVal)])
 
 
 # Update existing transform procs to use the base version
@@ -172,6 +186,9 @@ proc transformCallNodeNext(node: NimNode, procPrefix:string = ""): NimNode =
 
 proc transformCallNodeGET(node: NimNode, procPrefix:string = ""): NimNode = 
   transformCallNodeBase(node, tkGet, procPrefix)
+
+proc transformCallNodeDATA(node: NimNode, procPrefix:string = ""): NimNode = 
+  transformCallNodeBase(node, tkData, procPrefix)
 
 
 # ------------------- Statement-context DSL macros -------------------
@@ -275,7 +292,7 @@ macro lockdecr*(body: untyped): untyped =
 macro get*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkPrefix or node.kind == nnkCall:
-      return transformCallNodeGET(node)  # your helper builds getstring(...)
+      return transformCallNodeGET(node)
     else:
       return node
 
@@ -323,12 +340,19 @@ macro prevsubscript*(body: untyped): untyped =
 
 macro data*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
-    if node.kind == nnkPrefix:
-      var args = transformCallNode(node)
-      return newCall(ident"dataxxx", args)
+    if node.kind == nnkPrefix or node.kind == nnkCall:
+      return transformCallNodeDATA(node)
     else:
       return node
-  transformBodyStmt body
+
+  # unwrap stmtlist if present
+  if body.kind == nnkStmtList:
+    if body.len != 1:
+      error("get: expects exactly one expression", body)
+    result = transform(body[0])
+  else:
+    result = transform(body)
+
 
 
 # Proc^s that implement the ydb call's
@@ -455,10 +479,17 @@ proc incrxxx*(args: varargs[string]): int =
 # data proc
 # -------------------
 proc dataxxx*(args: varargs[string]): int =
-  if args.len == 2 and args[1].startsWith("@["):
-    ydb_data(args[0], stringToSeq(args[1]))
+  ydb_data(args[0], args[1..^1])
+
+proc dataxxx1*(global: string, args: seq[string]): int =
+  ydb_data(global, args[0..^1])
+
+proc dataxxx1*(global: string, s: string): int =
+  if s.startsWith("@["):
+    ydb_data(global, stringToSeq(s))
   else:
-    ydb_data(args[0], args[1..^1])
+    ydb_data(global, @[s])
+
 
 
 # -------------------

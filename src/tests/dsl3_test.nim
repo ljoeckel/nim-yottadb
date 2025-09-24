@@ -130,7 +130,87 @@ proc delnode() =
 proc testData() =
   var id = 1
   set: ^tmp2(id) = 1
-  echo data(^tmp2(id))
+  assert data(^tmp2(id)) == 1
+  set: ^tmp2(1) = 1
+  assert data(^tmp2(1)) == 1
+  var id2 = "1"
+  set: ^tmp2(id2)="1"
+  assert data(^tmp2(id2)) == 1
+  set: ^tmp2("1")="1"
+  assert data(^tmp2("1")) == 1
+  var id3 = @["1"]
+  set: ^tmp2(id3) = 1
+  assert data(^tmp2(id3)) == 1
+  set: ^tmp2(@["1"])="1"
+  assert data(^tmp2(@["1"])) == 1
+
+  set:
+    var xid = 11 # reusing id will not work!
+    ^tmp2(xid) = 11
+    assert data(^tmp2(xid)) == 1
+    ^tmp2(1) = 11
+    assert data(^tmp2(1)) == 1
+    var xid2 = "11"
+    ^tmp2(xid2)="11"
+    assert data(^tmp2(xid2)) == 1
+    ^tmp2("11")="11"
+    assert data(^tmp2("11")) == 1
+    var xid3 = @["11"]
+    ^tmp2(xid3) = 1
+    assert data(^tmp2(xid3)) == 1
+    ^tmp2(@["11"])="11"
+    assert data(^tmp2(@["11"])) == 1
+
+  let gbl = "^tmp2"
+  set: gbl(1)=4711 # set the local variable 'gbl' to 4711
+  let ss = "gbl=" & get(gbl(1))
+  assert ss == "gbl=4711"
+  doAssertRaises(YdbError): discard get(^tmp2(4711)) # ^tmp2(4711) not set because gbl(4711) is set TODO: global from variable
+
+proc testLocals() =
+  set: gbl(1)=1
+  assert get(gbl(1)) == "1"
+  let id = 2
+  set: gbl(id) = 2
+  assert get(gbl(id)) == "2"
+  let id2 = "3"
+  set: gbl(id2) = 3
+  assert get(gbl(id2)) == "3"
+  set: gbl(@["4"])=4
+  assert get(gbl(@["4"])) == "4"
+  let id3: Subscripts = @["5"]
+  set: gbl(id3) = "5"
+  assert get(gbl(id3)) == "5"
+  set: gbl(1,1)="1.1"
+  assert get(gbl(1,1)) == "1.1"
+
+  set:
+    gbl(1)=11
+    assert get(gbl(1)) == "11"
+    gbl(id) = 22
+    assert get(gbl(id)) == "22"
+    set: gbl(id2) = 33
+    assert get(gbl(id2)) == "33"
+    gbl(@["4"])=44
+    assert get(gbl(@["4"])) == "44"
+    gbl(id3) = "55"
+    assert get(gbl(id3)) == "55"
+    gbl(1,1)="2.2"
+    assert get(gbl(1,1)) == "2.2"
+
+  # data on localc
+  assert ydb_data("gbl",@["1"]) == 11
+  assert data(gbl(1)) == 11
+  assert data(gbl("1")) == 11
+  assert data(gbl(1,1))  == 1
+
+  let refdata = @[@["1"],@["1", "1"],@["2"],@["3"],@["4"],@["5"]]
+  var subs: seq[Subscripts]
+  for sub in ydb_node_next_iter("gbl"):
+    subs.add(sub)
+  assert subs == refdata
+
+
 
 
 proc setup() =
@@ -145,9 +225,7 @@ when isMainModule:
     test "setlocals": setlocals()
     test "delnode": delnode()
     test "data": testData()
+    test "locals": testLocals()
 
-
-#listGlobal("^tmp")
-#listGlobal("^tmp2")
-
-quit(0)
+  #listGlobal("^tmp")
+  #listGlobal("^tmp2")
