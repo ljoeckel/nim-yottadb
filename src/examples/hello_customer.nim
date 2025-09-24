@@ -8,12 +8,8 @@ proc main() =
     ^CUSTOMER(2, "Name")="Jane Smith"
     ^CUSTOMER(2, "Email")="jane.smith.@yahoo.com"
 
-  var
-    subs:Subscripts
-    rc = YDB_OK
-
   echo "Iterate over all customers"
-  (rc, subs) = nextsubscript: ^CUSTOMER(subs)
+  var (rc, subs) = nextsubscript: ^CUSTOMER()
   while rc == YDB_OK:
     let id = subs[0]
     let name = get: ^CUSTOMER(id, "Name")
@@ -23,13 +19,12 @@ proc main() =
     (rc, subs) = nextsubscript: ^CUSTOMER(subs)
 
   echo "Iterate over all nodes and use subscripts()"
-  subs = @[]
-  rc = YDB_OK
+  (rc, subs) = nextnode: ^CUSTOMER()
   while rc == YDB_OK:
+    let value = get: ^CUSTOMER(subs)
+    echo fmt"Node {subs} = {value}"
+    # Read next
     (rc, subs) = nextnode: ^CUSTOMER(subs)
-    if rc == YDB_OK:
-      let value = get: ^CUSTOMER(subs)
-      echo fmt"Node {subs} = {value}"
 
 when isMainModule:
   main()

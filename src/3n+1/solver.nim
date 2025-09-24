@@ -23,8 +23,7 @@ proc verify(n: int): OrderedSet[int] =
     if n == 1: return
 
     var s = calc(n)
-    while s >= 0:
-        if result.contains(s): break
+    while not result.contains(s):
         result.incl(s)
         s = calc(s)
 
@@ -32,13 +31,11 @@ proc solve(n: int): OrderedSet[int]  =
     # Solve the 3n+1 problem and mark the sequence that already calculated sequences on the db exists.
     result = initOrderedSet[int]()
     result.incl(n)
-    if n == 1: 
-        return
+    if n == 1: return
 
     var s = calc(n)
     while s >= 0:
-        # lookup db
-        if data(^solver(s)) == 1:
+        if data(^solver(s)) == 1: # lookup in db
             result.incl(s * -1)
             inc numbers_solved
             break
@@ -49,7 +46,7 @@ proc solve(n: int): OrderedSet[int]  =
 proc generate(fromN: int, toN: int) =
     # Generate the sequence and save on db
     for n in fromN..toN:
-        if n mod 100_000 == 0: echo n
+        #if n mod 100_000 == 0: echo n
         if data(^solver(n)) == 1:
             inc numbers_found
         else:
@@ -83,7 +80,8 @@ proc cleanDb() =
     if not deleteGlobal("^solver"):
         raise newException(YdbError, "Could not delete global ^solver")
 
-proc statistics() =
+proc statistics(fromN: int, toN: int) =
+    echo "solver from: ", fromN, " to: ", toN
     echo "Found : ", numbers_found
     echo "Solved: ", numbers_solved
     echo "Saved : ", numbers_saved
@@ -98,14 +96,12 @@ when isMainModule:
         if param.contains("-to="): toN = parseInt(param.split("=")[1])
         if param.contains("-clean="): clean = if param.split("=")[1] == "true": true else: false
 
-    if clean:
-        timed("cleanDb")   : cleanDb()
+    if clean: timed("cleanDb")   : cleanDb()
     timed("generate"): generate(fromN, toN)
     timed("verify")  : check()
-    statistics()
+    statistics(fromN, toN)
 
-# TODO: Multi-Thead / Multi-Process
-#       Each thread/process has own from..to range
+# TODO: 
 #       Locks
 #       Transaction?
 #       Statistics
