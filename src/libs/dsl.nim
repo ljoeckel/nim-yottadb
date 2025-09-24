@@ -64,16 +64,7 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
     result = @[newLit(prefix & tableIdent.strVal)]
     for i in 1 ..< callPart.len:
       let arg = callPart[i]
-      # Handle literals vs other expressions differently for Next transformation
-      if kind == tkNext or kind == tkGet:
-        case arg.kind
-        of nnkStrLit, nnkRStrLit, nnkIntLit:
-          result.add newCall(ident"$", arg)
-        else:
-          #result.add arg
-          result.add newCall(ident"$", arg)
-      else:
-        result.add newCall(ident"$", arg)
+      result.add newCall(ident"$", arg)
 
   # Helper to build basic args
   proc makeBaseArgsNext(callPart: NimNode): seq[NimNode] =
@@ -82,14 +73,11 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
     for i in 1 ..< callPart.len:
       let arg = callPart[i]
       # Handle literals vs other expressions differently for Next transformation
-      if kind == tkNext or kind == tkGet:
-        case arg.kind
-        of nnkStrLit, nnkRStrLit, nnkIntLit, nnkFloatLit:
-          result.add newCall(ident"$", arg)
-        else:
-          result.add arg
-      else:
+      case arg.kind
+      of nnkStrLit, nnkRStrLit, nnkIntLit, nnkFloatLit:
         result.add newCall(ident"$", arg)
+      else:
+        result.add arg
 
   case kind
   of tkDelExcl:
@@ -137,28 +125,27 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
           result.add newCall(ident"$", a)
     elif rhs.kind == nnkDotExpr:
       let callPart = rhs[0]
+      let args = makeBaseArgs(callPart)
+      let globalArg = args[0]
+      let transformedArgs = args[1..^1]
+
       let fieldPart = rhs[1]
-      let args = makeBaseArgsNext(callPart)
       let suffix = fieldPart.strVal
       let procName = case suffix
         of "float": "getfloat"
         of "int": "getint"
         else: error("Unsupported suffix: " & suffix)
-      var call = newCall(ident(procName))
-      call.add(args[0]) # global name
-      let transformedArgs = args[1..^1]
-      for x in transformedArgs:
-        case x.kind
-        of nnkStrLit, nnkRStrLit, nnkIntLit, nnkFloatLit:
-          call.add newCall(ident"$", x)
-        of nnkIdent:
-          call.add newCall(ident"$", x) # ^X("id","i") -> ^X("1","i")
-        else:
-          #call.add x
-          call.add newCall(ident"$", x)
-      return call
+
+      if transformedArgs.len == 1 and transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit, nnkFloatLit}:
+        return newCall(ident(procName), globalArg, transformedArgs[0])
+      else:
+        result = newCall(ident(procName), globalArg)
+        for a in transformedArgs:
+          result.add newCall(ident"$", a)
+      
     elif rhs.kind == nnkIdent:
       return newCall(ident"getstring", @[newLit(prefix & rhs.strVal)])
+
   of tkData:
     # Handle get transformation with type conversion
     if rhs.kind == nnkCall:

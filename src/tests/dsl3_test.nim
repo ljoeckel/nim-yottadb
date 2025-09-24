@@ -195,22 +195,26 @@ proc testLocals() =
     assert get(gbl(@["4"])) == "44"
     gbl(id3) = "55"
     assert get(gbl(id3)) == "55"
-    gbl(1,1)="2.2"
-    assert get(gbl(1,1)) == "2.2"
+    gbl(2, 2)="2.2"
+    assert get(gbl(2, 2)) == "2.2"
 
+  # get
+  var val = get: gbl(2, 2)
+  assert val == "2.2"
+  #var valI = get(gbl(2, 2).float)
+  #echo "valI:", valI
+  
   # data on localc
   assert ydb_data("gbl",@["1"]) == 11
   assert data(gbl(1)) == 11
   assert data(gbl("1")) == 11
   assert data(gbl(1,1))  == 1
 
-  let refdata = @[@["1"],@["1", "1"],@["2"],@["3"],@["4"],@["5"]]
+  let refdata = @[@["1"],@["1", "1"],@["2"],@["2", "2"],@["3"],@["4"],@["5"]]
   var subs: seq[Subscripts]
   for sub in ydb_node_next_iter("gbl"):
     subs.add(sub)
   assert subs == refdata
-
-
 
 
 proc setup() =
