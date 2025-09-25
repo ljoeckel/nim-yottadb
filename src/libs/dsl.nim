@@ -49,11 +49,14 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
   var prefix: string = ""
   var rhs: NimNode
   if node.kind == nnkCall:
-    rhs = node     # set: VARNAME(xxx)=yyy
+      rhs = node     # set: VARNAME(xxx)=yyy
   elif node.kind == nnkPrefix:
     prefix = node[0].strVal  # set: ^VARNAME(xxxx)=yyyy, $VARNAME()=yyyy
     rhs = node[1]
   elif node.kind == nnkIdent:  # z.B. { IDENT01 }
+    rhs = node
+  elif node.kind == nnkDotExpr:
+    # top-level dot expression: e.g. gbl(1).int or (^gbl(1)).int
     rhs = node
   else:
     echo "Node kind not supported! ", node.kind
@@ -123,11 +126,24 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
         result = newCall(ident"getstring", globalArg)
         for a in transformedArgs:
           result.add newCall(ident"$", a)
+
     elif rhs.kind == nnkDotExpr:
-      let callPart = rhs[0]
-      let args = makeBaseArgs(callPart)
+      var callPart = rhs[0]   # left side of the dot
+      # if left is prefixed (^gbl(1)) extract prefix and unwrap to the inner call/ident
+      if callPart.kind == nnkPrefix:
+        prefix = callPart[0].strVal
+        callPart = callPart[1]
+
+      var args: seq[NimNode]
+      if callPart.kind == nnkCall:
+        args = makeBaseArgs(callPart)
+      elif callPart.kind == nnkIdent:
+        args = @[newLit(prefix & callPart.strVal)]
+      else:
+        error("Unsupported dot-expression base: " & $callPart.kind)
+
       let globalArg = args[0]
-      let transformedArgs = args[1..^1]
+      let transformedArgs = if args.len > 1: args[1..^1] else: @[]
 
       let fieldPart = rhs[1]
       let suffix = fieldPart.strVal
@@ -142,7 +158,7 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
         result = newCall(ident(procName), globalArg)
         for a in transformedArgs:
           result.add newCall(ident"$", a)
-      
+
     elif rhs.kind == nnkIdent:
       return newCall(ident"getstring", @[newLit(prefix & rhs.strVal)])
 
@@ -278,7 +294,7 @@ macro lockdecr*(body: untyped): untyped =
 
 macro get*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
-    if node.kind == nnkPrefix or node.kind == nnkCall:
+    if node.kind in {nnkPrefix, nnkCall, nnkDotExpr, nnkIdent}:
       return transformCallNodeGET(node)
     else:
       return node
@@ -290,6 +306,7 @@ macro get*(body: untyped): untyped =
     result = transform(body[0])
   else:
     result = transform(body)
+
 
 
 macro nextnode*(body: untyped): untyped =
