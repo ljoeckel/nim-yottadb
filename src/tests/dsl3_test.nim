@@ -72,13 +72,72 @@ proc setget() =
   assert 5 == get(^tmp(ids).int)
   assert 5.0 == get(^tmp(ids).float)
 
+proc testNumbersRange() =
+  set:
+    ^tmp("-1") = -1
+    assert get(^tmp("-1").int) == -1
+    ^tmp("00") = 00
+    assert get(^tmp("00").int) == 0
+    ^tmp("+1") = +1
+    assert get(^tmp("+1").int) == 1
+    ^tmp("-0") = -0
+    assert get(^tmp("-0").int) == 0
+
+    ^tmp("int64") = high(int64)
+    assert get(^tmp("int64").int) == int.high
+    doAssertRaises(ValueError): discard get(^tmp("int64").int8)
+    ^tmp("int8.high") = int8.high
+    assert get(^tmp("int8.high").int8) == int8.high
+    ^tmp("int8.low") = int8.low
+    assert get(^tmp("int8.low").int8) == int8.low
+    ^tmp("int16.high") = int16.high
+    assert get(^tmp("int16.high").int16) == int16.high
+    ^tmp("int16.low") = int16.low
+    assert get(^tmp("int16.low").int16) == int16.low
+    doAssertRaises(ValueError): discard get(^tmp("int64").int16)
+    ^tmp("int32.high") = int32.high
+    assert get(^tmp("int32.high").int32) == int32.high
+    ^tmp("int32.low") = int32.low
+    assert get(^tmp("int32.low").int32) == int32.low
+    doAssertRaises(ValueError): discard get(^tmp("int64").int32)
+    assert get(^tmp("int64").int64) == int64.high
+
+    ^tmp("uint") = uint.high
+    ^tmp("uint,-1") = -1
+    ^tmp("uint64") = uint64.high
+    ^tmp("uint64,-1") = -1
+    assert get(^tmp("uint64").uint) == uint.high
+    doAssertRaises(ValueError): discard get(^tmp("uint64").uint8)
+    ^tmp("uint8.high") = uint8.high
+    assert get(^tmp("uint8.high").uint8) == uint8.high
+    ^tmp("uint8.low") = uint8.low
+    assert get(^tmp("uint8.low").uint8) == uint8.low
+    ^tmp("uint16.high") = uint16.high
+    assert get(^tmp("uint16.high").uint16) == uint16.high
+    ^tmp("uint16.low") = uint16.low
+    assert get(^tmp("uint16.low").uint16) == uint16.low
+    doAssertRaises(ValueError): discard get(^tmp("uint64").uint16)
+    ^tmp("uint32.high") = uint32.high
+    assert get(^tmp("uint32.high").uint32) == uint32.high
+    ^tmp("uint32.low") = uint32.low
+    assert get(^tmp("uint32.low").uint32) == uint32.low
+    doAssertRaises(ValueError): discard get(^tmp("uint64").uint32)
+    assert get(^tmp("uint64").uint64) == uint64.high
+
+    ^tmp("float") = (10.0 / 3.0).float
+    ^tmp("float64") = (10.0 / 3.0).float64
+    ^tmp("float32") = (10.0 / 3.0).float32
+    assert get(^tmp("float").float) == (10.0 / 3.0).float
+    assert get(^tmp("float64").float64) == (10.0 / 3.0).float64
+    assert get(^tmp("float32").float32) == (10.0 / 3.0).float32
+
 
 proc setlocals() =
   set:
     local(1) = 1
     assert "1" == get(local(1))
-    #TODO: assert 1 == get(local(1).int) # Error: undeclared identifier 'local'
-    #assert 1.0 == get(local(1).float) # Error: undeclared identifier 'local'
+    assert 1 == get(local(1).int)
+    assert 1.0 == get(local(1).float)
 
     local(1.1) = "1.1"
     assert "1.1" == get(local(1.1))
@@ -230,6 +289,7 @@ when isMainModule:
     test "delnode": delnode()
     test "data": testData()
     test "locals": testLocals()
+    test "numbersRange": testNumbersRange()
 
   #listGlobal("^tmp")
   #listGlobal("^tmp2")
