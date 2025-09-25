@@ -549,3 +549,45 @@ proc ydb_ci_db*(name: string, tptoken: uint64) =
 
   if rc < YDB_OK:
     raise newException(YdbError, fmt"{ydbMessage_db(rc)}") 
+
+
+proc ydb_str2zwr_db*(name: string, tptoken: uint64): string =
+  ## Convert binary string: "hello\9World" -> "hello"_$C(9)_"World"
+  check()
+  let bufsize = min( (name.len.float * 2.5).int , BUFFER_DATABUF_SIZE)
+  var ZWRBUF = stringToYdbBuffer(zeroBuffer(bufsize))
+  setYdbBuffer(ZWRBUF)
+  setYdbBuffer(DATABUF, name)
+
+  when compileOption("threads"):
+    rc = ydb_str2zwr_st(tptoken, ERRMSG.addr, DATABUF.addr, ZWRBUF.addr)
+  else:
+    rc = ydb_str2zwr_s(DATABUF.addr, ZWRBUF.addr)
+
+  if rc == YDB_OK:
+    ZWRBUF.buf_addr[ZWRBUF.len_used] = '\0'
+    result = $ZWRBUF.buf_addr
+    deallocBuffer(ZWRBUF)
+  else:
+    raise newException(YdbError, ydbMessage_db(rc, tptoken))
+
+
+proc ydb_zwr2str_db*(name: string, tptoken: uint64): string =
+  ## Convert converted binary string: "hello"_$C(9)_"World" -> "hello\9World"
+  check()
+  setYdbBuffer(DATABUF, name)
+  when compileOption("threads"):
+    rc = ydb_zwr2str_st(tptoken, ERRMSG.addr, DATABUF.addr, DATABUF.addr)
+  else:
+    rc = ydb_zwr2str_s(DATABUF.addr, DATABUF.addr)
+
+  if rc == YDB_OK:
+    DATABUF.buf_addr[DATABUF.len_used] = '\0'
+
+    result = newString(DATABUF.len_used)
+    for idx in 0..<DATABUF.len_used:
+      result[idx] = DATABUF.buf_addr[idx].char
+  else:
+    raise newException(YdbError, ydbMessage_db(rc, tptoken))
+
+

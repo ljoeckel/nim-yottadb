@@ -106,6 +106,12 @@ proc ydb_lock_decr*(name: string, keys: Subscripts, tptoken: uint64 = 0) =
   ydb_lock_decr_db(name, keys, tptoken)
 
 
+proc str2zwr*(name: string, tptoken: uint64 = 0): string =
+  ydb_str2zwr_db(name, tptoken)
+
+proc zwr2str*(name: string, tptoken: uint64 = 0): string =
+  ydb_zwr2str_db(name, tptoken)
+
 # ------------------ YdbVar ----------------
 
 proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = ""): YdbVar =

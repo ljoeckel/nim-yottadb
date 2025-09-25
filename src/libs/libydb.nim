@@ -127,3 +127,14 @@ proc ydb_subscript_previous_st*(tptoken: uint64; errstr: ptr ydb_buffer_t;
 proc ydb_tp_st*(tptoken: uint64; errstr: ptr ydb_buffer_t; tpfn: ydb_tp2fnptr_t;
                 tpfnparm: pointer; transid: cstring; namecount: cint;
                 varnames: ptr ydb_buffer_t): cint {.cdecl, importc: "ydb_tp_st".}
+
+proc ydb_str2zwr_s*(str: ptr ydb_buffer_t; zwr: ptr ydb_buffer_t): cint {.cdecl, importc: "ydb_str2zwr_s".}
+
+proc ydb_str2zwr_st*(tptoken: uint64; errstr: ptr ydb_buffer_t;
+                     str: ptr ydb_buffer_t; zwr: ptr ydb_buffer_t): cint {.cdecl, importc: "ydb_str2zwr_st".}
+
+proc ydb_zwr2str_s*(zwr: ptr ydb_buffer_t; str: ptr ydb_buffer_t): cint {.cdecl, importc: "ydb_zwr2str_s".}
+
+proc ydb_zwr2str_st*(tptoken: uint64; errstr: ptr ydb_buffer_t;
+                     zwr: ptr ydb_buffer_t; str: ptr ydb_buffer_t): cint {.cdecl, importc: "ydb_zwr2str_st".}                     
+
