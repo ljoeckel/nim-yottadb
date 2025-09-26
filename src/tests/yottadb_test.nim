@@ -131,9 +131,22 @@ proc testPreviousNode(global: string, start: Subscripts = @[]) =
   doAssert cnt == MAX * 2 + 2
 
 proc testNextNodeIterator(global: string, start: Subscripts = @[]) =
+  set:
+    ^X(@["5", "1"])=1
+    ^X(@["5", "2"])=2
+    ^X(@["7", "3"])=3
+    ^X(@["123", "1"])=4
+    ^X(@["123", "2"])=5
+    ^X(@["123", "3"])=6
+    ^X(@["123", "123"])=7
+    ^X(@["4711", "i"])=8
+    ^X(@["123", "f"])=9
+    ^X(@["123", "i", "4711"])=10
+    ^X(@["123", "s"])=11
+
   let refdata = @[
     @["5", "1"], @["5", "2"], @["7", "3"], @["123", "1"], @["123", "2"], @["123", "3"], 
-    @["123", "123", "4711", "i"], @["123", "f"], @["123", "i", "4711"], @["123", "s"]
+    @["123", "123"], @["123", "f"], @["123", "i", "4711"], @["123", "s"], @["4711", "i"]
   ]
   var dbdata: seq[Subscripts]
   for subs in ydb_node_next_iter(global, start):
@@ -142,7 +155,7 @@ proc testNextNodeIterator(global: string, start: Subscripts = @[]) =
 
 proc testPreviousNodeIterator(global: string, start: Subscripts = @[]) =
   let refdata = @[
-    @["123", "s"], @["123", "i", "4711"], @["123", "f"], @["123", "123", "4711", "i"], @["123", "3"],
+    @["4711", "i"], @["123", "s"], @["123", "i", "4711"], @["123", "f"], @["123", "123"], @["123", "3"],
     @["123", "2"], @["123", "1"], @["7", "3"], @["5", "2"], @["5", "1"]
   ]
   var dbdata: seq[Subscripts]
