@@ -14,3 +14,5 @@
 - Change Syntax for incr: macro: for increments > 1
     let incrval = incr: ^CNT("TXID") = 10 
   Should be ^CNT("TXID", inc=10)
+
+- incr: DSL on local variables does not work

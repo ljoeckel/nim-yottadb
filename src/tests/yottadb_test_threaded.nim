@@ -34,6 +34,11 @@ proc testIncrement(tn: int) =
   ## For each thread iterate to MAX and calculate the fibonacci and save in db
   let key = @["cnt"]
   for i in 0..<MAX:
+    # Increment shared counter
+    withlock(0):
+      let val = get(COUNTER(0).int) + 1
+      set: COUNTER(0) = val
+
     let result = ydb_increment(GLOBAL, key)
     let sum = calcFibonacciSum()
     ydb_set(GLOBAL, @[$tn, $result], $sum)
@@ -62,10 +67,14 @@ proc validateCounters() =
   for i in 1..MAX*NUM_OF_THREADS:
     assert results.contains(i)
 
+  assert get(COUNTER(0).int) == cntidx
 # -------------------------------------------------------------------
 
 proc fibonacciTest() =
   ## Main test that starts NUM_OF_THREADS to calculate and save result in db
+
+  set: COUNTER(0) = 0 # ydb local variable is visible for all threads, must be synchronized
+
   var m = createMaster()
   m.awaitAll:
     for i in 0..<NUM_OF_THREADS:
