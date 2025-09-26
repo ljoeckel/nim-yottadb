@@ -14,6 +14,8 @@ proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "", tptoken:
 proc ydb_get*(name: string, keys: Subscripts = @[], tptoken: uint64 = 0): string =
   ydb_get_db(name, keys, tptoken)
 
+proc ydb_get_binary*(name: string, keys: Subscripts = @[], tptoken: uint64 = 0): string =
+  ydb_get_binary_db(name, keys, tptoken)
 
 proc ydb_data*(name: string, keys: Subscripts, tptoken: uint64 = 0): int =
   ydb_data_db(name, keys, tptoken)

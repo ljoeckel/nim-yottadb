@@ -208,6 +208,27 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string 
     raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys)
 
 
+proc ydb_get_binary_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
+  ## Retrieve a value from a local or global node
+  check()
+  setYdbBuffer(GLOBAL, name)
+  setIdxArr(IDXARR, keys)
+
+  when compileOption("threads"):
+    setYdbBuffer(ERRMSG)
+    setYdbBuffer(DATABUF)
+    rc = ydb_get_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
+  else:
+    rc = ydb_get_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
+
+  if rc == YDB_OK:
+    result = newString(DATABUF.len_used)
+    for idx in 0..<DATABUF.len_used:
+      result[idx] = DATABUF.buf_addr[idx].char
+  else:
+    raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys)
+
+
 proc ydb_data_db*(name: string, keys: Subscripts, tptoken: uint64): int =
   ## Check existence/type of a global node
   ## Return codes: 0 = no data, 1 = data, 10 = child nodes, 11 = both

@@ -161,6 +161,7 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
         of "uint16": "getuint16"
         of "uint32": "getuint32"
         of "uint64": "getuint"
+        of "binary": "getbinary"
         else: error("Unsupported suffix: " & suffix)
 
       if transformedArgs.len == 1 and transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit, nnkFloatLit}:
@@ -387,7 +388,7 @@ proc getstring1*(global: string, s: string): string =
   else:
     ydb_get(global, @[s])
 
-proc getnumber(global:string, args: varargs[string]): string =
+proc getnumber(global: string, args: varargs[string]): string =
   var subs:Subscripts
   for arg in args:
     if arg.startsWith("@["):
@@ -396,53 +397,62 @@ proc getnumber(global:string, args: varargs[string]): string =
       subs.add(arg)
   ydb_get(global, subs)
 
-proc getint*(global:string, args: varargs[string]): int =
+proc getint*(global: string, args: varargs[string]): int =
   parseInt(getnumber(global, args)).int
-proc getint8*(global:string, args: varargs[string]): int8 =
+proc getint8*(global: string, args: varargs[string]): int8 =
   let value = parseInt(getnumber(global, args)).int
   if value > int8.high or value < int8.low:
     raise newException(ValueError, "Not in " & $int8.low & " .. " & $int8.high)
   else:
     return value.int8
-proc getint16*(global:string, args: varargs[string]): int16 =
+proc getint16*(global: string, args: varargs[string]): int16 =
   let value = parseInt(getnumber(global, args)).int
   if value > int16.high or value < int16.low:
     raise newException(ValueError, "Not in " & $int16.low & " .. " & $int16.high)
   else:
     return value.int16
-proc getint32*(global:string, args: varargs[string]): int32 =
+proc getint32*(global: string, args: varargs[string]): int32 =
   let value = parseInt(getnumber(global, args)).int
   if value > int32.high or value < int32.low:
     raise newException(ValueError, "Not in " & $int32.low & " .. " & $int32.high)
   else:
     return value.int32
 
-proc getuint*(global:string, args: varargs[string]): uint =
+proc getuint*(global: string, args: varargs[string]): uint =
   parseUInt(getnumber(global, args)).uint
-proc getuint8*(global:string, args: varargs[string]): uint8 =
+proc getuint8*(global: string, args: varargs[string]): uint8 =
   let value = parseUInt(getnumber(global, args)).uint
   if value > uint8.high or value < 0:
     raise newException(ValueError, "Not in " & $uint8.low & " .. " & $uint8.high)
   else:
     return value.uint8
-proc getuint16*(global:string, args: varargs[string]): uint16 =
+proc getuint16*(global: string, args: varargs[string]): uint16 =
   let value = parseUInt(getnumber(global, args)).uint
   if value > uint16.high or value < 0:
     raise newException(ValueError, "Not in " & $uint16.low & " .. " & $uint16.high)
   else:
     return value.uint16
-proc getuint32*(global:string, args: varargs[string]): uint32 =
+proc getuint32*(global: string, args: varargs[string]): uint32 =
   let value = parseUInt(getnumber(global, args)).uint
   if value > uint32.high or value < 0:
     raise newException(ValueError, "Not in " & $uint32.low & " .. " & $uint32.high)
   else:
     return value.uint32
 
-proc getfloat*(global:string, args: varargs[string]): float =
+proc getfloat*(global: string, args: varargs[string]): float =
   parseFloat(getnumber(global, args)).float
-proc getfloat32*(global:string, args: varargs[string]): float32 =
+proc getfloat32*(global: string, args: varargs[string]): float32 =
   parseFloat(getnumber(global, args)).float32
 
+
+proc getbinary*(global: string, args: varargs[string]): string =
+  var subs:Subscripts
+  for arg in args:
+    if arg.startsWith("@["):
+      subs.add(stringToSeq(arg))
+    else:
+      subs.add(arg)
+  ydb_get_binary(global, subs)
 
 # -------------------
 # nextnode procs

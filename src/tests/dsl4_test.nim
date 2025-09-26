@@ -75,8 +75,29 @@ proc testzwr2str() =
   assert zwr2str(s) == repeat("\1", 520222)
   assert zwr2str(s).len == 520222
 
+proc testBinary() =
+  # create a binary string
+  var binval: string
+  for i in 0 .. 255:
+    binval.add(i.char) 
+
+  set: ^tmp("binary") = binval
+  let dbval = get: ^tmp("binary").binary
+  assert dbval == binval
+
+  # Create binary data upto 1MB
+  for i in 1 .. 4096:
+    set: ^tmp("binary", i) = repeat(binval, i)
+
+  # Read back an compare
+  for i in 1 .. 4096:
+    let dbval = get(^tmp("binary", i).binary)
+    assert dbval == repeat(binval, i)
+
+
 when isMainModule:
   suite "Locals Tests":
     test "set/get": testSetGet()
     test "str2zwr": teststr2zwr()
     test "zwr2str": testzwr2str()
+    test "binary": testBinary()

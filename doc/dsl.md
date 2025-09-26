@@ -178,7 +178,58 @@ proc update() =
         
     echo "After locks:", getLockCountFromYottaDb()
 ```
+## str2zwr
+Save binary data through YottaDB's api.
+Theoretically the maximum size of the useable data is the half of the maximum string length of 1MB.
+```nim
+  let x = str2zwr("hello\9World")
+  assert str2zwr("hello\9World") == """"hello"_$C(9)_"World""""
+```
+Use `binary` postfix as an alternative for binary data.
 
+## zwr2str
+Read back data stored in the `str2zwr` format.
+```nim
+  assert zwr2str(""""hello"_$C(9)_"World"""") == "hello\9World"
+```
+Use `binary` postfix as an alternative for binary data.
+
+# 'get' with postfix
+It is possible to enforce a type when getting data from YottaDB. By using a 'postfix' a expected type can be defined and tested.
+```nim
+let i = get: ^global(1).int16
+let f = get: ^global(4711).float32
+let u = get: ^global(815).uint8
+```
+If the value from the db is greater or smaller than the range defined through the postfix, a `ValueError` exception is raised.
+
+The following postfixes are implemented:
+- int, int8, int16, int32, int64
+- uint, uint8, uint16, uint32, uint64
+- float, float32, float64
+
+# .binary Postfix
+The `binary` postfix allows to read back binary data from the DB.
+```nim
+  var binval: string
+  for i in 0 .. 255:
+    binval.add(i.char) 
+
+  set: ^tmp(4711) = binval
+  let dbval = get: ^tmp(4711).binary
+  assert dbval == binval
+```
+
+
+# Local Variables
+All methods available for globals can also be applied for local variables.
+```nim
+set:
+  myvar(1) = 1
+  myvar("a") = "..."
+  myvar(@[id, "4711"]) = "..."
+  # and so on
+```
 # Special Variables
 Getting a value, use get:
 ```nim
