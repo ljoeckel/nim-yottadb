@@ -2,7 +2,7 @@ import libs/libydb
 import libs/ydbtypes
 import libs/ydbapi
 import libs/dsl
-import libs/bingo
+import serialization/bingo
 
 export libydb
 export ydbtypes

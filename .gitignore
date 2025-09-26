@@ -34,3 +34,4 @@ src/tests/dsl3_test
 src/3n+1/solver
 src/3n+1/runner
 src/tests/dsl4_test
+src/serialization/clientser

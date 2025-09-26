@@ -1,8 +1,6 @@
 import macros, strutils, options, tables, sets
-import ydbapi
-import ydbtypes
-
-
+import libs/ydbapi
+import libs/ydbtypes
 
 proc saveInYdb(global: string, subs: seq[string], key: string, value: string) =
   var subscpy = subs
