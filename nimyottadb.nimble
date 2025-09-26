@@ -33,4 +33,3 @@ task examples, "Compile the example apps":
   exec "nim c -r -d:release --threads:off src/examples/tx"
   exec "nim c -r -d:release --threads:on src/examples/tx_thread"
   exec "nim c -r -d:release --threads:on src/examples/ydbSet_thread"
-  exec "nim c -r -d:release --threads:on src/examples/traverse"
