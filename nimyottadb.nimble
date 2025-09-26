@@ -27,7 +27,7 @@ task test, "Run nimyottadb unittests":
 
 task examples, "Compile the example apps":
   exec "nim c -r -d:release --threads:off src/examples/benchmark"
-  exec "nim c -r -d:release --threads:off src/examples/clientser"
+  exec "nim c -r -d:release --threads:off src/serialization/clientser"
   exec "nim c -r -d:release --threads:off src/examples/hello_customer"
   exec "nim c -r -d:release --threads:off src/examples/say_hello"
   exec "nim c -r -d:release --threads:off src/examples/tx"
