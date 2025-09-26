@@ -46,7 +46,7 @@ proc solve(n: int): OrderedSet[int]  =
 proc generate(fromN: int, toN: int) =
     # Generate the sequence and save on db
     for n in fromN..toN:
-        #if n mod 100_000 == 0: echo n
+        if n mod 100_000 == 0: echo n
         if data(^solver(n)) == 1:
             inc numbers_found
         else:
@@ -58,9 +58,7 @@ proc generate(fromN: int, toN: int) =
 proc reconstruct(n: int): OrderedSet[int] =
     # Reconstruct the sequence from the db to the full sequence
     result = initOrderedSet[int]()
-    let s = get(^solver(n))
-    for element in s.split(","):
-        let n = parseInt(element)
+    for n in get(^solver(n).OrderedSet):
         if n < 0:
             result.incl(n * - 1)
             let subset = reconstruct(n * -1)

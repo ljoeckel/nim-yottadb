@@ -2,6 +2,7 @@ import macros
 import ydbapi
 import ydbtypes
 import std/strutils
+import std/sets
 
 proc stringToSeq(s: string): Subscripts =
   if s.startsWith("@["):
@@ -162,6 +163,7 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
         of "uint32": "getuint32"
         of "uint64": "getuint"
         of "binary": "getbinary"
+        of "OrderedSet": "getOrderedSet"
         else: error("Unsupported suffix: " & suffix)
 
       if transformedArgs.len == 1 and transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit, nnkFloatLit}:
@@ -453,6 +455,24 @@ proc getbinary*(global: string, args: varargs[string]): string =
     else:
       subs.add(arg)
   ydb_get_binary(global, subs)
+
+proc getOrderedSet*(global: string, args: varargs[string]): OrderedSet[int] =
+  var subs:Subscripts
+  for arg in args:
+    if arg.startsWith("@["):
+      subs.add(stringToSeq(arg))
+    else:
+      subs.add(arg)
+  let str = ydb_get(global, subs)
+
+  result = initOrderedSet[int]()
+  if str[0] == '{' and str[^1] == '}':
+    for s in split(str[1 .. ^2], ","):
+      result.incl(parseInt(strip(s)))
+  else:
+    for s in split(str, ","):
+      result.incl(parseInt(strip(s)))
+
 
 # -------------------
 # nextnode procs

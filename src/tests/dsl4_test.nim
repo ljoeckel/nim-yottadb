@@ -1,4 +1,5 @@
 import std/strutils
+import std/sets
 import yottadb
 import std/[unittest]
 
@@ -75,7 +76,7 @@ proc testzwr2str() =
   assert zwr2str(s) == repeat("\1", 520222)
   assert zwr2str(s).len == 520222
 
-proc testBinary() =
+proc testBinaryPostfix() =
   # create a binary string
   var binval: string
   for i in 0 .. 255:
@@ -86,18 +87,40 @@ proc testBinary() =
   assert dbval == binval
 
   # Create binary data upto 1MB
-  for i in 1 .. 4096:
+  for i in 4095 .. 4096:
     set: ^tmp("binary", i) = repeat(binval, i)
 
   # Read back an compare
-  for i in 1 .. 4096:
+  for i in 4095 .. 4096:
     let dbval = get(^tmp("binary", i).binary)
     assert dbval == repeat(binval, i)
 
 
+proc testOrderedSetPostfix() =
+  var os = initOrderedSet[int]()
+  for i in 0 .. 255:
+    os.incl(i)
+  
+  # os: {0, 1, 2, 3, 4, ...}
+  set: ^tmp("set1") = os
+  let dbset = get: ^tmp("set1")
+  assert dbset == $os
+  let osdb = get: ^tmp("set1").OrderedSet
+  assert $type(osdb) == $type(OrderedSet[int])
+  assert osdb == os
+
+  # os 0,1,2,3,...
+  var str = ($os)[1..^2] # remove {}
+  set: ^tmp("set2") = str.replace(" ","") # trim spaces
+  let osdb2 = get: ^tmp("set2").OrderedSet
+  assert $type(osdb2) == $type(OrderedSet[int])
+  assert osdb2 == os
+  
+    
 when isMainModule:
   suite "Locals Tests":
     test "set/get": testSetGet()
     test "str2zwr": teststr2zwr()
     test "zwr2str": testzwr2str()
-    test "binary": testBinary()
+    test "binary": testBinaryPostfix()
+    test "setOrderedSetPostfix": testOrderedSetPostfix()

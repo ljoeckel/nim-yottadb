@@ -1,4 +1,4 @@
-# DSL commands
+# DSL Statements and Expressions
 
 ## set / get
 ```nim
@@ -220,6 +220,18 @@ The `binary` postfix allows to read back binary data from the DB.
   assert dbval == binval
 ```
 
+# .OrderedSet Postfix
+Allows to read back a OrderedSet.
+When the string form '$' is saved then the saved data looks normally like `{9, 5, 1}`. The data may also be stored in the form `9,5,1` which is more efficient. The .OrderedSet postfix handles both forms.
+```nim
+  var os = toOrderedSet([9, 5, 1])
+  # os: {9, 5, 1}
+  set: ^tmp("set1") = $os
+  let osdb: OrderedSet[int] = get: ^tmp("set1").OrderedSet
+  assert osdb == os
+```
+In the momemnt, only type 'int' is implemented for this postfix.
+It's experimental and may be removed in the future.
 
 # Local Variables
 All methods available for globals can also be applied for local variables.
