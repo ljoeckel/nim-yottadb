@@ -32,7 +32,7 @@ proc myTxnMT*(tptoken: uint64; buff: ptr ydb_buffer_t; param: pointer): cint  {.
 
   try:  
     # Increment a serial number and save application data
-    let txid = ydb_increment("^CNT", @[THS], 1, tptoken)
+    let txid = ydb_increment("^CNT", @[THS, tn], 1, tptoken)
     let data = fmt"restarts:{restarted}, fib:{fib} result:{fibresult} time:{ms}, tptoken:{tptoken}"
     ydb_set(GLOBAL, @[$txid, tn], $data, tptoken)
   except:
@@ -48,7 +48,7 @@ proc worker(tn: int, iterations: int) =
       ydb_tp_mt(myTxnMT, $tn, $cnt)
     
     if rc == YDB_OK:
-      let txid = ydb_get("^CNT", @[THS]) # get last transaction id
+      let txid = ydb_get("^CNT", @[THS, $tn]) # get last transaction id for this thread
       var data = newYdbVar(GLOBAL, @[$txid, $tn])
       data[] = data.value & " overall-time:" & $ms # append overall
       echo "tn:", tn, " cnt:", cnt, " txid:", txid, " data: ", data
