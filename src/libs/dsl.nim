@@ -228,11 +228,15 @@ macro incr*(body: untyped): untyped =
     if node.kind == nnkAsgn:  # ^CNT("AUTO")=<increment>
       let lhs = node[0]
       let rhs = node[1]
-      if lhs.kind == nnkPrefix:
+      if lhs.kind == nnkPrefix:  # global var ^
         var args = transformCallNode(lhs)
         args.add newCall(ident"$", rhs)
         return newCall(ident"incrxxx", args)
-    elif node.kind == nnkPrefix:  # ^CNT("AUTO").
+      elif lhs.kind == nnkCall:  # local var
+        var args = transformCallNode(lhs)
+        args.add newCall(ident"$", rhs)
+        return newCall(ident"incrxxx", args)
+    elif node.kind in {nnkPrefix, nnkCall}:
       var args = transformCallNode(node)
       return newCall(ident"incr1xxx", args)
     else:
@@ -552,10 +556,22 @@ proc setxxx*(args: varargs[string]) =
 # incr (increment) procs
 # ----------------------
 proc incr1xxx*(args: varargs[string]): int =
-  ydb_increment(args[0], args[1..^1])
+  var subs: Subscripts
+  for arg in args[1..^1]:
+    if arg.startsWith("@["):
+      subs.add(stringToSeq(arg))
+    else:
+      subs.add(arg)
+  ydb_increment(args[0], subs)
 
 proc incrxxx*(args: varargs[string]): int =
-  ydb_increment(args[0], args[1..^2], parseInt(args[^1]))
+  var subs: Subscripts
+  for arg in args[1..^2]:
+    if arg.startsWith("@["):
+      subs.add(stringToSeq(arg))
+    else:
+      subs.add(arg)
+  ydb_increment(args[0], subs, parseInt(args[^1]))
 
 
 # -------------------

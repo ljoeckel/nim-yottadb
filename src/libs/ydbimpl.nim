@@ -290,7 +290,7 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken: 
   ## Increment a node value and return new value  
   check()
   setYdbBuffer(GLOBAL, name)
-  setYdbBuffer(INCRBUF, "")
+  setYdbBuffer(INCRBUF)
   setYdbBuffer(DATABUF, $increment)
   setIdxArr(IDXARR, keys)
 
@@ -302,6 +302,7 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken: 
   if rc < YDB_OK:
     raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
   else:
+      INCRBUF.buf_addr[INCRBUF.len_used] = '\0' # null terminate
       let buf = $INCRBUF.buf_addr
       try:
         result = parseInt(buf)

@@ -58,7 +58,7 @@ proc testSetGet() =
   assert get(gbl(id3).float) == 3.0
 
 proc teststr2zwr() =
-  let x = str2zwr("hello\9World")
+  discard str2zwr("hello\9World")
   assert str2zwr("hello\9World") == """"hello"_$C(9)_"World""""
   assert str2zwr("\0hello\9World") == """$C(0)_"hello"_$C(9)_"World""""
   assert str2zwr("\0hello\9World\0\0") == """$C(0)_"hello"_$C(9)_"World"_$C(0,0)"""
@@ -116,7 +116,55 @@ proc testOrderedSetPostfix() =
   assert $type(osdb2) == $type(OrderedSet[int])
   assert osdb2 == os
   
-    
+proc testIncrementLocalsByOne() =
+  set: 
+    CNT("1,1")=1000
+    CNT(2,2)=2000
+    let keys = @["X","Y","Z"]
+    CNT(keys)=3000
+
+  # Increment by 1
+  for i in 1..10:
+    let cnt = incr: CNT("1,1")
+    assert cnt == 1000 + i
+    assert get(CNT("1,1").int) == 1000 + i
+
+    let c = incr: CNT(2,2)
+    assert c == 2000 + i
+    assert get(CNT(2,2).int) == 2000 + i
+
+    let d = incr(CNT(keys))
+    assert d == 3000 + i
+    assert get(CNT(keys).int) == 3000 + i
+
+    assert 1 == incr(CNT(i))
+
+proc testIncrementLocalsByTen() =
+  set: 
+    CNT("1,1")=1000
+    CNT(2,2)=2000
+    let keys = @["X","Y","Z"]
+    CNT(keys)=3000
+
+  # Increment by 10
+  for i in 1..10:
+    let cnt = incr: CNT("1,1") = 10
+    assert cnt == 1000 + i*10
+    assert get(CNT("1,1").int) == 1000 + i*10
+
+    let c = incr: CNT(2,2) = 10
+    assert c == 2000 + i*10
+    assert get(CNT(2,2).int) == 2000 + i*10
+
+    let d = incr: CNT(keys) = 10
+    assert d == 3000 + i*10
+    assert get(CNT(keys).int) == 3000 + i*10
+
+    let e = incr: CNT(i) = 10
+    assert 11 == e
+
+
+
 when isMainModule:
   suite "Locals Tests":
     test "set/get": testSetGet()
@@ -124,3 +172,5 @@ when isMainModule:
     test "zwr2str": testzwr2str()
     test "binary": testBinaryPostfix()
     test "setOrderedSetPostfix": testOrderedSetPostfix()
+    test "increment locals by one": testIncrementLocalsByOne()
+    test "increment locals by ten": testIncrementLocalsByTen()

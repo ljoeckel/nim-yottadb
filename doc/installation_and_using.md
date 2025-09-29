@@ -37,6 +37,12 @@ Add to the following to .profile or .bashrc ***before*** you install tui_widget 
 export PATH=$PATH:$HOME/.nimble/bin
 ````
 
+### Install grabnim
+```bash 
+wget https://codeberg.org/janAkali/grabnim/raw/branch/master/misc/install.sh
+sh install.sh
+```
+
 For the example 'traverse' to compile the nim packet 'tui-widget' is required. To install:
 ```bash
 nimble install nimclipboard
