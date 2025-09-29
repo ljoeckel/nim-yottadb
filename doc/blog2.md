@@ -1,11 +1,22 @@
-# Nim meets YottaDB:  Exploring the "nim-yottadb" Wrapper
+# [Nim](https://nim-lang.org) meets [YottaDB](https://yottadb.com/):  Exploring the [nim-yottadb](https://github.com/ljoeckel/nim-yottadb) Wrapper
 
 If you’re a Nim developer interested in working with a powerful hierarchical NoSQL engine, or a M developer interested in working with powerful modern programming language then this is for you.
 
 I’m pleased to announce nim-yottadb, a language binding that connects Nim with the YottaDB database. This gives you direct access to global / local variables, transactions, iteration, locks, and more — all from Nim.
 
-In this post, I want to walk you through:
+The combination of Nim's modern language features with YottaDB's battle-tested database engine creates a powerful stack for building high-performance, reliable systems. This binding bridges the gap between a decades-proven database architecture and a contemporary systems programming language.
 
+## Simple example showing the clean syntax
+```nim
+set:
+  ^Users("john_doe", "profile", "name") = "John Doe"
+  ^Users("john_doe", "profile", "email") = "john@example.com"
+
+let userName = get: ^Users("john_doe", "profile", "name")
+echo "Hello, ", userName
+```
+
+In this post, I want to walk you through:
 - What YottaDB is (at a high level)
 - Why binding it to Nim is interesting
 - What features nim-yottadb currently offers
@@ -163,7 +174,7 @@ The binding exposes a basic set of database operations, roughly mapping to Yotta
 
 These correspond fairly directly to typical YottaDB / GT.M C-level APIs (or M primitives). The binding supports both single-threaded and multi-threaded modes (automatically selected when compiling with --threads). 
 
-## Extensions & syntactic sugar
+### Extensions & syntactic sugar
 
 To make working with the binding more ergonomic, nim-yottadb adds:
 
@@ -174,72 +185,58 @@ to iterate over next/previous node or subscript — you can loop over nodes inst
 A type with overloaded operators ($, []) so that a global can be referenced in a natural, array-like way
 
 ### DSL
-A DSL that offers Nim-style keywords/mnemonics for common operations
+Instead of using the simple api directly an alternative exists with a DSL (Domain Specific Language)
+The DSL offers Nim-style keywords/mnemonics for common operations. So instead of writing
+```nim
+ydb_set("^building", @["Room", "1", "size"], "22.5")
+```
+you can write
+```nim
+set: ^building("Room", 1, "Window")=22.5
+```
 
 #### set / get
 ```nim
 set:
     ^XX(1,2,3)=123
-    ^XX(1,2,3,7)=1237
-    ^XX(1,2,4)=124
-    ^XX(1,2,5,9)=1259
-    ^XX(1,6)=16
     ^XX("B",1)="AB"
-```
-#### Postfix notation
-get with type conversion (int/float/binary)
-```nim
-set: ^CUST(@["4711", "Acct123"]) = 1500.50
-var amount = get: ^CUST(subs).float
 ```
 #### Support for mixed type subscripts
 ```nim
-let id = 1
 set: ^X(id, 4711, "pi") = 3.1414
-let s = get: ^X(id, 4711, "pi").float
-assert f == 3.1414
 ```
 #### set: in a loop
 ```nim
+for id in 0..<5:
 set:
-    for id in 0..<5:
-        ^CUST(id, "Timestamp") = cpuTime()
+    ^CUST(id, "Timestamp") = cpuTime()
+    ^CUST(id, "loop") = id
 ```
-## incr
-Increment a global in the database
+#### incr ####
+Increment a global in the database by 1
 ```nim
 let nexttxid = incr: ^CNT("TXID")
 ```
-## data
+#### data
 Test if a node or tree exists and has a subtree
 ```nim
 set:
     ^X(5)="F"
     ^X(5,1)="D"
-    ^X(5,2)="E"
-  dta = data: ^X(5)
-  assert YdbData(dta) == DATA_AND_SUBTREE
-  dta = data: ^X(7)
-  assert YdbData(dta) == NO_DATA_WITH_SUBTREE
+dta = data: ^X(5)
+assert YdbData(dta) == YDB_DATA_VALUE_DESC
 ```
-
-## delnode
+#### delnode
 Delete a node. If all nodes of a global are removed, the global itself is removed.
 ```nim
-set: ^X(1)="hello"
-var rc = delnode: ^X(1) # delete node
+delnode: ^X(1) # delete node
 ```
-
-## deltree
+#### deltree
 Delete a subtree of a global. If all nodes are removed, the global itself is removed.
 ```nim
-  set: ^X(1,1)="hello"
-  set: ^X(1,2)="world"
-  let dta = data: ^X(1) # returns 10 (no data but subtree)
-  rc = deltree: ^X(1)
+deltree: ^X(1)
 ```
-
-## lock
+#### lock
 Lock upto 35 Global variables. Other processes trying to lock one of the globals will wait until the lock is released. {} Have to be used if more than one global will be locked or an empty one to release all locks.
 If lock: is called again, the previous locks are automatically released first.
 ```nim
@@ -249,97 +246,30 @@ lock:
     ^LL("HAUS", "12"),
     ^LL("HAUS", "XX"), # not yet existent, but ok
   }
-var numOfLocks = getLockCountFromYottaDb()
-assert 3 == numOfLocks
-lock: {} # release all locks
-assert 0 == getLockCountFromYottaDb()
 ```
+The template `withlock` simplifies the locking further:
+```nim
+let amount = 1500.50
+withlock(4711):
+  set:
+    ^custacct(4711, "amount") = amount
+    ^booking(4711, "txnbr") = amount
+```
+On leaving the withlock block, the lock is automatically released.
 
-## nextnode
-Traverse the global and get the next node in the collating sequence.
+#### nextnode / prevnode / nextsubscript / prevsubscript
+Traverse a global/subscript in the collating sequence.
 ```nim
 (rc, node) = nextnode: ^LL()
-@["HAUS"]
-(rc, node) = nextnode: ^LL(node)
-  @["HAUS", "ELEKTRIK"]
+(rc, node) = prevnode: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
+(rc, subs) = nextsubscript: ^LL("HAUS", "ELEKTRIK")
+(rc, subs) = prevsubscript: ^LL("HAUS", "FLAECHEN")
 ```
-
-## prevnode
-Traverse the global backward and get the previous node in the collating sequence.
-```nim
-(rc, subs) = prevnode: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
-assert subs = @["HAUS", "ELEKTRIK", "DOSEN"]
-
-(rc, subs) = prevnode: ^LL("HAUS", "ELEKTRIK")
-assert subs = @["HAUS"]
-```
-
-## nextsubscript
-Traverse on the globals on a given index level.
-```nim
-  var rc:int
-  var subs: Subscripts
-  (rc, subs) = nextsubscript: ^LL("HAUS", "ELEKTRIK")
-  assert subs == @["HAUS", "FLAECHEN"]
-  (rc, subs) = nextsubscript: ^LL("HAUS")
-  assert subs == @["LAND"]
-  (rc, subs) = nextsubscript: ^LL("")
-  assert subs == @["HAUS"]
-  (rc, subs) = nextsubscript: ^LL("ZZZZZZZ")
-  assert rc == YDB_ERR_NODEEND and subs == @[""]
-```
-
-## prevsubscript
-Traverse the globals backwards on a given index level.
-```nim
-  var rc:int
-  var subs: Subscripts
-  (rc, subs) = prevsubscript: ^LL("HAUS", "FLAECHEN")
-  assert subs == @["HAUS", "ELEKTRIK"]
-  (rc, subs) = prevsubscript: ^LL("LAND")
-  assert subs == @["HAUS"]
-  (rc, subs) = prevsubscript: ^LL("HAUS")
-  assert rc == YDB_ERR_NODEEND and subs == @[""]
-```
-
-## lockincr / lockdecr
-```nim
-template withlock(lockid: untyped, body: untyped): untyped =
-    var rc = lockincr: ^LOCKS(lockid)
-    body
-    rc = lockdecr: ^LOCKS(lockid)
-```
-Using:
-```nim
-proc update() =
-    withlock(4711):
-        echo "locks set:", getLockCountFromYottaDb()
-        # do the work here
-        
-    echo "After locks:", getLockCountFromYottaDb()
-```
-## str2zwr
-Save binary data through YottaDB's api.
-Theoretically the maximum size of the useable data is the half of the maximum string length of 1MB.
-```nim
-  let x = str2zwr("hello\9World")
-  assert str2zwr("hello\9World") == """"hello"_$C(9)_"World""""
-```
-Use `binary` postfix as an alternative for binary data.
-
-## zwr2str
-Read back data stored in the `str2zwr` format.
-```nim
-  assert zwr2str(""""hello"_$C(9)_"World"""") == "hello\9World"
-```
-Use `binary` postfix as an alternative for binary data.
-
-# 'get' with postfix
+#### 'get' with postfix
 It is possible to enforce a type when getting data from YottaDB. By using a 'postfix' a expected type can be defined and tested.
 ```nim
 let i = get: ^global(1).int16
 let f = get: ^global(4711).float32
-let u = get: ^global(815).uint8
 ```
 If the value from the db is greater or smaller than the range defined through the postfix, a `ValueError` exception is raised.
 
@@ -348,51 +278,56 @@ The following postfixes are implemented:
 - uint, uint8, uint16, uint32, uint64
 - float, float32, float64
 
-# .binary Postfix
+#### .binary Postfix
 The `binary` postfix allows to read back binary data from the DB.
 ```nim
-  var binval: string
-  for i in 0 .. 255:
-    binval.add(i.char) 
-
-  set: ^tmp(4711) = binval
   let dbval = get: ^tmp(4711).binary
-  assert dbval == binval
+```
+## Saving a Nim Object-Tree to the database
+Based on the Nim object model, it is possible to store objects, even complex ones, in the database. A global variable is created for each type, e.g., "Address," "Customer," etc. Attributes are then stored with their corresponding names.
+```nim
+type 
+  Address* = object of RootObj
+    street*: string
+    zip*: uint
+    city*: string
+    state*: string
+
+let address = Address(street: "Bachstrasse 14", zip:6033, city:"Buchs", state:"AG")
+store(@["4711"], address)
+```
+The data is stored as
+```nim
+^Address(4711,"city")="Buchs"
+^Address(4711,"state")="AG"
+^Address(4711,"street")="Bachstrasse 14"
+^Address(4711,"zip")=6033
 ```
 
-# .OrderedSet Postfix
-Allows to read back a OrderedSet.
-When the string form '$' is saved then the saved data looks normally like `{9, 5, 1}`. The data may also be stored in the form `9,5,1` which is more efficient. The .OrderedSet postfix handles both forms.
-```nim
-  var os = toOrderedSet([9, 5, 1])
-  # os: {9, 5, 1}
-  set: ^tmp("set1") = $os
-  let osdb: OrderedSet[int] = get: ^tmp("set1").OrderedSet
-  assert osdb == os
+## Performance
+In general, the Nim / YottaDB language binding has excellent performace.
+Simple tests on a MacMini M4 with a virtulized Ubuntu (2 Cores / 4GB Memory) gives the following figures where every test had 10 million different records.
 ```
-In the momemnt, only type 'int' is implemented for this postfix.
-It's experimental and may be removed in the future.
+upcount dsl    2439 ms. (Increment a Global)
+set dsl        2479 ms. (Set global value)
+nextnode dsl   1536 ms. (Iterator over all nodes)
+delnode dsl    2774 ms. (Delete all nodes)
+```
+This means writing 4.100.041 records per second and traversing the nodes with 6.510.416 nodes per second. I think impressive numbers!
 
-# Local Variables
-All methods available for globals can also be applied for local variables.
-```nim
-set:
-  myvar(1) = 1
-  myvar("a") = "..."
-  myvar(@[id, "4711"]) = "..."
-  # and so on
-```
-# Special Variables
-Getting a value, use get:
-```nim
-  let zversion = get: $ZVERSION
-  echo zversion
-```
+#### Nim vs. Rust
+Comparing the nim-yottadb implementation with the official YottaDB Rust implementation with the following code shows also that Nim performs very close to Rust with standard memory settings. 
+With some memory management configurations, Nim outperforms Rust in this scenario. The practical implications may be minimal. The difference per iteration is extremly low.
 
-To set a special variable via the DSL, use set:
-It is important to use an empty bracket ().
-```nim
-  set: $ZMAXTPTIME()="2"
-```
+## Conclusion
+The nim-yottadb binding successfully bridges two powerful technologies from different eras of computing. YottaDB brings decades of refinement in hierarchical data management and transaction processing, while Nim offers modern language features, metaprogramming capabilities, and performance characteristics that rival lower-level systems languages.
 
-## Performance Impressions3n1+ Problem
+What makes this integration particularly compelling is how Nim's DSL capabilities and clean syntax make YottaDB's hierarchical data model feel natural and expressive. The ability to write database operations that look like native Nim code, while maintaining the performance and reliability of a battle-tested database engine, represents the best of both worlds.
+
+The performance benchmarks demonstrate that this binding doesn't sacrifice speed for convenience—Nim applications can leverage YottaDB's capabilities with minimal overhead, making it suitable for the same high-performance, transaction-heavy use cases that YottaDB has traditionally served.
+
+For developers working with existing YottaDB systems, nim-yottadb provides a path to modernize tooling and develop new components without abandoning proven database infrastructure. For Nim developers, it opens access to a unique class of hierarchical database that excels in scenarios where relational databases might struggle.
+
+As the binding continues to evolve, it represents not just a technical achievement, but a practical solution for building robust, high-performance systems that need both modern development ergonomics and proven data reliability. Whether you're extending legacy M applications or building new systems from scratch, nim-yottadb offers a compelling combination of performance, reliability, and developer experience.
+
+The project is available on [github](https://github.com/ljoeckel/nim-yottadb) and welcomes contributions from both the Nim and YottaDB communities.
