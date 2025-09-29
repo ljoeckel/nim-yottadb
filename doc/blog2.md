@@ -86,7 +86,7 @@ proc greet(name: string, age: int): string =
   return "Hello, " & name & ". You are " & $age & " years old."
 
 echo greet("Alice", 30)
-````
+```
 
 #### Compiles to Efficient C, C++, and JavaScript
 Nim doesn't have a virtual machine. Instead, it compiles its source code down to another language.
@@ -200,6 +200,7 @@ set: ^building("Room", 1, "Window")=22.5
 set:
     ^XX(1,2,3)=123
     ^XX("B",1)="AB"
+let var1 = get(^XX(1,2,3))
 ```
 #### Support for mixed type subscripts
 ```nim
@@ -305,8 +306,8 @@ The data is stored as
 ```
 
 ## Performance
-In general, the Nim / YottaDB language binding has excellent performace.
-Simple tests on a MacMini M4 with a virtulized Ubuntu (2 Cores / 4GB Memory) gives the following figures where every test had 10 million different records.
+In general, the Nim / YottaDB language binding has excellent performance.
+Simple tests on a MacMini M4 with a virtualized Ubuntu (2 Cores / 4GB Memory) gives the following figures where every test had 10 million different records.
 ```
 upcount dsl    2439 ms. (Increment a Global)
 set dsl        2479 ms. (Set global value)
