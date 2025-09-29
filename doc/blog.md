@@ -34,9 +34,12 @@ Here are some of the highlights:
      set: ^Customer(4711,"Name") = "John Doe"
      let name = get: ^Customer(4711,"Name")
      ```
-
+   Postfix extensions
+   .int/float, binary, OrderedSet
+   
 6. **Nim Oject Serializer**  
    - Save and restore Nim complex objects to YottaDB (see example 'clientser')
+
 
 7. **Thread Awareness**  
    - The wrapper chooses the correct underlying YottaDB APIs based on whether Nim was compiled with thread support.

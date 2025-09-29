@@ -279,15 +279,15 @@ proc dataTest() =
 proc testDelnode() =
   # DELNODE
   if data(^hello(1, "a")) > 0: delnode ^hello(1, "a")
-  assert data(^hello(1, "a")) == ord(NO_DATA_NO_SUBTREE)
+  assert data(^hello(1, "a")) == ord(YDB_DATA_UNDEF)
   delnode ^hello("2")
-  assert data(^hello("2")) == ord(NO_DATA_NO_SUBTREE)
+  assert data(^hello("2")) == ord(YDB_DATA_UNDEF)
   let idStr = "A"
   delnode(^hello(idStr))
-  assert data(^hello(idStr)) == ord(NO_DATA_WITH_SUBTREE)
+  assert data(^hello(idStr)) == ord(YDB_DATA_NOVALUE_DESC)
   let idSub:Subscripts = @["a", "1"]
   delnode ^hello(idSub)
-  assert data(^hello(idSub)) == ord(NO_DATA_WITH_SUBTREE)
+  assert data(^hello(idSub)) == ord(YDB_DATA_NOVALUE_DESC)
 
   delnode:
     ^hello(6)

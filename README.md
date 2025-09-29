@@ -21,6 +21,7 @@ The nim-yottadb implementation delievers the following features:
 - ydb_subscript_previous (Like ydb_subscript_next, but other direction)
 - ydb_tp (Start a transaction)
 - ydb_ci (Call a M-Routine via Call-In Interface)
+- ydb_zwr2str / ydb_zwr2str Convert bindary data and convert back
 
 ### Extensions to the Simple-API
 - Iterator for next/previous node

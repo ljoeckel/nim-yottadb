@@ -8,9 +8,6 @@ const
 
     YDB_ERR_NODEEND* = -151027922
 
-
-
-
 type
   # Helper type for Multi-Threaded transaction processing
   YDB_tp2fnptr_t* = proc (tptoken: uint64, buff: ptr struct_ydb_buffer_t, param: pointer): cint {.cdecl, gcsafe.}
@@ -20,8 +17,8 @@ type
     Previous
 
   YdbData* = enum 
-    NO_DATA_NO_SUBTREE = 0,
-    DATA_NO_SUBTREE = 1,
+    YDB_DATA_UNDEF = 0, # Node is undefined
+    YDB_DATA_VALUE_NODESC = 1, # Node has a value but no descendants
     x2 = 2,
     x3 = 3,
     x4 = 4,
@@ -30,8 +27,8 @@ type
     x7 = 7,
     x8 = 8,
     x9 = 9,
-    NO_DATA_WITH_SUBTREE = 10,
-    DATA_AND_SUBTREE = 11
+    YDB_DATA_NOVALUE_DESC = 10, # Node has no value but has descendants
+    YDB_DATA_VALUE_DESC = 11 # Node has both value and descendants
 
   YdbError* = object of CatchableError
 
