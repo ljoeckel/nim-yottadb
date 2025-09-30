@@ -34,3 +34,5 @@ src/3n+1/solver
 src/3n+1/runner
 src/tests/dsl4_test
 src/serialization/clientser
+src/serialization/binser_test
+src/tests/serialization_test

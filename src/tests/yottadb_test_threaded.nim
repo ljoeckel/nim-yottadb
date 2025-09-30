@@ -36,8 +36,7 @@ proc testIncrement(tn: int) =
   for i in 0..<MAX:
     # Increment shared counter
     withlock(0):
-      let val = get(COUNTER(0).int) + 1
-      set: COUNTER(0) = val
+      discard incr: COUNTER(0)
 
     let result = ydb_increment(GLOBAL, key)
     let sum = calcFibonacciSum()
@@ -60,14 +59,14 @@ proc validateCounters() =
     let value = parseInt(ydb_get(GLOBAL, key))
     assert value == fibo
 
-  # check the number of results in the db
   assert cntidx == MAX * NUM_OF_THREADS
+  # check the number of results in the db
+  assert get(COUNTER(0).int) == cntidx
 
   # Test if each number is found in the set
   for i in 1..MAX*NUM_OF_THREADS:
     assert results.contains(i)
 
-  assert get(COUNTER(0).int) == cntidx
 # -------------------------------------------------------------------
 
 proc fibonacciTest() =

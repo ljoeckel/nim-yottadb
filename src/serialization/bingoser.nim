@@ -10,11 +10,7 @@ proc saveInYdb(global: string, subs: seq[string], key: string, value: string) =
 proc loadFromYdb(global: string, subs: seq[string], key: string): string =
   var subscpy = subs
   subscpy.add(key)
-  try:
-    result = ydb_get(global, subscpy)
-  except:
-    echo "ERROR: " & getCurrentExceptionMsg()
-
+  result = ydb_get(global, subscpy)
 
 # serialization
 proc store(global: string, subs: seq[string], k: string; x: bool) =
@@ -107,14 +103,11 @@ proc load(global: string, subs: seq[string], k: string; x: var string) =
 
 # SOME NUMBER
 proc load[T: var SomeNumber](global: string, subs: seq[string], k: string; x: var T) =
-  try:
-    let s = loadFromYdb(global, subs, k)
-    when T is SomeInteger:
-      x = parseInt(s).T
-    else:
-      x = parseFloat(s).T
-  except:
-    echo "ERROR: " & getCurrentExceptionMsg()
+  let s = loadFromYdb(global, subs, k)
+  when T is SomeInteger:
+    x = parseInt(s).T
+  else:
+    x = parseFloat(s).T
 
 # ENUM
 proc load[T: enum](global: string, subs: seq[string], k: string; x: var T) =

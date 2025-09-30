@@ -9,6 +9,7 @@ requires "nim >= 2.2.4"
 
 # Dependencies
 requires "malebolgia"
+requires "bingo"
 
 task test, "Run nimyottadb unittests":
   exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/yottadb_test.nim"
@@ -16,6 +17,7 @@ task test, "Run nimyottadb unittests":
   exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/dsl2_test.nim"
   exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/dsl3_test.nim"
   exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/dsl4_test.nim"
+  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/serialization_test.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test_threaded.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/dsl_test.nim"
@@ -23,6 +25,7 @@ task test, "Run nimyottadb unittests":
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/dsl3_test.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/dsl4_test.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/dsl_lock_test.nim"
+  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/serialization_test.nim"
 
 task examples, "Compile the example apps":
   exec "nim c -r -d:release --threads:off src/examples/benchmark"

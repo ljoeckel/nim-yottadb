@@ -2,6 +2,7 @@ import std/[strutils, os, osproc, streams]
 import ydbtypes
 import ydbimpl
 import libydb
+import bingo
 
 proc ydbMessage*(status: cint): string =
   ydbMessage_db(status)
@@ -141,6 +142,50 @@ proc `[]=`*(v: var YdbVar; val: string) =
 # Call-In Interface
 proc ydb_ci*(name: string, tptoken: uint64 = 0) =
   ydb_ci_db(name, tptoken)
+
+
+# ------- Binary Object Stream ----------------
+
+proc serialize[T](obj: T): string =
+  let fs = newStringStream()
+  defer:
+      fs.close()
+  storeBin(fs, obj)
+  fs.setPosition(0)
+  return fs.readAll()
+
+
+proc serializeToDb*[T](obj: T, idargs: varargs[string]) =
+  # Serialize a Object to the Database in binary form
+  # let data = Responder(id: 4711, name: "John Smith", gender: male, occupation: "student", age: 18,
+  #           siblings: @[Sibling(sex: female, birthYear: 1991, relation: biological, alive: true),
+  #           Sibling(sex: male, birthYear: 1989, relation: step, alive: true)])
+  # serializeToDb(data, $id)
+
+  let dta = serialize(obj)
+
+  let global = "^" & $typeof(obj)
+  var subs: Subscripts
+  for arg in idargs:
+    subs.add(arg)
+  ydb_set(global, subs, dta)
+
+
+proc deserializeFromDb*[T](idargs: varargs[string]): T =
+  # Deserialize a object T from the database
+  # let responder = deserializeFromDb[Responder]($id)
+
+  let global = "^" & $typeof(T)
+  var subs: Subscripts
+  for arg in idargs:
+    subs.add(arg)
+
+  let bindata = ydb_get_binary(global, subs)
+  let fs = newStringStream(bindata)
+  defer:
+      fs.close()
+  loadBin(fs, result)
+
 
 
 # ------- Helpers --------
