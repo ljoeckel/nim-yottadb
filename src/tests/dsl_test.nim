@@ -353,9 +353,16 @@ proc testSpecialVars() =
   assert zmaxtptime == "2"
 
 proc testDeleteExcl() =
-  # Global's are not allowed
-  #doAssertRaises(YdbError): delexcl { ^SOMEGLOBAL } #TODO: ^ not raised
-
+  # Global's / Special / Invalid names are not allowed
+  doAssertRaises(YdbError): delexcl { ^SOMEGLOBAL }
+  doAssertRaises(YdbError): delexcl { $SOMEGLOBAL }
+  doAssertRaises(YdbError): delexcl { !SOMEGLOBAL }
+  doAssertRaises(YdbError): delexcl {
+     ^SOMEGLOBAL,
+     $SOMEGLOBAL,
+     !SOMEGLOBAL
+  }
+  
   # Set local variables
   set:
     DELTEST0("deltest")="deltest"

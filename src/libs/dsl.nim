@@ -25,7 +25,6 @@ type
     tkNext,       # Next node transformation 
     tkGet,        # Get transformation
     tkData,
-    tkDelExcl    # del exclude
 
 template transformBodyStmt(body: untyped): untyped =
   ## For macros that transform *statements*
@@ -84,12 +83,6 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
         result.add arg
 
   case kind
-  of tkDelExcl:
-    # Handle transformation for delexcl:
-    if rhs.kind == nnkCall:
-      var args = makeBaseArgs(rhs)
-      return newStmtList(args)
-
   of tkDefault:
     # Handle basic transformation
     if rhs.kind == nnkCall:
@@ -263,16 +256,24 @@ macro deltree*(body: untyped): untyped =
       return node
   transformBodyStmt body
 
+
 macro delexcl*(body: untyped): untyped =
   var args: seq[NimNode] = @[]
   proc transform(node: NimNode): NimNode =
-    if node.kind == nnkCurly:
-      for n in 0..<node.len:
-        args.add(transformCallNode(node[n]))
+    if node.kind == nnkCurly or node.kind == nnkPrefix:
+      for i in 0..<node.len:
+        let n = node[i]
+        if n.kind == nnkIdent:
+          args.add(transformCallNode(n))
+        elif n.kind == nnkPrefix:
+          let prefix = n[0]
+          let ident = n[1]
+          args.add(newLit(prefix.strVal & ident.strVal))
       return newCall(ident"delexclxxx", args)
     else:
       return node
   transformBodyStmt body
+
 
 macro lock*(body: untyped): untyped =
   var args: seq[NimNode] = @[]
