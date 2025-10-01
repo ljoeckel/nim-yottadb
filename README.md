@@ -142,7 +142,7 @@ The processing of strings and binary data is also automatic.
 ### Sample to load / restore images into YottaDb
 ```nim
 import os
-import std/[streams, times, strutils]
+import std/[times, strutils]
 import yottadb
 
 proc walk(path: string): seq[string] =
@@ -154,17 +154,11 @@ proc walk(path: string): seq[string] =
             result.add(walk(path))
 
 proc loadImagesToDb(basedir: string) =
-    let images = walk(basedir)
-    for image in images:
-        var strm = newFileStream(image, fmRead)
-        let image_data = strm.readAll()
-        strm.close()
-
+    for image in walk(basedir):
         let image_number = incr(^CNT("image_number"))
         set:
-            ^images($image_number) = image_data
+            ^images($image_number) = readFile(image)
             ^images($image_number, "path") = image
-            ^images($image_number, "size") = image_data.len
             ^images($image_number, "created") = now()
 
 proc saveImage(target: string, path: string, img: string) =
@@ -176,11 +170,10 @@ proc saveImage(target: string, path: string, img: string) =
     writeFile(fullpath, img)
 
 proc readImagesFromDb(target: string) =
-    var (rc, subs) = nextsubscript: ^images(@[""]) # -> @["223"], @["224"], ...
+    var (rc, subs) = nextsubscript: ^images(@[""]) # -> @["223"], ..
     while rc == YDB_OK:
         let img     = get(^images(subs))
         let path    = get(^images(subs, "path"))
-        let size    = get(^images(subs, "size"))
         saveImage(target, path, img)
         (rc, subs) = nextsubscript: ^images(subs)
 
