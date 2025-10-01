@@ -3,6 +3,8 @@
 nimcache/
 nimblecache/
 htmldocs/
+images/
+src/examples/local_images/
 nimble.develop
 nimble.paths
 client
@@ -36,3 +38,4 @@ src/tests/dsl4_test
 src/serialization/clientser
 src/serialization/binser_test
 src/tests/serialization_test
+src/examples/image_loader
