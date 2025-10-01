@@ -16,6 +16,14 @@ proc stringToSeq(s: string): Subscripts =
   else:
       result.add(s)
 
+proc argsToSeq(args: varargs[string]): seq[string] =
+  for arg in args:
+    if arg.startsWith("@["):
+      result.add(stringToSeq(arg))
+    else:
+      result.add(arg)
+
+
 
 # TODO: Consolidate and refactor transformation logic for DSL macros
 
@@ -376,19 +384,13 @@ macro data*(body: untyped): untyped =
     result = transform(body)
 
 
-
 # Proc^s that implement the ydb call's
 
 # -------------------
 # get* procs
 # -------------------
 proc getstring*(args: varargs[string]): string =
-  var subs: Subscripts
-  for arg in args[1..^1]:
-    if arg.startsWith("@["):
-      subs.add(stringToSeq(arg))
-    else:
-      subs.add(arg)
+  var subs = argsToSeq(args[1..^1])
   ydb_get(args[0], subs)
 
 proc getstring1*(global: string, args: seq[string]): string =
@@ -401,12 +403,7 @@ proc getstring1*(global: string, s: string): string =
     ydb_get(global, @[s])
 
 proc getnumber(global: string, args: varargs[string]): string =
-  var subs:Subscripts
-  for arg in args:
-    if arg.startsWith("@["):
-      subs.add(stringToSeq(arg))
-    else:
-      subs.add(arg)
+  var subs = argsToSeq(args)
   ydb_get(global, subs)
 
 proc getint*(global: string, args: varargs[string]): int =
@@ -458,12 +455,7 @@ proc getfloat32*(global: string, args: varargs[string]): float32 =
 
 
 proc getOrderedSet*(global: string, args: varargs[string]): OrderedSet[int] =
-  var subs:Subscripts
-  for arg in args:
-    if arg.startsWith("@["):
-      subs.add(stringToSeq(arg))
-    else:
-      subs.add(arg)
+  var subs = argsToSeq(args)
   let str = ydb_get(global, subs)
 
   result = initOrderedSet[int]()
@@ -553,21 +545,11 @@ proc setxxx*(args: varargs[string]) =
 # incr (increment) procs
 # ----------------------
 proc incr1xxx*(args: varargs[string]): int =
-  var subs: Subscripts
-  for arg in args[1..^1]:
-    if arg.startsWith("@["):
-      subs.add(stringToSeq(arg))
-    else:
-      subs.add(arg)
+  var subs = argsToSeq(args[1..^1])
   ydb_increment(args[0], subs)
 
 proc incrxxx*(args: varargs[string]): int =
-  var subs: Subscripts
-  for arg in args[1..^2]:
-    if arg.startsWith("@["):
-      subs.add(stringToSeq(arg))
-    else:
-      subs.add(arg)
+  var subs = argsToSeq(args[1..^2])
   ydb_increment(args[0], subs, parseInt(args[^1]))
 
 
@@ -592,12 +574,7 @@ proc dataxxx1*(global: string, s: string): int =
 # del Node/Tree procs
 # -------------------
 proc delnodexxx*(args: varargs[string]) =
-  var subs: Subscripts
-  for arg in args[1..^1]:
-    if arg.startsWith("@["):
-      subs.add(stringToSeq(arg))
-    else:
-      subs.add(arg)
+  var subs = argsToSeq(args[1..^1])
   ydb_delete_node(args[0], subs)
 
 
