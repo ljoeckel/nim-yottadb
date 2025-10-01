@@ -77,6 +77,10 @@ proc check() =
 proc cleanDb() =
     if not deleteGlobal("^solver"):
         raise newException(YdbError, "Could not delete global ^solver")
+    set:
+        ^solver(1)=1
+        ^solver(2)="2,-1"
+        ^solver(4)="4,-2"
 
 proc statistics(fromN: int, toN: int) =
     echo "solver from: ", fromN, " to: ", toN

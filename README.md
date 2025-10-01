@@ -127,7 +127,19 @@ lockdecr: ^House("FLOOR", 11)
 
 All API-Calls are available in a single- or multi-threaded version and ara automatically selected via the **when compileOption("threads")**
 
+### No Maximum Record size
+The YottaDB limit of 1MB for record size is no longer in effect. nim-yottadb handles larger record sizes up to 99_999_999 MB. The size is only limited due to memory constraints.
+In the future there will be a `stream-interface`to handle virtual unlimited record sizes.
 
+Records larger than 1 MB are split into subrecords. To do this, an additional key index is appended to the keys, incrementing from 0 to a maximum of 99999999, with each record containing 1 MB of data.
+
+```nim
+"___$00000000$___"
+```
+When reading back, nim-yottadb automatically checks whether such index keys exist and loads the data accordingly.
+The processing of strings and binary data is also automatic.
+
+### More Info
 For the project's architecture details look at https://deepwiki.com/ljoeckel/nim-yottadb/1-overview
 
 - [Blog](doc/blog.md) gives some general information about the project

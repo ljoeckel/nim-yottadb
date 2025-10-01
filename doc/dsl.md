@@ -192,7 +192,8 @@ Read back data stored in the `str2zwr` format.
 ```nim
   assert zwr2str(""""hello"_$C(9)_"World"""") == "hello\9World"
 ```
-Use `binary` postfix as an alternative for binary data.
+The `str2zwr`and `zwr2str` methods are available for compatibility reasons only. For new applications there is no need. The database limit of 1MB for record size is no longer in effect. nim-yottadb handles larger record sizes up to 99_999_999 MB. The size is only limited due to memory constraints.
+In the future there will be a `stream-interface`to handle virtual unlimited record sizes.
 
 # 'get' with postfix
 It is possible to enforce a type when getting data from YottaDB. By using a 'postfix' a expected type can be defined and tested.

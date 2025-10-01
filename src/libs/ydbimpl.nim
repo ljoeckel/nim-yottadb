@@ -1,4 +1,4 @@
-import std/[strutils, strformat]
+import std/[strutils, strformat, streams]
 import ydbtypes
 import libydb
 
@@ -24,7 +24,7 @@ var
   GLOBAL {.threadvar.}: ydb_buffer_t
   IDXARR {.threadvar.}: array[0..YDB_MAX_SUBS, ydb_buffer_t]
   NAMES {.threadvar.}: array[0..YDB_MAX_NAMES-1, ydb_buffer_t] # for delete_excl
-  rc {.threadvar.}: cint
+  rc {.threadvar.}: int
 
 # Register buffer cleanup at process exit (atexit hook).
 # Ensures allocated memory is released properly.
@@ -156,7 +156,7 @@ proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:string, transid:string): int =
   result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
 
 
-proc ydbMessage_db*(status: cint, tptoken: uint64 = 0): string =
+proc ydbMessage_db*(status: int, tptoken: uint64 = 0): string =
   ## Return error message text for given status code
   if status == YDB_OK: return
   
@@ -164,69 +164,44 @@ proc ydbMessage_db*(status: cint, tptoken: uint64 = 0): string =
   setYdbBuffer(ERRMSG)
 
   when compileOption("threads"):
-    rc = ydb_message_t(tptoken, ERRMSG.addr, status, ERRMSG.addr)
+    rc = ydb_message_t(tptoken, ERRMSG.addr, status.cint, ERRMSG.addr)
   else:
-    rc = ydb_message(status, ERRMSG.addr)
+    rc = ydb_message(status.cint, ERRMSG.addr)
   if rc == YDB_OK:
     return fmt"{status}, " & strip($ERRMSG.buf_addr)
   else:
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
 
 
-proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken: uint64) =
+proc ydb_set_small(name: string, keys: Subscripts, value: string, tptoken: uint64) =
   ## Store a value into a local or global node
   check()
+  setIdxArr(IDXARR, keys)
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF, value)
-  setIdxArr(IDXARR, keys)
-
   when compileOption("threads"):
     rc = ydb_set_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
   else:
     rc = ydb_set_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
   if rc < YDB_OK:
-    raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys & " value:" & $value)
+    raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys & " value.len:" & $value.len)
 
 
-proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
-  ## Retrieve a value from a local or global node
-  check()
-  setYdbBuffer(GLOBAL, name)
-  setIdxArr(IDXARR, keys)
-
-  when compileOption("threads"):
-    setYdbBuffer(ERRMSG)
-    setYdbBuffer(DATABUF)
-    rc = ydb_get_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
+proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken: uint64) =
+  if value.len <= BUFFER_DATABUF_SIZE:
+    ydb_set_small(name, keys, value, tptoken)
   else:
-    rc = ydb_get_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
-
-  if rc == YDB_OK:
-    DATABUF.buf_addr[DATABUF.len_used] = '\0'
-    result = $DATABUF.buf_addr
-  else:
-    raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys)
-
-
-proc ydb_get_binary_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
-  ## Retrieve a value from a local or global node
-  check()
-  setYdbBuffer(GLOBAL, name)
-  setIdxArr(IDXARR, keys)
-
-  when compileOption("threads"):
-    setYdbBuffer(ERRMSG)
-    setYdbBuffer(DATABUF)
-    rc = ydb_get_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
-  else:
-    rc = ydb_get_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
-
-  if rc == YDB_OK:
-    result = newString(DATABUF.len_used)
-    for idx in 0..<DATABUF.len_used:
-      result[idx] = DATABUF.buf_addr[idx].char
-  else:
-    raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys)
+    var idx = 0
+    var endpos = 0
+    for i in 0 .. value.len div BUFFER_DATABUF_SIZE:
+      endpos += BUFFER_DATABUF_SIZE - (if i == 0: 1 else: 0)
+      if endpos >= value.len: 
+        endpos = value.len-1
+      if idx >= endpos: break
+      var subs:Subscripts = keys
+      subs.add("___$" & fmt"{i:08}" & "$___")
+      ydb_set_small(name, subs, value[idx .. endpos], tptoken)
+      idx = endpos + 1
 
 
 proc ydb_data_db*(name: string, keys: Subscripts, tptoken: uint64): int =
@@ -403,6 +378,47 @@ proc ydb_subscript_previous_db*(name: string, keys: Subscripts, tptoken: uint64)
   subscript_traverse(Direction.Previous, name, keys, tptoken)
 
 
+proc ydb_get_binary_small(name: string, keys: Subscripts = @[], tptoken: uint64): string =
+  ## Retrieve a value from a local or global node
+  check()
+  setYdbBuffer(GLOBAL, name)
+  setIdxArr(IDXARR, keys)
+
+  when compileOption("threads"):
+    setYdbBuffer(ERRMSG)
+    setYdbBuffer(DATABUF)
+    rc = ydb_get_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
+  else:
+    rc = ydb_get_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
+
+  if rc == YDB_OK:
+    result = newString(DATABUF.len_used)
+    for idx in 0..<DATABUF.len_used:
+      result[idx] = DATABUF.buf_addr[idx].char
+  else:
+    raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys)
+
+
+proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
+  var subs = keys
+  if keys.len > 0 and keys.len < 25: # willkürlich festgelegt TODO: Need length calculation of subs
+    subs.add("___$00000000$___") # marker for first huge block
+    if ydb_data_db(name, subs, tptoken) >= 1:
+      var sb = newStringStream()
+      #(rc, subs) = ydb_node_next_db(name, subs, tptoken)
+      rc = YDB_OK
+      while rc == YDB_OK:
+        let val = ydb_get_binary_small(name, subs, tptoken)
+        sb.write(val)
+        (rc, subs) = ydb_subscript_next_db(name, subs, tptoken)
+      sb.setPosition(0)
+      return sb.readAll()
+    else:
+      return ydb_get_binary_small(name, keys, tptoken)  
+  else:
+    return ydb_get_binary_small(name, keys, tptoken)
+
+
 # --- Locks ---
 proc ydb_lock_incr_db*(timeout_nsec: culonglong, name: string, keys: Subscripts, tptoken: uint64) =
   ## Increment lock for variable
@@ -519,7 +535,7 @@ proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_b
         addr names[33], subs[33].len.cint, addr subs[33][0],
         addr names[34], subs[34].len.cint, addr subs[34][0]
         )
-  return rc
+  return rc.cint
 
 
 proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken: uint64) =
@@ -611,5 +627,3 @@ proc ydb_zwr2str_db*(name: string, tptoken: uint64): string =
       result[idx] = DATABUF.buf_addr[idx].char
   else:
     raise newException(YdbError, ydbMessage_db(rc, tptoken))
-
-

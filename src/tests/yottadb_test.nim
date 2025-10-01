@@ -82,23 +82,6 @@ proc testYdbVar() =
     var v = newYdbVar("^LJ", @["LAND", "ORT", $i])
     assert v.value == "New " & $i
 
-# Test the maximum record length of 1MB
-proc testMaxValueSize() =
-  for i in 1..1024:
-    let value = "0".repeat(i*1024)
-    ydb_set("^VARSIZE", @[$i], value)
-    assert value == ydb_get("^VARSIZE", @[$i])
-
-  # Illegal size > 1MB
-  let i = 1024
-  let value = "0".repeat(i*1024+1)
-  doAssertRaises(YdbError): ydb_set("^VARSIZE", @[$i], value)
-
-  var subs: Subscripts
-  for subs in ydb_node_next_iter("^VARSIZE", subs):
-    ydb_delete_node("^VARSIZE", subs)
-
-
 proc testYdbSetGet() =
   for i in 0..MAX:
     let value = fmt"Hello Lothar Jöckel {i} aus der Schweiz"
@@ -401,7 +384,6 @@ proc test() =
       test "testWithError": setWithError()
     test "Write and Read Data":
       test "testYdbSetGet": testYdbSetGet()
-      test "testMaxValueSize": testMaxValueSize()
     test "Check Data Structure":
       test "testData": testData()
     test "next/previous Node":

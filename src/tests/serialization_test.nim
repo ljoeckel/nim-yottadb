@@ -1,5 +1,5 @@
 import std/unittest
-import std/sets
+import std/strutils
 import yottadb
 
 type
@@ -9,33 +9,14 @@ type
     city*: string
     state*: string
 
-  CustomerSets = object of RootObj 
-    setI: set[int8] # int8, int16
-    setU: set[byte] # uint8, byte, uint16
-    setC: set[char]
-    setE: set[CustomerType]
-
-  CustomerType = enum
-    Good, Bad, Uggly, Stammkunde, Laufkundschaft, Firma, Sonstiges
-
   Customer* = object of RootObj
     id: int
-    address: Address
-    isGoodCustomer: bool
-    charX: char = 'X'
     name: string
     first_name: string
     dob: int
-    ct: CustomerType
+    addresses: seq[Address]
     keywords: seq[string]
-    int32F: int32
-    float32F: float32
-    setI: set[int8]
-    setU: set[uint8]
-    setRange: set[10.uint8..99.uint8]
-    setEnum: set[CustomerType]
-    hset: HashSet[string]
-    custsets: CustomerSets
+
 
   Gender = enum
     male, female
@@ -54,17 +35,22 @@ type
     relation: Relation
     alive: bool
 
+
+proc createData(kb: int): string =
+  # create a binary string
+  var binval: string
+  for i in 0 .. 255:
+    binval.add(i.char)
+  repeat(binval, kb*4)
+
+
 proc newCustomer(id: int): Customer =
   result =
-    Customer(id: id, int32F:456, float32F:3.456, isGoodCustomer: true, charX:'Y', 
-    name:"Jöckel", first_name:"Lothar", dob:211258, ct:Uggly, keywords: @["Besteller", "Versender"],
-    address: Address(street: "Bachstrasse 14", zip:6033, city:"Buchs", state:"AG"),
-    setI:{1,9,4,127},
-    setU:{11,99,245},
-    setRange:{11, 99, 45},
-    setEnum:{Laufkundschaft, Stammkunde},
-    hset: toHashSet(["abc","xyz","asdf"]),
-    custsets:CustomerSets(setI:{1,9,4,127}, setU:{11,99,245}, setC:{'z','t','e'}, setE:{Laufkundschaft, Stammkunde}),
+    Customer(id: id, name:"Jöckel", first_name:"Lothar", dob:211299, keywords: @["Besteller", "Versender"],
+      addresses: @[
+        Address(street: "Bachstrasse 14", zip:6033, city:"Buchs", state:"AG"),
+        Address(street: "Gartenweg 5", zip:6233, city:"Büron", state:"LU")
+      ],
     )
 
 
@@ -89,10 +75,15 @@ proc testCompositionSerialization() =
 
 
 proc testBinarySerialization() =
+  discard deleteGlobal("^Customer")
+
   for i in 0..10:
     let data = Responder(id: i, name: "John Smith", gender: male, occupation: "student", age: 18,
-             siblings: @[Sibling(sex: female, birthYear: 1991, relation: biological, alive: true),
-             Sibling(sex: male, birthYear: 1989, relation: step, alive: true)])
+             siblings: @[
+              Sibling(sex: female, birthYear: 1991, relation: biological, alive: true),
+              Sibling(sex: male, birthYear: 1989, relation: step, alive: true)
+              ]
+            )
     
     serializeToDb(data, $i)
     let responder = deserializeFromDb[Responder]($i)
@@ -103,18 +94,8 @@ proc testBinarySerialization() =
     let responder2 = deserializeFromDb[Responder](subs)
     assert responder2 == data
 
+
 when isMainModule:
   suite "Object Serialization Tests":
     test "composition serialization": testCompositionSerialization()
     test "binary serialization": testBinarySerialization()
-
-
-# id: 4711,
-#  address: (street: "Bachstrasse 14", zip: 6033, city: "Buchs", state: "AG"),
-#   isGoodCustomer: true, charX: 'Y', name: "Jöckel", first_name: "Lothar", dob: 211258, ct: Uggly, keywords: @["Besteller", "Versender"],
-#   int32F: 456, float32F: 3.456, setI: {1, 4, 9, 127}, setU: {11, 99, 245}, setRange: {11, 45, 99}, setEnum: {Stammkunde, Laufkundschaft}, hset: {"abc", "xyz", "asdf"}, custsets: (setI: {1, 4, 9, 127}, setU: {11, 99, 245}, setC: {'e', 't', 'z'}, setE: {Stammkunde, Laufkundschaft}))
-# id: 4711,
-#  address: (street: "Bachstrasse 14", zip: 6033, city: "Buchs", state: "AG"),
-#   isGoodCustomer: true, charX: 'Y', name: "Jöckel", first_name: "Lothar", dob: 211258, ct: Uggly, keywords: @["Besteller", "Versender", "Besteller", "Versender"],
-#   int32F: 456, float32F: 3.456, setI: {1, 4, 9, 127}, setU: {11, 99, 245}, setRange: {11, 45, 99}, setEnum: {Stammkunde, Laufkundschaft}, hset: {"asdf", "xyz", "abc"}, custsets: (setI: {1, 4, 9, 127}, setU: {11, 99, 245}, setC: {'e', 't', 'z'}, setE: {Stammkunde, Laufkundschaft}))
-# /

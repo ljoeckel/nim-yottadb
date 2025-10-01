@@ -155,7 +155,6 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
         of "uint16": "getuint16"
         of "uint32": "getuint32"
         of "uint64": "getuint"
-        of "binary": "getbinary"
         of "OrderedSet": "getOrderedSet"
         else: error("Unsupported suffix: " & suffix)
 
@@ -451,15 +450,6 @@ proc getfloat*(global: string, args: varargs[string]): float =
 proc getfloat32*(global: string, args: varargs[string]): float32 =
   parseFloat(getnumber(global, args)).float32
 
-
-proc getbinary*(global: string, args: varargs[string]): string =
-  var subs:Subscripts
-  for arg in args:
-    if arg.startsWith("@["):
-      subs.add(stringToSeq(arg))
-    else:
-      subs.add(arg)
-  ydb_get_binary(global, subs)
 
 proc getOrderedSet*(global: string, args: varargs[string]): OrderedSet[int] =
   var subs:Subscripts

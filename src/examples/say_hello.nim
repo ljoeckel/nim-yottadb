@@ -13,6 +13,10 @@ proc count() =
         (rc, subs) = nextnode: ^hello(subs)
     echo "Have ", cnt, " entries"
 
+proc getdata() =
+    for id in 0..<10000000:
+        discard get: ^hello(id)
+
 proc delete() =
     for id in 0..<10000000:
         delnode: ^hello(id)
@@ -21,4 +25,5 @@ proc delete() =
 when isMainModule:
     timed("sayHello"): create()
     timed("sayHelloCount"): count()
+    timed("sayHelloGet"): getdata()
     timed("sayHelloDelete"): delete()

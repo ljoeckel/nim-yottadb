@@ -15,8 +15,6 @@ proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "", tptoken:
 proc ydb_get*(name: string, keys: Subscripts = @[], tptoken: uint64 = 0): string =
   ydb_get_db(name, keys, tptoken)
 
-proc ydb_get_binary*(name: string, keys: Subscripts = @[], tptoken: uint64 = 0): string =
-  ydb_get_binary_db(name, keys, tptoken)
 
 proc ydb_data*(name: string, keys: Subscripts, tptoken: uint64 = 0): int =
   ydb_data_db(name, keys, tptoken)
@@ -155,7 +153,7 @@ proc serialize[T](obj: T): string =
   return fs.readAll()
 
 
-proc serializeToDb*[T](obj: T, idargs: varargs[string]) =
+proc serializeToDb*[T](obj: T, idargs: varargs[string], tptoken: uint64 = 0) =
   # Serialize a Object to the Database in binary form
   # let data = Responder(id: 4711, name: "John Smith", gender: male, occupation: "student", age: 18,
   #           siblings: @[Sibling(sex: female, birthYear: 1991, relation: biological, alive: true),
@@ -168,10 +166,10 @@ proc serializeToDb*[T](obj: T, idargs: varargs[string]) =
   var subs: Subscripts
   for arg in idargs:
     subs.add(arg)
-  ydb_set(global, subs, dta)
+  ydb_set(global, subs, dta, tptoken)
 
 
-proc deserializeFromDb*[T](idargs: varargs[string]): T =
+proc deserializeFromDb*[T](idargs: varargs[string], tptoken: uint64 = 0): T =
   # Deserialize a object T from the database
   # let responder = deserializeFromDb[Responder]($id)
 
@@ -180,7 +178,7 @@ proc deserializeFromDb*[T](idargs: varargs[string]): T =
   for arg in idargs:
     subs.add(arg)
 
-  let bindata = ydb_get_binary(global, subs)
+  let bindata = ydb_get_db(global, subs, tptoken)
   let fs = newStringStream(bindata)
   defer:
       fs.close()

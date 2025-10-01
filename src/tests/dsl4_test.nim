@@ -1,7 +1,8 @@
 import std/strutils
 import std/sets
-import yottadb
 import std/[unittest]
+import yottadb
+import utils
 
 proc testSetGet() =
   set: gbl(1) = 1
@@ -83,7 +84,7 @@ proc testBinaryPostfix() =
     binval.add(i.char) 
 
   set: ^tmp("binary") = binval
-  let dbval = get: ^tmp("binary").binary
+  let dbval = get: ^tmp("binary")
   assert dbval == binval
 
   # Create binary data upto 1MB
@@ -92,9 +93,42 @@ proc testBinaryPostfix() =
 
   # Read back an compare
   for i in 4095 .. 4096:
-    let dbval = get(^tmp("binary", i).binary)
+    let dbval = get(^tmp("binary", i))
     assert dbval == repeat(binval, i)
 
+
+proc createData(kb: int): string =
+  # create a binary string
+  var binval: string
+  for i in 0 .. 255:
+    binval.add(i.char)
+  repeat(binval, kb*4)
+
+proc testBinaryPostfixHugeWrite(): int =
+  discard deleteGlobal("^tmphuge")
+  var totalBytes = 0
+  for size in [512, 1024, 1025, 2048, 2049, 8192, 16384, 32767, 65535, 131073]:
+    let data = createData(size)
+    inc(totalBytes, data.len)
+    set: ^tmphuge(size) = data
+  return totalBytes
+
+proc testBinaryPostfixHugeRead(): int =
+  var totalBytes = 0
+  for size in [512, 1024, 1025, 2048, 2049, 8192, 16384, 32767, 65535, 131073]:
+    #let data = get(^tmphuge(size).binary)
+    let data = get(^tmphuge(size))
+    inc(totalBytes, data.len)
+  return totalBytes
+
+proc testBinaryPostfixHugeVerify(): int =
+  var totalBytes = 0
+  for size in [512, 1024, 1025, 2048, 2049, 8192, 16384, 32767, 65535, 131073]:
+    let data = createData(size)
+    let dbval = get(^tmphuge(size))
+    inc(totalBytes, dbval.len)
+    assert data == dbval
+  return totalBytes
 
 proc testOrderedSetPostfix() =
   var os = initOrderedSet[int]()
@@ -164,13 +198,30 @@ proc testIncrementLocalsByTen() =
     assert 11 == e
 
 
-
 when isMainModule:
   suite "Locals Tests":
     test "set/get": testSetGet()
     test "str2zwr": teststr2zwr()
     test "zwr2str": testzwr2str()
     test "binary": testBinaryPostfix()
+    test "binary huge write": 
+      var (ms, rc) = timed_rc: 
+        testBinaryPostfixHugeWrite()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " written in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
+    test "binary huge read": 
+      var (ms, rc) = timed_rc: 
+        testBinaryPostfixHugeRead()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
+    test "binary huge verify": 
+      var (ms, rc) = timed_rc: 
+        testBinaryPostfixHugeVerify()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
     test "setOrderedSetPostfix": testOrderedSetPostfix()
     test "increment locals by one": testIncrementLocalsByOne()
     test "increment locals by ten": testIncrementLocalsByTen()
