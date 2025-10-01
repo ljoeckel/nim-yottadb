@@ -383,7 +383,13 @@ macro data*(body: untyped): untyped =
 # get* procs
 # -------------------
 proc getstring*(args: varargs[string]): string =
-  ydb_get(args[0], args[1..^1])
+  var subs: Subscripts
+  for arg in args[1..^1]:
+    if arg.startsWith("@["):
+      subs.add(stringToSeq(arg))
+    else:
+      subs.add(arg)
+  ydb_get(args[0], subs)
 
 proc getstring1*(global: string, args: seq[string]): string =
   ydb_get(global, args[0..^1])

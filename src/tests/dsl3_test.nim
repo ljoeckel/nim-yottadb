@@ -276,9 +276,23 @@ proc testLocals() =
   assert subs == refdata
 
 
+proc testExtendSubscriptWithString =
+  set:
+    ^images("4711") = "imagedata"
+    ^images("4711", "path") = "imagepath"
+
+  var subs = @["4711"]
+  let image = get(^images(subs))
+  assert image == "imagedata"
+  let path = get(^images(subs, "path"))
+  assert path == "imagepath"
+
+
+
 proc setup() =
   assert deleteGlobal("^tmp")
   assert deleteGlobal("^tmp2")
+  assert deleteGlobal("^images")
 
 
 when isMainModule:
@@ -290,6 +304,7 @@ when isMainModule:
     test "data": testData()
     test "locals": testLocals()
     test "numbersRange": testNumbersRange()
+    test "extend Subscript with string": testExtendSubscriptWithString()
 
   #listGlobal("^tmp")
   #listGlobal("^tmp2")
