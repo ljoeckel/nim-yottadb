@@ -181,11 +181,11 @@ proc incrementTest() =
   # INCR
   set: ^CNT("AUTO") = 1
   var autocnt = parseInt(get ^CNT("AUTO"))
-  var c5 = incr: ^CNT("AUTO") = 5
+  var c5 = increment: ^CNT("AUTO") = 5
   assert c5 == (autocnt + 5)
 
   autocnt = get: ^CNT("AUTO").int
-  c5 = incr: ^CNT("AUTO")
+  c5 = increment: ^CNT("AUTO")
   assert c5 == (autocnt + 1)
 
 

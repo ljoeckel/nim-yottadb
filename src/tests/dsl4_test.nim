@@ -159,19 +159,19 @@ proc testIncrementLocalsByOne() =
 
   # Increment by 1
   for i in 1..10:
-    let cnt = incr: CNT("1,1")
+    let cnt = increment: CNT("1,1")
     assert cnt == 1000 + i
     assert get(CNT("1,1").int) == 1000 + i
 
-    let c = incr: CNT(2,2)
+    let c = increment: CNT(2,2)
     assert c == 2000 + i
     assert get(CNT(2,2).int) == 2000 + i
 
-    let d = incr(CNT(keys))
+    let d = increment(CNT(keys))
     assert d == 3000 + i
     assert get(CNT(keys).int) == 3000 + i
 
-    assert 1 == incr(CNT(i))
+    assert 1 == increment(CNT(i))
 
 proc testIncrementLocalsByTen() =
   set: 
@@ -182,19 +182,19 @@ proc testIncrementLocalsByTen() =
 
   # Increment by 10
   for i in 1..10:
-    let cnt = incr: CNT("1,1") = 10
+    let cnt = increment: CNT("1,1") = 10
     assert cnt == 1000 + i*10
     assert get(CNT("1,1").int) == 1000 + i*10
 
-    let c = incr: CNT(2,2) = 10
+    let c = increment: CNT(2,2) = 10
     assert c == 2000 + i*10
     assert get(CNT(2,2).int) == 2000 + i*10
 
-    let d = incr: CNT(keys) = 10
+    let d = increment: CNT(keys) = 10
     assert d == 3000 + i*10
     assert get(CNT(keys).int) == 3000 + i*10
 
-    let e = incr: CNT(i) = 10
+    let e = increment: CNT(i) = 10
     assert 11 == e
 
 

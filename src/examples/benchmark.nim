@@ -12,7 +12,7 @@ proc upcount() =
 proc upcount_dsl() =
     delnode: ^CNT("upcount")
     for cnt in 0..<MAX:
-        discard incr: ^CNT("upcount")
+        discard increment: ^CNT("upcount")
 
 proc setSimple() =
     for id in 0..<MAX:

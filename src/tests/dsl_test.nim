@@ -115,8 +115,8 @@ proc testSetGet() =
 proc testIncrement() =  
   # Increment
   delnode: ^CNT("TXID")
-  assert 1 == incr ^CNT("TXID")
-  let incrval = incr: ^CNT("TXID") = 10 # TODO: syntax should be ^CNT("TXID", "sub1", int)
+  assert 1 == increment ^CNT("TXID")
+  let incrval = increment: ^CNT("TXID") = 10 # TODO: syntax should be ^CNT("TXID", "sub1", int)
   assert 11 == incrval
 
 

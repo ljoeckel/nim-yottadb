@@ -36,7 +36,7 @@ proc testIncrement(tn: int) =
   for i in 0..<MAX:
     # Increment shared counter
     withlock(0):
-      discard incr: COUNTER(0)
+      discard increment: COUNTER(0)
 
     let result = ydb_increment(GLOBAL, key)
     let sum = calcFibonacciSum()

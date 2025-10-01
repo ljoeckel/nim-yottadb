@@ -220,7 +220,7 @@ macro set*(body: untyped): untyped =
   transformBodyStmt body
 
 
-macro incr*(body: untyped): untyped =
+macro increment*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkAsgn:  # ^CNT("AUTO")=<increment>
       let lhs = node[0]

@@ -6,21 +6,21 @@ import malebolgia
 
 proc demoUpdate1(cnt: int, tn: int) =
     withlock(4711):
-        discard incr: ^CNT(4711)
-        discard incr: ^CNT(4711, tn)
+        discard increment: ^CNT(4711)
+        discard increment: ^CNT(4711, tn)
         withlock(4711.1):
-            discard incr: ^CNT("TEMPLATE_TEST")
-            discard incr: ^CNT(4711.1)
-            discard incr: ^CNT(4711.1, tn)
+            discard increment: ^CNT("TEMPLATE_TEST")
+            discard increment: ^CNT(4711.1)
+            discard increment: ^CNT(4711.1, tn)
 
 proc demoUpdate2(cnt: int, tn: int) =
     withlock(4711.1):
-        discard incr: ^CNT(4711.1)
-        discard incr: ^CNT(4711.1, tn)
+        discard increment: ^CNT(4711.1)
+        discard increment: ^CNT(4711.1, tn)
         withlock(4711):
-            discard incr: ^CNT("TEMPLATE_TEST")
-            discard incr: ^CNT(4711)
-            discard incr: ^CNT(4711, tn)
+            discard increment: ^CNT("TEMPLATE_TEST")
+            discard increment: ^CNT(4711)
+            discard increment: ^CNT(4711, tn)
 
 
 proc createThreads(cnt: int, numOfThreads: int) =

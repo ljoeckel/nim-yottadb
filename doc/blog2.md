@@ -216,7 +216,7 @@ set:
 #### incr ####
 Increment a global in the database by 1
 ```nim
-let nexttxid = incr: ^CNT("TXID")
+let nexttxid = increment: ^CNT("TXID")
 ```
 #### data
 Test if a node or tree exists and has a subtree

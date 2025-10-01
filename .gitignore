@@ -39,3 +39,4 @@ src/serialization/clientser
 src/serialization/binser_test
 src/tests/serialization_test
 src/examples/image_loader
+src/tests/dumptree

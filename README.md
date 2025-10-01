@@ -62,9 +62,9 @@ set:
 ```nim
 set: ^Customer(4711,"Name")="John Doe"
 ```
-- incr:
+- increment:
 ```nim
-let: int txid = incr: ^CNT("TXID")
+let: int txid = increment: ^CNT("TXID")
 ```
 - ### get:
 ```nim
@@ -116,9 +116,9 @@ delexcl: { DELTEST1, DELTEST3, DELTEST5 }
 ```nim
 lock: { ^House("FLOOR", 11), ^House("FLOOR", 12) }
 ```
-- ### lockincr:
+- ### lockincrement:
 ```nim
-lockincr: ^House("FLOOR", 11)
+lockincrement: ^House("FLOOR", 11)
 ```
 - ### lockdecr:
 ```nim

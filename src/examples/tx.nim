@@ -23,7 +23,7 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
       fibonacci_recursive(fib) # do some cpu intense work
     
     # Increment transaction counter and save application data
-    let txid = incr: ^CNT(THS)
+    let txid = increment: ^CNT(THS)
     let data = fmt"{someParam}, restarts:{restarted}, fib:{fib} result:{fibresult} time:{ms}"
     set: ^TXS(txid)=data
   except:

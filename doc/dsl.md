@@ -54,9 +54,9 @@ set: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,
 Atomic increment a global in the database
 ```nim
 let rc = delnode: ^CNT("TXID")
-var incrval = incr: ^CNT("TXID")
+var incrval = increment: ^CNT("TXID")
 assert 1 == incrval
-incrval = incr: ^CNT("TXID") = 10
+incrval = increment: ^CNT("TXID") = 10
 assert 11 == incrval
 ```
 
@@ -165,7 +165,7 @@ Traverse the globals backwards on a given index level.
 ## lockincr / lockdecr
 ```nim
 template withlock(lockid: untyped, body: untyped): untyped =
-    var rc = lockincr: ^LOCKS(lockid)
+    var rc = lockincrement: ^LOCKS(lockid)
     body
     rc = lockdecr: ^LOCKS(lockid)
 ```
