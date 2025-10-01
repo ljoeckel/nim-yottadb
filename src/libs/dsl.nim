@@ -5,16 +5,13 @@ import std/strutils
 import std/sets
 
 proc stringToSeq(s: string): Subscripts =
-  if s.startsWith("@["):
-    for arg in s.split(","):
-      var ss = arg
-      ss = replace(ss, "@")
-      ss = replace(ss, "[")
-      ss = replace(ss, "]")
-      ss = replace(ss, "\"")
-      result.add(ss.strip())
-  else:
-      result.add(s)
+  for arg in s.split(","):
+    var ss = arg
+    ss = replace(ss, "@")
+    ss = replace(ss, "[")
+    ss = replace(ss, "]")
+    ss = replace(ss, "\"")
+    result.add(ss.strip())
 
 proc argsToSeq(args: varargs[string]): seq[string] =
   for arg in args:
