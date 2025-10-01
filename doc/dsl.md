@@ -209,18 +209,6 @@ The following postfixes are implemented:
 - uint, uint8, uint16, uint32, uint64
 - float, float32, float64
 
-# .binary Postfix
-The `binary` postfix allows to read back binary data from the DB.
-```nim
-  var binval: string
-  for i in 0 .. 255:
-    binval.add(i.char) 
-
-  set: ^tmp(4711) = binval
-  let dbval = get: ^tmp(4711).binary
-  assert dbval == binval
-```
-
 # .OrderedSet Postfix
 Allows to read back a OrderedSet.
 When the string form '$' is saved then the saved data looks normally like `{9, 5, 1}`. The data may also be stored in the form `9,5,1` which is more efficient. The .OrderedSet postfix handles both forms.
