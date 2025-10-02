@@ -103,12 +103,12 @@ when isMainModule:
     if clean:
         timed("cleanDb")   : cleanDb()
     if not verifycheck:
-        timed("generate"): 
-            generate(fromN, toN)
+        timed("generate"):
+            generate(max(1, fromN), toN)
             statistics(fromN, toN)
     if verifycheck:
         timed("verify"):
-            check(fromN, toN)
+            check(max(1, fromN), toN)
 
     quit(0)
 # TODO: 
@@ -117,6 +117,6 @@ when isMainModule:
 #       Statistics
 
 # nim c -r --threads:off -d:release -d:danger solver
-# 1..100_000 setup: 43 ms.
-#            generate: 325 ms.
-#            verify: 16 ms.
+# 1..100_000 setup: 2 ms.
+#            generate: 264 ms.
+#            verify: < 1 ms.
