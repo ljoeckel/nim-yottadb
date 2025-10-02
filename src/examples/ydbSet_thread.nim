@@ -26,7 +26,7 @@ proc api(tn: int) =
 proc dsl(tn: int) =
   worker:
     let txid = increment: ^CNT("ydb_set")
-    set: ^YDB(txid) = "This is some test from dsl thread " & $tn
+    setvar: ^YDB(txid) = "This is some test from dsl thread " & $tn
 
 template main(workerProc: untyped) =
   var m = createMaster()

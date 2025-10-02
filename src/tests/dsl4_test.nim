@@ -5,55 +5,55 @@ import yottadb
 import utils
 
 proc testSetGet() =
-  set: gbl(1) = 1
+  setvar: gbl(1) = 1
   assert get(gbl(1)) == "1"
   assert get(gbl(1).int) == 1
   assert get(gbl(1).float) == 1.0
 
-  set: gbl(1, 1) = 1
+  setvar: gbl(1, 1) = 1
   assert get(gbl(1, 1)) == "1"
   assert get(gbl(1, 1).int) == 1
   assert get(gbl(1, 1).float) == 1.0
 
-  set: gbl("11") = 11
+  setvar: gbl("11") = 11
   assert get(gbl("11")) == "11"
   assert get(gbl("11").int) == 11
   assert get(gbl("11").float) == 11.0
 
-  set: gbl("11", "1") = 11.1
+  setvar: gbl("11", "1") = 11.1
   assert get(gbl("11", "1")) == "11.1"
   doAssertRaises(ValueError): discard get(gbl("11", "1").int)
   assert get(gbl("11", "1").float) == 11.1
 
   let id = 2
-  set: gbl(id) = id
+  setvar: gbl(id) = id
   assert get(gbl(id)) == "2"
   assert get(gbl(id).int) == 2
   assert get(gbl(id).float) == 2.0
 
-  set: gbl(id + 10) = 12
+  setvar: gbl(id + 10) = 12
   assert get(gbl(id + 10)) == "12"
   assert get(gbl(id + 10).int) == 12
   assert get(gbl(id + 10).float) == 12.0
 
-  set: gbl(id + 10, id) = 12
+  setvar: gbl(id + 10, id) = 12
   assert get(gbl(id + 10, id)) == "12"
   assert get(gbl(id + 10, id).int) == 12
   assert get(gbl(id + 10, id).float) == 12.0
 
-  set: gbl(id + 10, id, "x") = 12
+  setvar: gbl(id + 10, id, "x") = 12
   assert get(gbl(id + 10, id, "x")) == "12"
   assert get(gbl(id + 10, id, "x").int) == 12
   assert get(gbl(id + 10, id, "x").float) == 12.0
 
   let id2 = @["3"]
-  set: gbl(id2) = 3
+  setvar: gbl(id2) = 3
   assert get(gbl(id2)) == "3"
   assert get(gbl(id2).int) == 3
   assert get(gbl(id2).float) == 3.0
 
   let id3 = @["3", "x"]
-  set: gbl(id3) = 3
+  setvar: gbl(id3) = 3
   assert get(gbl(id3)) == "3"
   assert get(gbl(id3).int) == 3
   assert get(gbl(id3).float) == 3.0
@@ -86,13 +86,13 @@ proc createBinData(kb: int): string =
 
 
 proc testBinaryPostfix() =
-  set: ^tmp("binary") = createBinData(1)
+  setvar: ^tmp("binary") = createBinData(1)
   let dbval = getblob: ^tmp("binary")
   assert dbval == createBinData(1)
 
   # Create binary data upto 1MB
   for i in 4095 .. 4096:
-    set: ^tmp("binary", i) = createBinData(i)
+    setvar: ^tmp("binary", i) = createBinData(i)
 
   # Read back an compare
   for i in 4095 .. 4096:
@@ -106,7 +106,7 @@ proc testBinaryPostfixHugeWrite(): int =
   for size in [512, 1024, 1025, 2048, 2049, 8192, 16384, 32767, 65535, 131073]:
     let data = createBinData(size)
     inc(totalBytes, data.len)
-    set: ^tmphuge(size) = data
+    setvar: ^tmphuge(size) = data
   return totalBytes
 
 proc testBinaryPostfixHugeRead(): int =
@@ -131,7 +131,7 @@ proc testOrderedSetPostfix() =
     os.incl(i)
   
   # os: {0, 1, 2, 3, 4, ...}
-  set: ^tmp("set1") = os
+  setvar: ^tmp("set1") = os
   let dbset = get: ^tmp("set1")
   assert dbset == $os
   let osdb = get: ^tmp("set1").OrderedSet
@@ -140,13 +140,13 @@ proc testOrderedSetPostfix() =
 
   # os 0,1,2,3,...
   var str = ($os)[1..^2] # remove {}
-  set: ^tmp("set2") = str.replace(" ","") # trim spaces
+  setvar: ^tmp("set2") = str.replace(" ","") # trim spaces
   let osdb2 = get: ^tmp("set2").OrderedSet
   assert $type(osdb2) == $type(OrderedSet[int])
   assert osdb2 == os
   
 proc testIncrementLocalsByOne() =
-  set: 
+  setvar: 
     CNT("1,1")=1000
     CNT(2,2)=2000
     let keys = @["X","Y","Z"]
@@ -169,7 +169,7 @@ proc testIncrementLocalsByOne() =
     assert 1 == increment(CNT(i))
 
 proc testIncrementLocalsByTen() =
-  set: 
+  setvar: 
     CNT("1,1")=1000
     CNT(2,2)=2000
     let keys = @["X","Y","Z"]
@@ -193,7 +193,7 @@ proc testIncrementLocalsByTen() =
     assert 11 == e
 
 proc testGetFast(iterations: int) =
-  set: ^tmp(4711)="01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+  setvar: ^tmp(4711)="01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
   echo "Using 'getblob' with ", iterations, " iterations."
   timed:
     for i in 0 .. iterations:
@@ -207,11 +207,11 @@ proc testGetFast(iterations: int) =
 
 proc testGetWithException() =
   var maxlen = 1024*1024 - 1
-  set: ^tmp(4711) = repeat(".", maxlen)
+  setvar: ^tmp(4711) = repeat(".", maxlen)
   var val = get(^tmp(4711))
   assert val.len == maxlen
 
-  set: ^tmp(4712) = repeat(".", maxlen+1)
+  setvar: ^tmp(4712) = repeat(".", maxlen+1)
   doAssertRaises(YdbError): val = get(^tmp(4712))
 
 when isMainModule:

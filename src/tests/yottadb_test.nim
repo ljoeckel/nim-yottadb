@@ -114,7 +114,7 @@ proc testPreviousNode(global: string, start: Subscripts = @[]) =
   doAssert cnt == MAX * 2 + 2
 
 proc testNextNodeIterator(global: string, start: Subscripts = @[]) =
-  set:
+  setvar:
     ^X(@["5", "1"])=1
     ^X(@["5", "2"])=2
     ^X(@["7", "3"])=3
@@ -365,7 +365,7 @@ proc test_ydb_ci() =
     return
 
   let tm = getTime()
-  set: VAR1()=tm                      # set a YottaDB variable
+  setvar: VAR1()=tm                      # set a YottaDB variable
   ydb_ci("method1")
   let result = get: RESULT()  # Read the YottaDB variable from the Callin
   assert $tm == result

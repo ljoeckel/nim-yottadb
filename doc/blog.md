@@ -31,7 +31,7 @@ Here are some of the highlights:
    - A `YdbVar` type with operator overloads and iterators makes code expressive and readable.
    - Example DSL syntax:
      ```nim
-     set: ^Customer(4711,"Name") = "John Doe"
+     setvar: ^Customer(4711,"Name") = "John Doe"
      let name = get: ^Customer(4711,"Name")
      ```
    Postfix extensions
@@ -46,13 +46,13 @@ Here are some of the highlights:
 
 ---
 
-### Example 1: Simple Set / Get
+### Example 1: Simple setvar / get
 ```nim
 import yottadb
 
 # Set a value
 let id = 4711
-set: ^Customer(id, "Name") = "John Doe"
+setvar: ^Customer(id, "Name") = "John Doe"
 let name = get: ^Customer(id, "Name") # Get the value back
 let txCount = get: ^CNT("TXID").int # Get as a typed value
 echo fmt"Customers Name: {name} txCount: {txCount}"
@@ -61,7 +61,7 @@ echo fmt"Customers Name: {name} txCount: {txCount}"
 ```nim
 import yottadb
 
-set:
+setvar:
     ^LL("HAUS")=""
     ^LL("HAUS", "ELEKTRIK", "DOSEN")=""
     ^LL("HAUS", "ELEKTRIK", "KABEL")=""

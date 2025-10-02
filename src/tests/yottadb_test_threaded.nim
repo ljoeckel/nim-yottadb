@@ -72,7 +72,7 @@ proc validateCounters() =
 proc fibonacciTest() =
   ## Main test that starts NUM_OF_THREADS to calculate and save result in db
 
-  set: COUNTER(0) = 0 # ydb local variable is visible for all threads, must be synchronized
+  setvar: COUNTER(0) = 0 # ydb local variable is visible for all threads, must be synchronized
 
   var m = createMaster()
   m.awaitAll:

@@ -8,7 +8,7 @@ The combination of Nim's modern language features with YottaDB's battle-tested d
 
 ## Simple example showing the clean syntax
 ```nim
-set:
+setvar:
   ^Users("john_doe", "profile", "name") = "John Doe"
   ^Users("john_doe", "profile", "email") = "john@example.com"
 
@@ -192,12 +192,12 @@ ydb_set("^building", @["Room", "1", "size"], "22.5")
 ```
 you can write
 ```nim
-set: ^building("Room", 1, "Window")=22.5
+setvar: ^building("Room", 1, "Window")=22.5
 ```
 
-#### set / get / getblob
+#### setvar / get / getblob
 ```nim
-set:
+setvar:
     ^XX(1,2,3)=123
     ^XX("B",1)="AB"
 let var1 = get(^XX(1,2,3))
@@ -205,12 +205,12 @@ let image = getblob(^images(4711))
 ```
 #### Support for mixed type subscripts
 ```nim
-set: ^X(id, 4711, "pi") = 3.1414
+setvar: ^X(id, 4711, "pi") = 3.1414
 ```
-#### set: in a loop
+#### setvar: in a loop
 ```nim
 for id in 0..<5:
-set:
+setvar:
     ^CUST(id, "Timestamp") = cpuTime()
     ^CUST(id, "loop") = id
 ```
@@ -222,7 +222,7 @@ let nexttxid = increment: ^CNT("TXID")
 #### data
 Test if a node or tree exists and has a subtree
 ```nim
-set:
+setvar:
     ^X(5)="F"
     ^X(5,1)="D"
 dta = data: ^X(5)
@@ -253,7 +253,7 @@ The template `withlock` simplifies the locking further:
 ```nim
 let amount = 1500.50
 withlock(4711):
-  set:
+  setvar:
     ^custacct(4711, "amount") = amount
     ^booking(4711, "txnbr") = amount
 ```

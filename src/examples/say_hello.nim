@@ -3,7 +3,7 @@ import utils
 
 proc create() =
     for id in 0..<10000000:
-        set: ^hello(id)=id
+        setvar: ^hello(id)=id
 
 proc count() =
     var cnt = 0

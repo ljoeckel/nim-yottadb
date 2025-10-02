@@ -3,7 +3,7 @@ import yottadb
 import utils
 
 proc setupLL() =
-  set:
+  setvar:
     ^LL("HAUS")=""
     ^LL("HAUS", "ELEKTRIK")=""
     ^LL("HAUS", "ELEKTRIK", "DOSEN")=""
@@ -27,7 +27,7 @@ proc setupLL() =
     ^LL("LAND", "NUTZUNG")=""
     ^LL("ORT")=""
 
-  set:
+  setvar:
     ^XX(1,2,3)=123
     ^XX(1,2,3,7)=1237
     ^XX(1,2,4)=124
@@ -39,7 +39,7 @@ proc setupLL() =
 # ------------ Test procs ------------
 
 proc testDel() =
-  set: ^X(1)="hello"
+  setvar: ^X(1)="hello"
   let s = get: ^X(1)
   assert "hello" == s
   delnode: ^X(1) # delete node
@@ -47,8 +47,8 @@ proc testDel() =
     discard get: ^X(1)
   
   # create a tree
-  set: ^X(1,1)="hello"
-  set: ^X(1,2)="world"
+  setvar: ^X(1,1)="hello"
+  setvar: ^X(1,2)="world"
   let dta = data: ^X(1) 
   assert 10 == dta # Expect no data but subtree
   deltree: ^X(1)
@@ -57,7 +57,7 @@ proc testDel() =
 
 
 proc testData() =
-  set:
+  setvar:
     ^X(1, "A")="1.A"
     ^X(3)=3
     ^X(4)="B"
@@ -77,7 +77,7 @@ proc testData() =
 
 proc testSetGet() =
   let id = 123
-  set:
+  setvar:
     ^X(id, "s") = "pi"
     assert "pi" == get ^X(id, "s")
     ^X(id, "i", 4711) = 3
@@ -88,7 +88,7 @@ proc testSetGet() =
     assert get(^X(id, "f").float) == 3.1414
   
   # Set multiple items
-  set:
+  setvar:
       ^X(id, 1) = "pi" # First call to setxxx
       ^X(id, 2) = "pi" # Second call to setxxx
       ^X(id, 3) = "pi" # Third call to setxxx
@@ -100,14 +100,14 @@ proc testSetGet() =
   # Set loop
   for id in 0..<5:
     let tm = cpuTime()
-    set: ^CUST(id, "Timestamp") = tm
+    setvar: ^CUST(id, "Timestamp") = tm
     assert tm == get ^CUST(id, "Timestamp").float
 
   # Set with exception, too many subscripts
   doAssertRaises(YdbError):
-    set: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32)="xxx"
+    setvar: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32)="xxx"
   # Should work without exception
-  set: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31)="xxx"
+  setvar: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31)="xxx"
   let s2 = get: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31)
   assert "xxx" == s2
 
@@ -124,19 +124,19 @@ proc testGetUpdate() =
   let subs = @["4711", "Acc123"]
   block:
     # Get and Update .int
-    set: ^CUST(subs) = 1500
+    setvar: ^CUST(subs) = 1500
     var amount = get: ^CUST(subs).int
     amount += 1500
-    set: ^CUST(subs) = amount
+    setvar: ^CUST(subs) = amount
     let dbamount = get: ^CUST(subs).int  # read from db
     assert dbamount == amount
 
   block:
     # Get and Update .float
-    set: ^CUST(subs) = 1500.50
+    setvar: ^CUST(subs) = 1500.50
     var amount = get: ^CUST(subs).float
     amount += 1500.50
-    set: ^CUST(subs) = amount
+    setvar: ^CUST(subs) = amount
     let dbamount = get: ^CUST(subs).float  # read from db
     assert dbamount == amount
 
@@ -348,7 +348,7 @@ proc testSpecialVars() =
   assert zversion.len > 0 and zversion.startsWith("GT.M")
 
   # Set
-  set: $ZMAXTPTIME()="2"
+  setvar: $ZMAXTPTIME()="2"
   let zmaxtptime = get: $ZMAXTPTIME
   assert zmaxtptime == "2"
 
@@ -364,7 +364,7 @@ proc testDeleteExcl() =
   }
   
   # Set local variables
-  set:
+  setvar:
     DELTEST0("deltest")="deltest"
     DELTEST1()="1"
     DELTEST2()="2"
@@ -405,7 +405,7 @@ proc test_ydb_ci() =
     return
 
   let tm = getTime()
-  set: VAR1()=tm                      # set a YottaDB variable
+  setvar: VAR1()=tm                      # set a YottaDB variable
   ydb_ci: "method1"
   let result = get: RESULT()  # Read the YottaDB variable from the Callin
   assert $tm == result

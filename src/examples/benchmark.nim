@@ -20,7 +20,7 @@ proc setSimple() =
 
 proc setSimple_dsl() =
     for id in 0..<MAX:
-        set: ^BENCHMARK2(id)=id
+        setvar: ^BENCHMARK2(id)=id
 
 proc nextnode() =
     var cnt = 0

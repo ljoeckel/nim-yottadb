@@ -6,7 +6,7 @@ proc setget() =
     id = 1
     ids:Subscripts = @["5"]
 
-  set:
+  setvar:
     ^tmp(id) = 1
     ^tmp(2) = 2
     ^tmp("3") = 3
@@ -73,7 +73,7 @@ proc setget() =
   assert 5.0 == get(^tmp(ids).float)
 
 proc testNumbersRange() =
-  set:
+  setvar:
     ^tmp("-1") = -1
     assert get(^tmp("-1").int) == -1
     ^tmp("00") = 00
@@ -133,7 +133,7 @@ proc testNumbersRange() =
 
 
 proc setlocals() =
-  set:
+  setvar:
     local(1) = 1
     assert "1" == get(local(1))
     assert 1 == get(local(1).int)
@@ -156,7 +156,7 @@ proc delnode() =
   var id: int
   # create some records  
   for i in 0..15:
-    set: ^tmp2(1000 + i) = 1000 + i
+    setvar: ^tmp2(1000 + i) = 1000 + i
   
   delnode ^tmp2(1001)
   delnode(^tmp(1002))
@@ -188,22 +188,22 @@ proc delnode() =
 
 proc testData() =
   var id = 1
-  set: ^tmp2(id) = 1
+  setvar: ^tmp2(id) = 1
   assert data(^tmp2(id)) == 1
-  set: ^tmp2(1) = 1
+  setvar: ^tmp2(1) = 1
   assert data(^tmp2(1)) == 1
   var id2 = "1"
-  set: ^tmp2(id2)="1"
+  setvar: ^tmp2(id2)="1"
   assert data(^tmp2(id2)) == 1
-  set: ^tmp2("1")="1"
+  setvar: ^tmp2("1")="1"
   assert data(^tmp2("1")) == 1
   var id3 = @["1"]
-  set: ^tmp2(id3) = 1
+  setvar: ^tmp2(id3) = 1
   assert data(^tmp2(id3)) == 1
-  set: ^tmp2(@["1"])="1"
+  setvar: ^tmp2(@["1"])="1"
   assert data(^tmp2(@["1"])) == 1
 
-  set:
+  setvar:
     var xid = 11 # reusing id will not work!
     ^tmp2(xid) = 11
     assert data(^tmp2(xid)) == 1
@@ -221,34 +221,34 @@ proc testData() =
     assert data(^tmp2(@["11"])) == 1
 
   let gbl = "^tmp2"
-  set: gbl(1)=4711 # set the local variable 'gbl' to 4711
+  setvar: gbl(1)=4711 # set the local variable 'gbl' to 4711
   let ss = "gbl=" & get(gbl(1))
   assert ss == "gbl=4711"
   doAssertRaises(YdbError): discard get(^tmp2(4711)) # ^tmp2(4711) not set because gbl(4711) is set TODO: global from variable
 
 proc testLocals() =
-  set: gbl(1)=1
+  setvar: gbl(1)=1
   assert get(gbl(1)) == "1"
   let id = 2
-  set: gbl(id) = 2
+  setvar: gbl(id) = 2
   assert get(gbl(id)) == "2"
   let id2 = "3"
-  set: gbl(id2) = 3
+  setvar: gbl(id2) = 3
   assert get(gbl(id2)) == "3"
-  set: gbl(@["4"])=4
+  setvar: gbl(@["4"])=4
   assert get(gbl(@["4"])) == "4"
   let id3: Subscripts = @["5"]
-  set: gbl(id3) = "5"
+  setvar: gbl(id3) = "5"
   assert get(gbl(id3)) == "5"
-  set: gbl(1,1)="1.1"
+  setvar: gbl(1,1)="1.1"
   assert get(gbl(1,1)) == "1.1"
 
-  set:
+  setvar:
     gbl(1)=11
     assert get(gbl(1)) == "11"
     gbl(id) = 22
     assert get(gbl(id)) == "22"
-    set: gbl(id2) = 33
+    setvar: gbl(id2) = 33
     assert get(gbl(id2)) == "33"
     gbl(@["4"])=44
     assert get(gbl(@["4"])) == "44"
@@ -277,7 +277,7 @@ proc testLocals() =
 
 
 proc testExtendSubscriptWithString =
-  set:
+  setvar:
     ^images("4711") = "imagedata"
     ^images("4711", "path") = "imagepath"
 

@@ -13,7 +13,7 @@ proc walk(path: string): seq[string] =
 proc loadImagesToDb(basedir: string) =
     for image in walk(basedir):
         let image_number = increment(^CNT("image_number"))
-        set:
+        setvar:
             ^images($image_number) = readFile(image)
             ^images($image_number, "path") = image
             ^images($image_number, "created") = now()

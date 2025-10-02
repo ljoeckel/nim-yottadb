@@ -2,7 +2,7 @@ import std/strformat
 import yottadb
 
 proc main() =
-  set:
+  setvar:
     ^CUSTOMER(1, "Name")="John Doe"
     ^CUSTOMER(1, "Email")="john-doe.@gmail.com"
     ^CUSTOMER(2, "Name")="Jane Smith"

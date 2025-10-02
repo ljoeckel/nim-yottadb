@@ -25,7 +25,7 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
     # Increment transaction counter and save application data
     let txid = increment: ^CNT(THS)
     let data = fmt"{someParam}, restarts:{restarted}, fib:{fib} result:{fibresult} time:{ms}"
-    set: ^TXS(txid)=data
+    setvar: ^TXS(txid)=data
   except:
     # Retry a aborted transaction one time, otherwise roll back
     if restarted == 0: return YDB_TP_RESTART else: return YDB_TP_ROLLBACK
@@ -34,7 +34,7 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
 
 
 
-set: $ZMAXTPTIME()="1"
+setvar: $ZMAXTPTIME()="1"
 for i in 1..MAX:
   let (ms, rc) = timed_rc:
     ydb_tp(myTxn, "SomeParam" & $i)
@@ -42,5 +42,5 @@ for i in 1..MAX:
   let txid = get: ^CNT(THS)
   var data = get: ^TXS(txid)
   data.add(" overall-time:" & $ms)
-  set: ^TXS(txid)=data
+  setvar: ^TXS(txid)=data
   echo "i:", i, " rc=", rc, " ", ms, "ms. txid:", txid, " data:", data

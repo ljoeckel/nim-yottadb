@@ -54,9 +54,9 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
   var prefix: string = ""
   var rhs: NimNode
   if node.kind == nnkCall:
-      rhs = node     # set: VARNAME(xxx)=yyy
+      rhs = node     # setvar: VARNAME(xxx)=yyy
   elif node.kind == nnkPrefix:
-    prefix = node[0].strVal  # set: ^VARNAME(xxxx)=yyyy, $VARNAME()=yyyy
+    prefix = node[0].strVal  # setvar: ^VARNAME(xxxx)=yyyy, $VARNAME()=yyyy
     rhs = node[1]
   elif node.kind == nnkIdent:  # z.B. { IDENT01 }
     rhs = node
@@ -209,7 +209,7 @@ proc transformCallNodeDATA(node: NimNode, procPrefix:string = ""): NimNode =
 
 
 # ------------------- Statement-context DSL macros -------------------
-macro set*(body: untyped): untyped =
+macro setvar*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind == nnkAsgn:
       let lhs = node[0]
@@ -562,7 +562,7 @@ proc prevnodeyyy1*(global: string, sub: string): (int, Subscripts) =
 
 
 # ---------------------
-# set proc
+# setvar proc
 # ---------------------
 proc setxxx*(args: varargs[string]) =
   if args.len == 3 and args[1].startsWith("@["):

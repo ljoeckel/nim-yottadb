@@ -70,7 +70,7 @@ type
     setU: set[uint8]
     setRange: set[10.uint8..99.uint8]
     setEnum: set[CustomerType]
-    hset: HashSet[string]
+    hsetvar: HashSet[string]
     custsets: CustomerSets
 
   Gender = enum
@@ -113,7 +113,7 @@ proc newCustomer(id: int): Customer =
     setU:{11,99,245},
     setRange:{11, 99, 45},
     setEnum:{Laufkundschaft, Stammkunde},
-    hset: toHashSet(["abc","xyz","asdf"]),
+    hsetvar: toHashSet(["abc","xyz","asdf"]),
     custsets:CustomerSets(setI:{1,9,4,127}, setU:{11,99,245}, setC:{'z','t','e'}, setE:{Laufkundschaft, Stammkunde}),
     )
 

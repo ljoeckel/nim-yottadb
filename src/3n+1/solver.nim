@@ -58,7 +58,7 @@ proc generate(fromN: int, toN: int) =
             let result = solve(n) # calculate and save on db
             var str = ($result)[2..^2] # remove {}
             inc dbwrites
-            set: ^solver(n) = str.replace(" ","") # trim spaces
+            setvar: ^solver(n) = str.replace(" ","") # trim spaces
             inc numbers_saved
 
 proc reconstruct(n: int): seq[int] =

@@ -29,7 +29,7 @@ To create the M-program:
 
     method1
         ; VAR1 can be set in nim-yottadb with
-        ;    set: VAR1()="something"
+        ;    setvar: VAR1()="something"
         ; Do whatever you want here in M and create
         ; variables to passback the result to nim.
         set RESULT="MyResultFromWork"
@@ -42,7 +42,7 @@ To create the M-program:
 ```nim
 proc test_ydb_ci() =
     let tm = getTime()
-    set: VAR1()=tm             # set a YottaDB variable
+    setvar: VAR1()=tm             # set a YottaDB variable
     ydb_ci("method1")           # call CI method
     let result = get: RESULT() # Read variable
 ```

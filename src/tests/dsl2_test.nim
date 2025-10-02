@@ -23,13 +23,13 @@ proc setup() =
 
   # create new nodes in hello2
   for id in 0..5000:
-    set: ^hello2(id) = $id
+    setvar: ^hello2(id) = $id
 
 
 proc setWithSubscript() =
   var sub: Subscripts
   sub = @["A"]
-  set:
+  setvar:
     ^hello(sub)="A"
     assert "A" == get(^hello(sub))
     ^hello(@["B"])=4711
@@ -38,15 +38,15 @@ proc setWithSubscript() =
     assert 4711.0 == get(^hello(@["B"]).float)
 
   sub = @["A","B"]
-  set: ^hello(sub)="AB"
+  setvar: ^hello(sub)="AB"
   assert "AB" == get(^hello(sub))
 
   sub = @["users", "46", "name"]
-  set: ^hello(sub) = "Martina"
+  setvar: ^hello(sub) = "Martina"
   assert "Martina" == get(^hello(sub))
 
 proc setMixed() =
-  set:
+  setvar:
     ^hello(1)=1
     assert 1 == get ^hello(1).int
     assert 1 == get(^hello(1).int)
@@ -71,7 +71,7 @@ proc setMixed() =
     assert "a1b" == get(^hello(sub))
 
   var (id1,id2,id3) = ("users", "46", "name")
-  set: ^hello(id1, id2, id3) = "Martina"
+  setvar: ^hello(id1, id2, id3) = "Martina"
   sub = @["users", "46", "name"]
   assert "Martina" == get(^hello(sub))
   assert "Martina" == get(^hello(id1, id2, id3))
@@ -84,16 +84,16 @@ proc setMixed() =
 proc intUpdate() =
   let subs = @["4711", "Acc123"]
   # Get and Update .int
-  set: ^hello2(subs) = 1500
+  setvar: ^hello2(subs) = 1500
   assert get(^hello2(subs)) == "1500"
   var amount = get: ^hello2(subs).int
   amount += 1500
-  set: ^hello2(subs) = amount
+  setvar: ^hello2(subs) = amount
   let dbamount = get: ^hello2(subs).int  # read from db
   assert dbamount == amount
 
 proc intSetUpdate() =
-  set:
+  setvar:
     let subs = @["4711", "Acc123"]
     # Get and Update .int
     ^hello2(subs) = 1500
@@ -107,7 +107,7 @@ proc intSetUpdate() =
 
 proc intSetLockUpdate() =
   withlock(4711):
-    set:
+    setvar:
       let subs = @["4711", "Acc123"]
       # Set initial amount
       ^hello2(subs) = 1500
@@ -161,7 +161,7 @@ proc data() =
 # ----------------------
 
 proc setTest() =
-  set:
+  setvar:
     ^test("users", "42", "name") = "Alice"
     assert "Alice" == get(^test("users", "42", "name"))
     
@@ -179,7 +179,7 @@ proc setTest() =
 
 proc incrementTest() =
   # INCR
-  set: ^CNT("AUTO") = 1
+  setvar: ^CNT("AUTO") = 1
   var autocnt = parseInt(get ^CNT("AUTO"))
   var c5 = increment: ^CNT("AUTO") = 5
   assert c5 == (autocnt + 5)
@@ -257,7 +257,7 @@ proc dataTest() =
   assert 0 == data ^hello2("4711", 1)
   assert 0 == data ^hello2("4711", "1")
 
-  set: ^hello2(4711, 1)=4711.1
+  setvar: ^hello2(4711, 1)=4711.1
   assert 1 == data ^hello2(@["4711", "1"])
   assert 1 == data ^hello2(4711, 1)
   assert 1 == data ^hello2("4711", 1)

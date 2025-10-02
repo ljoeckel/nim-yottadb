@@ -63,7 +63,7 @@ proc testCompositionSerialization() =
   assert customer2 == customer
 
   # Add new attribute in db to simulation class change
-  set: ^Customer("4711", "Employment") = "TheCompany"
+  setvar: ^Customer("4711", "Employment") = "TheCompany"
   var customer3: Customer
   load(@["4711"], customer3)
   # should work, but no "Employment" attribute because we have old type definition

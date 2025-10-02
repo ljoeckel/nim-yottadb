@@ -1,8 +1,8 @@
 # DSL Statements and Expressions
 
-## set / get / getblob
+## setvar / get / getblob
 ```nim
-set:
+setvar:
     ^XX(1,2,3)=123
     ^XX(1,2,3,7)=1237
     ^XX(1,2,4)=124
@@ -13,10 +13,10 @@ set:
 Get already converted data (string/int/float)
 ```nim
 let subs = @["4711", "Acct123"]
-set: ^CUST(subs) = 1500.50
+setvar: ^CUST(subs) = 1500.50
 var amount = get: ^CUST(subs).float
 amount += 1500.50
-set: ^CUST(subs) = amount
+setvar: ^CUST(subs) = amount
 let dbamount = get: ^CUST(subs).float  # read from db
 assert dbamount == amount
 ```
@@ -24,29 +24,29 @@ assert dbamount == amount
 Set with mixed variable and string subscripts
 ```nim
 let id = 1
-set: ^X(id, "s") = "pi"
+setvar: ^X(id, "s") = "pi"
 let s = get: ^X(id, "s")
 assert s == "pi"
-set: ^X(id, "i") = 3
+setvar: ^X(id, "i") = 3
 let i = get: ^X(id, "i").int
 assert i == 3
-set: ^X(id, "f") = 3.1414
+setvar: ^X(id, "f") = 3.1414
 let f = get: ^X(id, "f").float
 assert f == 3.1414
 ```
 
-set: in a loop
+setvar: in a loop
 ```nim
 for id in 0..<5:
   let tm = cpuTime()
-  set: ^CUST(id, "Timestamp") = tm
+  setvar: ^CUST(id, "Timestamp") = tm
   let s = get: ^CUST(id, "Timestamp").float
   assert s == tm
 ```
 
 Upto 31 Index-Levels are possible
 ```nim
-set: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,"Z")="xxx"
+setvar: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,"Z")="xxx"
 ```
 
 nim-yottadb supports binary data with a max recordsize of 99999999 MB. You can read back binary data with `getblob`
@@ -67,7 +67,7 @@ assert 11 == incrval
 ## data
 Test if a node or tree exists and has a subtree
 ```nim
-set:
+setvar:
     ^X(1, "A")="1.A"
     ^X(3)=3
     ^X(4)="B"
@@ -90,15 +90,15 @@ set:
 ## delnode
 Delete a node. If all nodes of a global are removed, the global itself is removed.
 ```nim
-set: ^X(1)="hello"
+setvar: ^X(1)="hello"
 var rc = delnode: ^X(1) # delete node
 ```
 
 ## deltree
 Delete a subtree of a global. If all nodes are removed, the global itself is removed.
 ```nim
-  set: ^X(1,1)="hello"
-  set: ^X(1,2)="world"
+  setvar: ^X(1,1)="hello"
+  setvar: ^X(1,2)="world"
   let dta = data: ^X(1) # returns 10 (no data but subtree)
   rc = deltree: ^X(1)
 ```
@@ -172,7 +172,7 @@ Using:
 ```nim
 proc update() =
     withlock(4711):
-        echo "locks set:", getLockCountFromYottaDb()
+        echo "locks setvar:", getLockCountFromYottaDb()
         # do the work here
         
     echo "After locks:", getLockCountFromYottaDb()
@@ -214,7 +214,7 @@ When the string form '$' is saved then the saved data looks normally like `{9, 5
 ```nim
   var os = toOrderedSet([9, 5, 1])
   # os: {9, 5, 1}
-  set: ^tmp("set1") = $os
+  setvar: ^tmp("set1") = $os
   let osdb: OrderedSet[int] = get: ^tmp("set1").OrderedSet
   assert osdb == os
 ```
@@ -224,7 +224,7 @@ It's experimental and may be removed in the future.
 # Local Variables
 All methods available for globals can also be applied for local variables.
 ```nim
-set:
+setvar:
   myvar(1) = 1
   myvar("a") = "..."
   myvar(@[id, "4711"]) = "..."
@@ -237,8 +237,8 @@ Getting a value, use get:
   echo zversion
 ```
 
-To set a special variable via the DSL, use set:
+To set a special variable via the DSL, use setvar:
 It is important to use an empty bracket ().
 ```nim
-  set: $ZMAXTPTIME()="2"
+  setvar: $ZMAXTPTIME()="2"
 ```

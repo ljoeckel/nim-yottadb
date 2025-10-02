@@ -41,13 +41,13 @@ The DSL allows to write programs with globals in very natural way.
     let id = @["4711", "Acc123"]
     var amount = get: ^account(id).float
     amount += 1500.0
-    set ^account(id) = amount # update db
+    setvar ^account(id) = amount # update db
   echo "Done"
   # lock automatically released here
 ```
 To set an id for a global some different variants are available
 ```nim
-set:
+setvar:
   ^gbl(1)=1
   ^gbl(1,1)=1.1
   ^gbl("B")="..."
@@ -59,9 +59,9 @@ set:
 ```
 
 ### Currently the following DSL is supported:
-- ### set: 
+- ### setvar: 
 ```nim
-set: ^Customer(4711,"Name")="John Doe"
+setvar: ^Customer(4711,"Name")="John Doe"
 ```
 - increment:
 ```nim
@@ -157,7 +157,7 @@ proc walk(path: string): seq[string] =
 proc loadImagesToDb(basedir: string) =
     for image in walk(basedir):
         let image_number = increment(^CNT("image_number"))
-        set:
+        setvar:
             ^images($image_number) = readFile(image)
             ^images($image_number, "path") = image
             ^images($image_number, "created") = now()
