@@ -3,6 +3,8 @@ import ydbapi
 import ydbtypes
 import std/strutils
 import std/sets
+import tables
+
 
 proc stringToSeq(s: string): Subscripts =
   for arg in s.split(","):
@@ -72,6 +74,9 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
     result = @[newLit(prefix & tableIdent.strVal)]
     for i in 1 ..< callPart.len:
       let arg = callPart[i]
+      if arg.kind == nnkExprEqExpr:
+        # skip keyword args (by=5, timeout=333, etc.) here (handled separately in macros)
+        continue
       result.add newCall(ident"$", arg)
 
   # Helper to build basic args
@@ -80,6 +85,10 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
     result = @[newLit(prefix & tableIdent.strVal)]
     for i in 1 ..< callPart.len:
       let arg = callPart[i]
+      if arg.kind == nnkExprEqExpr:
+        # skip keyword args (by=5, timeout=333, etc.) here (handled separately in macros)
+        continue
+
       # Handle literals vs other expressions differently for Next transformation
       case arg.kind
       of nnkStrLit, nnkRStrLit, nnkIntLit, nnkFloatLit:
@@ -225,22 +234,48 @@ macro setvar*(body: untyped): untyped =
 
 macro increment*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
-    if node.kind == nnkAsgn:  # ^CNT("AUTO")=<increment>
-      let lhs = node[0]
-      let rhs = node[1]
-      if lhs.kind == nnkPrefix:  # global var ^
-        var args = transformCallNode(lhs)
-        args.add newCall(ident"$", rhs)
-        return newCall(ident"incrxxx", args)
-      elif lhs.kind == nnkCall:  # local var
-        var args = transformCallNode(lhs)
-        args.add newCall(ident"$", rhs)
-        return newCall(ident"incrxxx", args)
-    elif node.kind in {nnkPrefix, nnkCall}:
+    if node.kind in {nnkPrefix, nnkCall}:
       var args = transformCallNode(node)
-      return newCall(ident"incr1xxx", args)
+
+      # find the underlying call node (after ^)
+      var callNode = node
+      if node.kind == nnkPrefix and node.len > 1 and node[1].kind == nnkCall:
+        callNode = node[1]
+
+      # collect keyword args
+      var kwargs = initTable[string, NimNode]()
+      if callNode.kind == nnkCall:
+        for i in 1 ..< callNode.len:
+          let arg = callNode[i]
+          if arg.kind == nnkExprEqExpr:
+            kwargs[arg[0].strVal] = arg[1]
+
+      # choose base call
+      var inner: NimNode
+      if kwargs.hasKey("by"):
+        inner = newCall(ident"incrxxx", args)
+        inner.add newCall(ident"$", kwargs["by"])
+      else:
+        inner = newCall(ident"incr1xxx", args)
+
+      # # optionally wrap with lock
+      # if kwargs.hasKey("lock") and $kwargs["lock"] == "true":
+      #   return quote do:
+      #     withlock:
+      #       `inner`
+      # else:
+        return inner
+
+    #elif node.kind == nnkAsgn:
+      # let lhs = node[0]
+      # let rhs = node[1]
+      # var args = transformCallNode(lhs)
+      # args.add newCall(ident"$", rhs)
+      # return newCall(ident"incrxxx", args)
+
     else:
       return node
+
   transformBodyStmt body
 
 
@@ -575,10 +610,12 @@ proc setxxx*(args: varargs[string]) =
 # incr (increment) procs
 # ----------------------
 proc incr1xxx*(args: varargs[string]): int =
+  # increment: ^CNT("XXX") -> +1
   var subs = argsToSeq(args[1..^1])
   ydb_increment(args[0], subs)
 
 proc incrxxx*(args: varargs[string]): int =
+  # increment: ^CNT("XXX", by=5) -> +5
   var subs = argsToSeq(args[1..^2])
   ydb_increment(args[0], subs, parseInt(args[^1]))
 

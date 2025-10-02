@@ -177,20 +177,37 @@ proc testIncrementLocalsByTen() =
 
   # Increment by 10
   for i in 1..10:
-    let cnt = increment: CNT("1,1") = 10
+    let cnt = increment: CNT("1,1", by=10)
     assert cnt == 1000 + i*10
     assert get(CNT("1,1").int) == 1000 + i*10
 
-    let c = increment: CNT(2,2) = 10
+    let c = increment: CNT(2,2, by=10)
     assert c == 2000 + i*10
     assert get(CNT(2,2).int) == 2000 + i*10
 
-    let d = increment: CNT(keys) = 10
+    let d = increment: CNT(keys, by=10)
     assert d == 3000 + i*10
     assert get(CNT(keys).int) == 3000 + i*10
 
-    let e = increment: CNT(i) = 10
+    let e = increment: CNT(i, by=10)
     assert 11 == e
+
+proc testIncrementBy() =
+    delnode: ^CNT("XXX")
+    var x = increment: ^CNT("XXX")
+    assert x == 1
+    x = increment: ^CNT("XXX", by=100)
+    assert x == 101
+
+    for i in 0..10:
+        var z = increment local("abc", by=5)
+        assert z == i * 5 + 5
+
+    delnode ^CNT("XXX")
+    for i in 0..10:
+        var z = increment ^CNT("XXX", by=5)
+        assert z == i * 5 + 5
+
 
 proc testGetFast(iterations: int) =
   setvar: ^tmp(4711)="01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -239,6 +256,7 @@ when isMainModule:
       echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
 
     test "setOrderedSetPostfix": testOrderedSetPostfix()
+    test "increment by": testIncrementBy()
     test "increment locals by one": testIncrementLocalsByOne()
     test "increment locals by ten": testIncrementLocalsByTen()
 

@@ -60,7 +60,7 @@ Atomic increment a global in the database
 let rc = delnode: ^CNT("TXID")
 var incrval = increment: ^CNT("TXID")
 assert 1 == incrval
-incrval = increment: ^CNT("TXID") = 10
+incrval = increment: ^CNT("TXID", by=10)
 assert 11 == incrval
 ```
 

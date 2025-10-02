@@ -215,9 +215,10 @@ setvar:
     ^CUST(id, "loop") = id
 ```
 #### increment ####
-Increment a global in the database by 1
+Increment a global in the database by 1 or 5
 ```nim
-let nexttxid = increment: ^CNT("TXID")
+let nexttxid1 = increment: ^CNT("TXID")
+let nexttxid5 = increment: ^CNT("TXID", by=5)
 ```
 #### data
 Test if a node or tree exists and has a subtree
