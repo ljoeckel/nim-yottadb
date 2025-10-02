@@ -38,21 +38,12 @@ export PATH=$PATH:$HOME/.nimble/bin
 ````
 
 ### Install grabnim
+grabnim is a tool to install the latest version of Nim. It also enhances the `nimlangserver` integration with Visual Studio Code.
 ```bash 
 wget https://codeberg.org/janAkali/grabnim/raw/branch/master/misc/install.sh
 sh install.sh
 ```
-
-For the example 'traverse' to compile the nim packet 'tui-widget' is required. To install:
-```bash
-nimble install nimclipboard
-nimble install asciigraph
-nimble install https://github.com/jaar23/tui_widget.git
-```
-Also, some other linux packages are required to handle the clipboard functionality
-```bash
-sudo apt install xcb libx11-xcb-dev
-```
+Run `grabnim -h` to see the options.
 
 
 # Install nimyottadb
@@ -66,7 +57,7 @@ If it's in the package registry, install simply with
 nimble install nimyottadb
 ```
 
-# Create project
+# Create a nim-yottadb project
 - nimble init ydbtest
 - cd to ydbtest
 - Add file "nim.cfg" and add the following content:
@@ -86,31 +77,25 @@ proc main() =
     ^CUSTOMER(2, "Name")="Jane Smith"
     ^CUSTOMER(2, "Email")="jane.smith.@yahoo.com"
 
-  var subs:Subscripts = @[]
-  var rc = YDB_OK
-
   echo "Iterate over all customers"
+  var (rc, subs) = nextsubscript: ^CUSTOMER()
   while rc == YDB_OK:
-    (rc, subs) = nextsubscript: ^CUSTOMER(subs)
-    if rc == YDB_OK:
-      let id = subs[0]
-      let name = get: ^CUSTOMER(id, "Name")
-      let email = get: ^CUSTOMER(id, "Email")
-      echo fmt"Customer {id}: {name} <{email}>"
+    let name = get: ^CUSTOMER(subs, "Name")
+    let email = get: ^CUSTOMER(subs, "Email")
+    echo fmt"Customer {subs[0]}: {name} <{email}>"
+    (rc, subs) = nextsubscript: ^CUSTOMER(subs) # Read next
 
-  echo "Iterate over all nodes and use subscripts()"
-  subs = @[]
-  rc = YDB_OK
+  echo "Iterate over all nodes"
+  (rc, subs) = nextnode: ^CUSTOMER()
   while rc == YDB_OK:
-    (rc, subs) = nextnode: ^CUSTOMER(subs)
-    if rc == YDB_OK:
-      let value = get: ^CUSTOMER(subs)
-      echo fmt"Node {subs} = {value}"
+    let value = get: ^CUSTOMER(subs)
+    echo fmt"Node {subs} = {value}"
+    (rc, subs) = nextnode: ^CUSTOMER(subs) # Read next
 
 when isMainModule:
   main()
-````
-compile:
+```
+compile with
 ```nim
 nim c -r src/hello.nim
 ````
@@ -120,7 +105,7 @@ The output should look like:
 Iterate over all customers
 Customer 1: John Doe <john-doe.@gmail.com>
 Customer 2: Jane Smith <jane.smith.@yahoo.com>
-Iterate over all nodes and use subscripts()
+Iterate over all nodes
 Node @["1", "Email"] = john-doe.@gmail.com
 Node @["1", "Name"] = John Doe
 Node @["2", "Email"] = jane.smith.@yahoo.com

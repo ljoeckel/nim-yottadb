@@ -77,38 +77,34 @@ proc testzwr2str() =
   assert zwr2str(s) == repeat("\1", 520222)
   assert zwr2str(s).len == 520222
 
-proc testBinaryPostfix() =
-  # create a binary string
-  var binval: string
-  for i in 0 .. 255:
-    binval.add(i.char) 
-
-  set: ^tmp("binary") = binval
-  let dbval = get: ^tmp("binary")
-  assert dbval == binval
-
-  # Create binary data upto 1MB
-  for i in 4095 .. 4096:
-    set: ^tmp("binary", i) = repeat(binval, i)
-
-  # Read back an compare
-  for i in 4095 .. 4096:
-    let dbval = get(^tmp("binary", i))
-    assert dbval == repeat(binval, i)
-
-
-proc createData(kb: int): string =
+proc createBinData(kb: int): string =
   # create a binary string
   var binval: string
   for i in 0 .. 255:
     binval.add(i.char)
   repeat(binval, kb*4)
 
+
+proc testBinaryPostfix() =
+  set: ^tmp("binary") = createBinData(1)
+  let dbval = getblob: ^tmp("binary")
+  assert dbval == createBinData(1)
+
+  # Create binary data upto 1MB
+  for i in 4095 .. 4096:
+    set: ^tmp("binary", i) = createBinData(i)
+
+  # Read back an compare
+  for i in 4095 .. 4096:
+    let dbval = getblob(^tmp("binary", i))
+    assert dbval == createBinData(i)
+
+
 proc testBinaryPostfixHugeWrite(): int =
   discard deleteGlobal("^tmphuge")
   var totalBytes = 0
   for size in [512, 1024, 1025, 2048, 2049, 8192, 16384, 32767, 65535, 131073]:
-    let data = createData(size)
+    let data = createBinData(size)
     inc(totalBytes, data.len)
     set: ^tmphuge(size) = data
   return totalBytes
@@ -116,16 +112,15 @@ proc testBinaryPostfixHugeWrite(): int =
 proc testBinaryPostfixHugeRead(): int =
   var totalBytes = 0
   for size in [512, 1024, 1025, 2048, 2049, 8192, 16384, 32767, 65535, 131073]:
-    #let data = get(^tmphuge(size).binary)
-    let data = get(^tmphuge(size))
+    let data = getblob(^tmphuge(size))
     inc(totalBytes, data.len)
   return totalBytes
 
 proc testBinaryPostfixHugeVerify(): int =
   var totalBytes = 0
   for size in [512, 1024, 1025, 2048, 2049, 8192, 16384, 32767, 65535, 131073]:
-    let data = createData(size)
-    let dbval = get(^tmphuge(size))
+    let data = createBinData(size)
+    let dbval = getblob(^tmphuge(size))
     inc(totalBytes, dbval.len)
     assert data == dbval
   return totalBytes
@@ -197,6 +192,27 @@ proc testIncrementLocalsByTen() =
     let e = increment: CNT(i) = 10
     assert 11 == e
 
+proc testGetFast(iterations: int) =
+  set: ^tmp(4711)="01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+  echo "Using 'getblob' with ", iterations, " iterations."
+  timed:
+    for i in 0 .. iterations:
+      let val = getblob(^tmp(4711))
+
+  echo "Using 'get' with ", iterations, " iterations."
+  timed:
+    for i in 0 .. iterations:
+      let val = get(^tmp(4711))
+  
+
+proc testGetWithException() =
+  var maxlen = 1024*1024 - 1
+  set: ^tmp(4711) = repeat(".", maxlen)
+  var val = get(^tmp(4711))
+  assert val.len == maxlen
+
+  set: ^tmp(4712) = repeat(".", maxlen+1)
+  doAssertRaises(YdbError): val = get(^tmp(4712))
 
 when isMainModule:
   suite "Locals Tests":
@@ -225,3 +241,6 @@ when isMainModule:
     test "setOrderedSetPostfix": testOrderedSetPostfix()
     test "increment locals by one": testIncrementLocalsByOne()
     test "increment locals by ten": testIncrementLocalsByTen()
+
+    test "get with recordlen 1MB - 1", testGetWithException()
+    test "getfast": testGetFast(10_000_000)

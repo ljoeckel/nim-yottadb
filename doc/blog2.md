@@ -195,12 +195,13 @@ you can write
 set: ^building("Room", 1, "Window")=22.5
 ```
 
-#### set / get
+#### set / get / getblob
 ```nim
 set:
     ^XX(1,2,3)=123
     ^XX("B",1)="AB"
 let var1 = get(^XX(1,2,3))
+let image = getblob(^images(4711))
 ```
 #### Support for mixed type subscripts
 ```nim
@@ -213,7 +214,7 @@ set:
     ^CUST(id, "Timestamp") = cpuTime()
     ^CUST(id, "loop") = id
 ```
-#### incr ####
+#### increment ####
 Increment a global in the database by 1
 ```nim
 let nexttxid = increment: ^CNT("TXID")
@@ -279,11 +280,7 @@ The following postfixes are implemented:
 - uint, uint8, uint16, uint32, uint64
 - float, float32, float64
 
-#### .binary Postfix
-The `binary` postfix allows to read back binary data from the DB.
-```nim
-  let dbval = get: ^tmp(4711).binary
-```
+
 ## Saving a Nim Object-Tree to the database
 Based on the Nim object model, it is possible to store objects, even complex ones, in the database. A global variable is created for each type, e.g., "Address," "Customer," etc. Attributes are then stored with their corresponding names.
 ```nim

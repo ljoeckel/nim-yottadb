@@ -4,6 +4,7 @@ nimcache/
 nimblecache/
 htmldocs/
 images/
+images_fromdb/
 src/examples/local_images/
 nimble.develop
 nimble.paths
@@ -40,3 +41,4 @@ src/serialization/binser_test
 src/tests/serialization_test
 src/examples/image_loader
 src/tests/dumptree
+src/examples/images

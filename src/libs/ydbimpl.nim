@@ -378,7 +378,7 @@ proc ydb_subscript_previous_db*(name: string, keys: Subscripts, tptoken: uint64)
   subscript_traverse(Direction.Previous, name, keys, tptoken)
 
 
-proc ydb_get_binary_small(name: string, keys: Subscripts = @[], tptoken: uint64): string =
+proc ydb_get_small(name: string, keys: Subscripts = @[], binary: bool = false, tptoken: uint64): string =
   ## Retrieve a value from a local or global node
   check()
   setYdbBuffer(GLOBAL, name)
@@ -392,31 +392,40 @@ proc ydb_get_binary_small(name: string, keys: Subscripts = @[], tptoken: uint64)
     rc = ydb_get_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
 
   if rc == YDB_OK:
-    result = newString(DATABUF.len_used)
-    for idx in 0..<DATABUF.len_used:
-      result[idx] = DATABUF.buf_addr[idx].char
+    if binary:
+      result = newString(DATABUF.len_used)
+      for idx in 0..<DATABUF.len_used:
+        result[idx] = DATABUF.buf_addr[idx].char
+    else:
+      DATABUF.buf_addr[DATABUF.len_used] = '\0'
+      return $DATABUF.buf_addr
   else:
     raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys)
 
 
 proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
+  result = ydb_get_small(name, keys, false, tptoken)
+  if result.len >= BUFFER_DATABUF_SIZE:
+    raise newException(YdbError, "Record too long. Use \'getblob\'" & " name:" & name & " keys:" & $keys)
+
+
+proc ydb_getblob_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
   var subs = keys
-  if keys.len > 0 and keys.len < 25: # willkürlich festgelegt TODO: Need length calculation of subs
+  if keys.len > 0 and keys.len < 30: # willkürlich festgelegt TODO: Need length calculation of subs
     subs.add("___$00000000$___") # marker for first huge block
     if ydb_data_db(name, subs, tptoken) >= 1:
       var sb = newStringStream()
-      #(rc, subs) = ydb_node_next_db(name, subs, tptoken)
       rc = YDB_OK
       while rc == YDB_OK:
-        let val = ydb_get_binary_small(name, subs, tptoken)
+        let val = ydb_get_small(name, subs, true, tptoken)
         sb.write(val)
         (rc, subs) = ydb_subscript_next_db(name, subs, tptoken)
       sb.setPosition(0)
       return sb.readAll()
     else:
-      return ydb_get_binary_small(name, keys, tptoken)  
+      return ydb_get_small(name, keys, true, tptoken)  
   else:
-    return ydb_get_binary_small(name, keys, tptoken)
+    return ydb_get_small(name, keys, true, tptoken)
 
 
 # --- Locks ---

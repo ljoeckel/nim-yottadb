@@ -1,6 +1,6 @@
 # DSL Statements and Expressions
 
-## set / get
+## set / get / getblob
 ```nim
 set:
     ^XX(1,2,3)=123
@@ -10,7 +10,6 @@ set:
     ^XX(1,6)=16
     ^XX("B",1)="AB"
 ```
-
 Get already converted data (string/int/float)
 ```nim
 let subs = @["4711", "Acct123"]
@@ -50,7 +49,12 @@ Upto 31 Index-Levels are possible
 set: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,"Z")="xxx"
 ```
 
-## incr
+nim-yottadb supports binary data with a max recordsize of 99999999 MB. You can read back binary data with `getblob`
+```nim
+let image = getblob(^images(4711))
+```
+
+## increment
 Atomic increment a global in the database
 ```nim
 let rc = delnode: ^CNT("TXID")
@@ -74,13 +78,13 @@ set:
     ^X(7,3)="H"
   
   var dta = data: ^X(0)
-  assert YdbData(dta) == NO_DATA_NO_SUBTREE
+  assert YdbData(dta) == YDB_DATA_UNDEF
   dta = data: ^X(6)
-  assert YdbData(dta) == DATA_NO_SUBTREE
+  assert YdbData(dta) == YDB_DATA_VALUE_NODESC
   dta = data: ^X(5)
-  assert YdbData(dta) == DATA_AND_SUBTREE
+  assert YdbData(dta) == YDB_DATA_NOVALUE_DESC
   dta = data: ^X(7)
-  assert YdbData(dta) == NO_DATA_WITH_SUBTREE
+  assert YdbData(dta) == YDB_DATA_VALUE_DESC
 ```
 
 ## delnode
@@ -137,16 +141,11 @@ assert subs = @["HAUS"]
 ## nextsubscript
 Traverse on the globals on a given index level.
 ```nim
-  var rc:int
-  var subs: Subscripts
-  (rc, subs) = nextsubscript: ^LL("HAUS", "ELEKTRIK")
-  assert subs == @["HAUS", "FLAECHEN"]
-  (rc, subs) = nextsubscript: ^LL("HAUS")
-  assert subs == @["LAND"]
-  (rc, subs) = nextsubscript: ^LL("")
-  assert subs == @["HAUS"]
-  (rc, subs) = nextsubscript: ^LL("ZZZZZZZ")
-  assert rc == YDB_ERR_NODEEND and subs == @[""]
+var (rc, subs) = nextsubscript: ^images(@[""]) # -> @["223"]
+while rc == YDB_OK:
+   let path    = get(^images(subs, "path"))
+   # do something with path
+   (rc, subs) = nextsubscript: ^images(subs)
 ```
 
 ## prevsubscript

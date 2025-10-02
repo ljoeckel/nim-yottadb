@@ -24,6 +24,7 @@ The nim-yottadb implementation delievers the following features:
 - ydb_zwr2str / ydb_zwr2str Convert bindary data and convert back
 
 ### Extensions to the Simple-API
+- Support for binary data > 1MB
 - Iterator for next/previous node
 - Iterator for next/previous subscript
 - YdbVar with $ and [] operator
@@ -66,14 +67,14 @@ set: ^Customer(4711,"Name")="John Doe"
 ```nim
 let: int txid = increment: ^CNT("TXID")
 ```
-- ### get:
+- ### get / getblob
 ```nim
 let name = get: ^Customer(4711,"Name")
 let f: float = get: ^Customer(4711, accountId, transactionId, "amount").float
-let i: int = get: ^Customer(4711, accountId, "somevalue").int
+let image = getblob(^images("folderA", 815))
 ```
 - ### nextnode:
-```nim var
+```nim 
   rc: int
   node: Subscripts
 (rc, node) = nextnode: ^House("FLOOR")
@@ -95,10 +96,10 @@ let i: int = get: ^Customer(4711, accountId, "somevalue").int
 let dta: int = data: ^House("FLOOR")
 'dta' can have the following values:
 enum YdbData:
-  NO_DATA_NO_SUBTREE
-  DATA_NO_SUBTREE
-  DATA_AND_SUBTREE
-  NO_DATA_WITH_SUBTREE
+YDB_DATA_UNDEF = 0, # Node is undefined
+YDB_DATA_VALUE_NODESC = 1, # Node has a value but no descendants
+YDB_DATA_NOVALUE_DESC = 10, # Node has no value but has descendants
+YDB_DATA_VALUE_DESC = 11 # # Node has both value and descendants
 ```
 - ### delnode:
 ```nim
@@ -136,7 +137,7 @@ Records larger than 1 MB are split into subrecords. To do this, an additional ke
 ```nim
 "___$00000000$___"
 ```
-When reading back, nim-yottadb automatically checks whether such index keys exist and loads the data accordingly.
+When reading back with `getblob`, nim-yottadb automatically checks whether such index keys exist and loads the data accordingly.
 The processing of strings and binary data is also automatic.
 
 ### Sample to load / restore images into YottaDb
@@ -155,14 +156,14 @@ proc walk(path: string): seq[string] =
 
 proc loadImagesToDb(basedir: string) =
     for image in walk(basedir):
-        let image_number = incr(^CNT("image_number"))
+        let image_number = increment(^CNT("image_number"))
         set:
             ^images($image_number) = readFile(image)
             ^images($image_number, "path") = image
             ^images($image_number, "created") = now()
 
 proc saveImage(target: string, path: string, img: string) =
-    if not existsDir(target):
+    if not dirExists(target):
         createDir(target)
 
     let filename = path.split("/")[^1]
@@ -170,16 +171,16 @@ proc saveImage(target: string, path: string, img: string) =
     writeFile(fullpath, img)
 
 proc readImagesFromDb(target: string) =
-    var (rc, subs) = nextsubscript: ^images(@[""]) # -> @["223"], ..
+    var (rc, subs) = nextsubscript: ^images(@[""]) # -> @["223"], @["224"], ...
     while rc == YDB_OK:
-        let img     = get(^images(subs))
+        let img     = getblob(^images(subs))
         let path    = get(^images(subs, "path"))
         saveImage(target, path, img)
         (rc, subs) = nextsubscript: ^images(subs)
 
 if isMainModule:
-    loadImagesToDb("../../images") # read from the folder and save in db
-    readImagesFromDb("./local_images") # read from db and save under this folder
+    loadImagesToDb("./images") # read from the folder and save in db
+    readImagesFromDb("./images_fromdb") # read from db and save under this folder
 ```
 
 ### More Info

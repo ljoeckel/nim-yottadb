@@ -286,7 +286,8 @@ proc testExtendSubscriptWithString =
   assert image == "imagedata"
   let path = get(^images(subs, "path"))
   assert path == "imagepath"
-
+  
+  deltree(^images(4711))
 
 
 proc setup() =

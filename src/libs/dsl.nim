@@ -120,9 +120,12 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
       let globalArg = args[0]
       let transformedArgs = args[1..^1]
       if transformedArgs.len == 1 and transformedArgs[0].kind notin {nnkStrLit, nnkRStrLit, nnkIntLit}:
-        return newCall(ident"getstring1", globalArg, transformedArgs[0])
+        let p = procPrefix & "getstring1"
+        #return newCall(ident"getstring1", globalArg, transformedArgs[0])
+        return newCall(ident(p), globalArg, transformedArgs[0])
       else:
-        result = newCall(ident"getstring", globalArg)
+        let p = procPrefix & "getstring"
+        result = newCall(ident(p), globalArg)
         for a in transformedArgs:
           result.add newCall(ident"$", a)
 
@@ -315,6 +318,21 @@ macro lockdecr*(body: untyped): untyped =
 
 # ------------------- Expression-context macros -------------------
 
+macro getblob*(body: untyped): untyped =
+  proc transform(node: NimNode): NimNode =
+    if node.kind in {nnkPrefix, nnkCall, nnkDotExpr, nnkIdent}:
+      return transformCallNodeGET(node, "blob")
+    else:
+      return node
+
+  # unwrap stmtlist if present
+  if body.kind == nnkStmtList:
+    if body.len != 1:
+      error("getblob: expects exactly one expression", body)
+    result = transform(body[0])
+  else:
+    result = transform(body)
+
 macro get*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
     if node.kind in {nnkPrefix, nnkCall, nnkDotExpr, nnkIdent}:
@@ -399,6 +417,22 @@ proc getstring1*(global: string, s: string): string =
   else:
     ydb_get(global, @[s])
 
+proc blobgetstring*(args: varargs[string]): string =
+  var subs = argsToSeq(args[1..^1])
+  ydb_getblob(args[0], subs)
+
+proc blobgetstring1*(global: string, args: seq[string]): string =
+  ydb_getblob(global, args[0..^1])
+
+proc blobgetstring1*(global: string, s: string): string =
+  if s.startsWith("@["):
+    ydb_getblob(global, stringToSeq(s))
+  else:
+    ydb_getblob(global, @[s])
+
+
+
+
 proc getnumber(global: string, args: varargs[string]): string =
   var subs = argsToSeq(args)
   ydb_get(global, subs)
@@ -462,7 +496,6 @@ proc getOrderedSet*(global: string, args: varargs[string]): OrderedSet[int] =
   else:
     for s in split(str, ","):
       result.incl(parseInt(strip(s)))
-
 
 # -------------------
 # nextnode procs
