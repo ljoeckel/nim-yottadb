@@ -547,7 +547,7 @@ proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_b
   return rc.cint
 
 
-proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken: uint64) =
+proc ydb_lock_db*(timeout_nsec: int, keys: seq[Subscripts], tptoken: uint64) =
   ## Acquire lock on a node(s) with timeout in nsec
   if keys.len > YDB_MAX_NAMES:
     raise newException(YdbError, fmt"Too many arguments. Only {YDB_MAX_NAMES} are allowed")    
@@ -572,8 +572,8 @@ proc ydb_lock_db*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken: uint
     var subs = newSeq[ydb_buffer_t]()
     subs.add(stringToYdbBuffer())
     locksubs.add(subs)
- 
-  let rc = ydb_lock_db_variadic(keys.len, timeout_nsec, locknames, locksubs, tptoken)  
+
+  let rc = ydb_lock_db_variadic(keys.len, cast[culonglong](timeout_nsec), locknames, locksubs, tptoken)  
   if rc < YDB_OK:
     raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, {keys})")
 

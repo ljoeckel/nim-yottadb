@@ -317,20 +317,58 @@ macro delexcl*(body: untyped): untyped =
   transformBodyStmt body
 
 
+# proc findAttribute(attr: string, node: NimNode): NimNode =
+#   if node.len == 1: return result
+#   for i in 0 ..< node.len:
+#     let arg = node[i]
+#     #echo("i:", i, " arg:", repr(arg), " kind=", $arg.kind)
+#     if arg.kind in { nnkExprEqExpr }:
+#       echo "node[0].strVal=", node[0].strVal, " attr=", attr
+#       #if node[0].strVal == attr:
+#       echo "have found TIMEOUT=", repr(node[i+1])
+#       return node[i+1]
+#     else:
+#       result = findAttribute(attr, arg)
+
+
 macro lock*(body: untyped): untyped =
   var args: seq[NimNode] = @[]
+  var kwargs = initTable[string, NimNode]()
   proc transform(node: NimNode): NimNode =
+    var timeout: NimNode
     if node.kind == nnkPrefix:
       args.add(transformCallNode(node))
-      return newCall(ident"lockxxx", args)
+      var params: seq[NimNode] = @[]
+      params.add(newCall(ident"$", timeout))
+      for arg in args:
+        params.add(arg)
+      return newCall(ident"locktimeout", args)
     elif node.kind == nnkCurly:
       for n in 0..<node.len:
-        let prefixNode = node[n]
-        args.add(transformCallNode(prefixNode))
-      return newCall(ident"lockxxx", args)
+        let child = node[n]        
+        if child.kind == nnkPrefix:
+          args.add(transformCallNode(child))
+        elif child.kind == nnkExprEqExpr:
+          timeout = child[1]
+        else:
+          echo "Unsupported node.kind:", child.kind
+      if timeout != nil:
+        var params: seq[NimNode] = @[]
+        params.add(newCall(ident"$", timeout))
+        for arg in args:
+          params.add(arg)
+        return newCall(ident"locktimeout", params)
+      else:
+        var params: seq[NimNode] = @[]
+        params.add(newLit("0"))
+        for arg in args:
+          params.add(arg)
+        return newCall(ident"locktimeout", params)
     else:
       return node
+  
   transformBodyStmt body
+
 
 macro lockincr*(body: untyped): untyped =
   proc transform(node: NimNode): NimNode =
@@ -382,7 +420,6 @@ macro get*(body: untyped): untyped =
     result = transform(body[0])
   else:
     result = transform(body)
-
 
 
 macro nextnode*(body: untyped): untyped =
@@ -452,6 +489,10 @@ proc getstring1*(global: string, s: string): string =
   else:
     ydb_get(global, @[s])
 
+
+# ---------------------
+# getblob proc
+# ---------------------
 proc blobgetstring*(args: varargs[string]): string =
   var subs = argsToSeq(args[1..^1])
   ydb_getblob(args[0], subs)
@@ -466,8 +507,9 @@ proc blobgetstring1*(global: string, s: string): string =
     ydb_getblob(global, @[s])
 
 
-
-
+# ---------------------------
+# get postfix .int/.float/...
+# ---------------------------
 proc getnumber(global: string, args: varargs[string]): string =
   var subs = argsToSeq(args)
   ydb_get(global, subs)
@@ -531,6 +573,7 @@ proc getOrderedSet*(global: string, args: varargs[string]): OrderedSet[int] =
   else:
     for s in split(str, ","):
       result.incl(parseInt(strip(s)))
+
 
 # -------------------
 # nextnode procs
@@ -636,7 +679,6 @@ proc dataxxx1*(global: string, s: string): int =
     ydb_data(global, @[s])
 
 
-
 # -------------------
 # del Node/Tree procs
 # -------------------
@@ -659,7 +701,7 @@ proc delexclxxx*(args: varargs[string]) =
 # ---------------------
 # lock proc
 # ---------------------
-proc lockxxx*(args: varargs[string]) =
+proc lockxxx*(timeout: var int, args: varargs[string]) =
   # Convert 
   # args=["^LL", "HAUS", "11", "^LL", "HAUS", "12"] ->
   # subs:@[@["^LL", "HAUS", "11"], @["^LL", "HAUS", "12"]]
@@ -674,9 +716,27 @@ proc lockxxx*(args: varargs[string]) =
   if tmp.len > 0:
     subs.add(tmp)
   try:
-    ydb_lock(100000, subs)
+    if timeout == 0: timeout = YDB_LOCK_TIMEOUT
+    ydb_lock(timeout, subs)
   except:
     echo getCurrentExceptionMsg()
+
+proc locktimeout*(args: varargs[string]) =
+  var timeout:int = 0
+  if args.len > 1:
+    try:  # numeric timeout value?
+      timeout = parseInt(args[0])
+    except:
+      # No, use default timeout
+      timeout = YDB_LOCK_TIMEOUT
+    lockxxx(timeout, args[1..^1])
+  elif args.len == 1: # lock: {}
+    try:  # numeric timeout value?
+      timeout = parseInt(args[0])
+    except:
+      # No, use default timeout
+      timeout = YDB_LOCK_TIMEOUT
+    lockxxx(timeout, @[])
 
 
 # ----------------------

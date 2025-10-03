@@ -104,7 +104,10 @@ Delete a subtree of a global. If all nodes are removed, the global itself is rem
 ```
 
 ## lock
-Lock upto 35 Global variables. Other processes trying to lock one of the globals will wait until the lock is released. {} Have to be used if more than one global will be locked or an empty one to release all locks.
+Lock upto 35 Global variables. Other processes trying to lock one of the globals will wait until the lock is released. {} Have to be used to enclose the variables and the optional timeout value. A empty {} will release all locks.
+An optional `timeout` may be given to define the time in nsec how long to wait for a lock.
+Defaults to `timeout=2147483643`, the value of YDB_LOCK_TIMEOUT.
+
 If lock: is called again, the previous locks are automatically released first.
 ```nim
 lock:
@@ -117,6 +120,9 @@ var numOfLocks = getLockCountFromYottaDb()
 assert 3 == numOfLocks
 lock: {} # release all locks
 assert 0 == getLockCountFromYottaDb()
+
+var id = 4711
+lock: { ^CNT(id), timeout=1000000 }
 ```
 
 ## nextnode

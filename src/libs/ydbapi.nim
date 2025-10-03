@@ -96,7 +96,7 @@ iterator ydb_subscript_previous_iter*(global: string, start: Subscripts = @[], t
 # ------------------ Locks -----------------
 
 # Max of 35 variable names in one call
-proc ydb_lock*(timeout_nsec: culonglong, keys: seq[Subscripts], tptoken: uint64 = 0) =
+proc ydb_lock*(timeout_nsec: int, keys: seq[Subscripts], tptoken: uint64 = 0) =
   ydb_lock_db(timeout_nsec, keys, tptoken)
 
 

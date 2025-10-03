@@ -1,27 +1,29 @@
-#import macros
+import macros
 import yottadb
 
-#dumpTree:
-#    var cnt1 = increment(^CNT("AUTO", by=5))
+# dumpTree:
+#     lock: {^LL(4711), 
+#     ^LL(1), timeout=774455
+#     }
+
+# Call
+#     Ident "lock"
+#     ExprEqExpr
+#       Ident "timeout"
+#       IntLit 1000
+#     StmtList
+#       Curly
+#         Prefix
+#           Ident "^"
+#           Call
+#             Ident "LL"
+#             StrLit "HAUS"
+#             StrLit "11"
 
 
+let id = "0815"
+lock: {^ll(4711), ^xyz("ABC"), ^abc(id), timeout=774455}
+echo "locks.set=", getLocksFromYottaDb()
 
-proc testIncrementBy() =
-    delnode: ^CNT("XXX")
-    var x = increment: ^CNT("XXX")
-    assert x == 1
-    x = increment: ^CNT("XXX", by=100)
-    assert x == 101
-
-    for i in 0..10:
-        var z = increment local("abc", by=5)
-        assert z == i * 5 + 5
-
-    delnode ^CNT("XXX")
-    for i in 0..10:
-        var z = increment ^CNT("XXX", by=5)
-        assert z == i * 5 + 5
-
-testIncrementBy()
-
-var x = increment: ^CNT("XXX")
+lock: {} # release all locks
+echo "locks.set after release=", getLocksFromYottaDb()

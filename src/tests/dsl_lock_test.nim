@@ -1,7 +1,93 @@
 import std/unittest
+import std/strutils
 import yottadb
 import utils
 import malebolgia
+
+proc testSimpleLocks() =
+    lock: { ^CNT("TEMPLATE_TEST") }
+    assert getLockCountFromYottaDb() == 1
+
+    block:
+        let id = "MYID"
+        lock: { ^CNT(id) }
+        var found: bool
+        for s in getLocksFromYottaDb():
+            if s.find(id) != -1: found = true
+        assert found
+
+    block:
+        let id = "MYID"
+        lock: { ^CNT(id), ^CNT("ABC"), ^XYZ(123) }
+        var found: bool
+        for s in getLocksFromYottaDb():
+            if s.find(id) != -1: found = true
+        assert found
+
+    block:
+        let id = "MYID-1"
+        lock: { ^CNT(id), timeout=1}
+        var found: bool
+        for s in getLocksFromYottaDb():
+            if s.find(id) != -1: found = true
+        assert found
+
+    block:
+        let id = "MYID-2"
+        lock: { ^CNT(id), ^CNT("ABC-2"), ^XYZ(123) , timeout=2}
+        var found: bool
+        for s in getLocksFromYottaDb():
+            if s.find(id) != -1: found = true
+        assert found
+
+    block:
+        let id = "MYID-3"
+        lock: {timeout="3", ^CNT(id), ^CNT("ABC-3"), ^XYZ(123) }
+        var found: bool
+        for s in getLocksFromYottaDb():
+            if s.find(id) != -1: found = true
+        assert found
+
+    block:
+        let id = "MYID-4"
+        lock: {timeout=4, ^CNT(id), ^CNT("ABC-4"), ^XYZ(123) }
+        var found: bool
+        for s in getLocksFromYottaDb():
+            if s.find(id) != -1: found = true
+        assert found
+
+    block:
+        let id = "MYID-0"
+        lock: {timeout=0, ^CNT(id), ^CNT("ABC-0"), ^XYZ(123) }
+        var found: bool
+        for s in getLocksFromYottaDb():
+            if s.find(id) != -1: found = true
+        assert found
+
+    block:
+        let id = "MYID--1"
+        lock: {timeout=-1, ^CNT(id), ^CNT("ABC-1"), ^XYZ(123) }
+        var found: bool
+        for s in getLocksFromYottaDb():
+            if s.find(id) != -1: found = true
+        assert found
+
+    block:
+        let id = "MYID-abc"
+        lock: {timeout="abc", ^CNT(id), ^CNT("ABC"), ^XYZ(123) }
+        var found: bool
+        for s in getLocksFromYottaDb():
+            if s.find(id) != -1: found = true
+        assert found
+
+    block:
+        let id = "MYID-single"
+        lock: { ^CNT(id), timeout=1000000 }
+        var found: bool
+        for s in getLocksFromYottaDb():
+            if s.find(id) != -1: found = true
+        assert found
+
 
 
 proc demoUpdate1(cnt: int, tn: int) =
@@ -71,4 +157,5 @@ proc testTryToCreateDeadlock() =
 when isMainModule:
   suite "DSL Lock Tests":
     test "Locks":
+      test "Simple locks": testSimpleLocks()
       test "Deadlock test": testTryToCreateDeadlock()

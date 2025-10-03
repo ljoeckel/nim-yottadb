@@ -117,6 +117,7 @@ delexcl: { DELTEST1, DELTEST3, DELTEST5 }
 - ### lock:
 ```nim
 lock: { ^House("FLOOR", 11), ^House("FLOOR", 12) }
+lock: { ^House("FLOOR"), timeout=1000000 }
 ```
 - ### lockincrement:
 ```nim
