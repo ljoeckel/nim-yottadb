@@ -338,32 +338,25 @@ macro lock*(body: untyped): untyped =
     var timeout: NimNode
     if node.kind == nnkPrefix:
       args.add(transformCallNode(node))
-      var params: seq[NimNode] = @[]
-      params.add(newCall(ident"$", timeout))
-      for arg in args:
-        params.add(arg)
+      args.add(newLit"|")
+      args.add(newCall(ident"$", timeout))
       return newCall(ident"locktimeout", args)
     elif node.kind == nnkCurly:
       for n in 0..<node.len:
         let child = node[n]        
         if child.kind == nnkPrefix:
           args.add(transformCallNode(child))
+          args.add(newLit"|")
         elif child.kind == nnkExprEqExpr:
           timeout = child[1]
         else:
           echo "Unsupported node.kind:", child.kind
       if timeout != nil:
-        var params: seq[NimNode] = @[]
-        params.add(newCall(ident"$", timeout))
-        for arg in args:
-          params.add(arg)
-        return newCall(ident"locktimeout", params)
+        args.add(newCall(ident"$", timeout))
+        return newCall(ident"locktimeout", args)
       else:
-        var params: seq[NimNode] = @[]
-        params.add(newLit("0"))
-        for arg in args:
-          params.add(arg)
-        return newCall(ident"locktimeout", params)
+        args.add(newLit("0"))
+        return newCall(ident"locktimeout", args)
     else:
       return node
   
@@ -703,18 +696,18 @@ proc delexclxxx*(args: varargs[string]) =
 # ---------------------
 proc lockxxx*(timeout: var int, args: varargs[string]) =
   # Convert 
-  # args=["^LL", "HAUS", "11", "^LL", "HAUS", "12"] ->
+  # args=["^LL", "HAUS", "11", "|", "^LL", "HAUS", "12", "|"] ->
   # subs:@[@["^LL", "HAUS", "11"], @["^LL", "HAUS", "12"]]
   var subs:seq[seq[string]] = @[]
   var tmp:seq[string] = @[]
   for arg in args:
-    if arg[0] == '^':
-        if tmp.len > 0:
-          subs.add(tmp)
-          tmp = @[]
-    tmp.add(arg)
-  if tmp.len > 0:
-    subs.add(tmp)
+    if arg == "|":
+      if tmp.len == 1: # add empty subscript if only ^x()
+        tmp.add("")
+      subs.add(tmp)
+      tmp = @[]
+    else:
+      tmp.add(arg)
   try:
     if timeout == 0: timeout = YDB_LOCK_TIMEOUT
     ydb_lock(timeout, subs)
@@ -725,11 +718,11 @@ proc locktimeout*(args: varargs[string]) =
   var timeout:int = 0
   if args.len > 1:
     try:  # numeric timeout value?
-      timeout = parseInt(args[0])
+      timeout = parseInt(args[^1])
     except:
       # No, use default timeout
       timeout = YDB_LOCK_TIMEOUT
-    lockxxx(timeout, args[1..^1])
+    lockxxx(timeout, args[0..^2])
   elif args.len == 1: # lock: {}
     try:  # numeric timeout value?
       timeout = parseInt(args[0])
