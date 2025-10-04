@@ -103,7 +103,7 @@ proc transformCallNodeBase(node: NimNode, kind: TransformKind = tkDefault, procP
       var args = makeBaseArgs(rhs)
       return newStmtList(args)
     elif rhs.kind == nnkIdent:
-      var args:seq[NimNode] = @[newLit(rhs.strVal)]
+      var args:seq[NimNode] = @[newLit(prefix & rhs.strVal)]
       return newStmtList(args)
 
   of tkNext:
@@ -336,12 +336,7 @@ macro lock*(body: untyped): untyped =
   var kwargs = initTable[string, NimNode]()
   proc transform(node: NimNode): NimNode =
     var timeout: NimNode
-    if node.kind == nnkPrefix:
-      args.add(transformCallNode(node))
-      args.add(newLit"|")
-      args.add(newCall(ident"$", timeout))
-      return newCall(ident"locktimeout", args)
-    elif node.kind == nnkCurly:
+    if node.kind == nnkCurly:
       for n in 0..<node.len:
         let child = node[n]        
         if child.kind == nnkPrefix:
@@ -349,6 +344,12 @@ macro lock*(body: untyped): untyped =
           args.add(newLit"|")
         elif child.kind == nnkExprEqExpr:
           timeout = child[1]
+        elif child.kind == nnkIdent:
+          args.add(transformCallNode(child))
+          args.add(newLit"|")
+        elif child.kind == nnkCall:
+          args.add(transformCallNode(child))
+          args.add(newLit"|")
         else:
           echo "Unsupported node.kind:", child.kind
       if timeout != nil:

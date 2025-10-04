@@ -88,6 +88,31 @@ proc testSimpleLocks() =
             if s.find(id) != -1: found = true
         assert found
 
+proc testLocalVarLocks() =
+    lock: { ^LL }
+    assert getLockCountFromYottaDb() == 1
+
+    let id = "0815"
+    lock: {^ll(4711), ^xyz("ABC"), ^abc(id), timeout=774455}
+    assert getLockCountFromYottaDb() == 3
+
+    lock: { ^globalvar, localvar, ^anotherglobal }
+    assert getLockCountFromYottaDb() == 3
+
+    lock: { ^globalvar(4711), localvar(4711), ^anotherglobal(id) }
+    assert getLockCountFromYottaDb() == 3
+
+    lock: { localvar }
+    assert getLockCountFromYottaDb() == 1
+
+    lock: { localvar(4711) }
+    assert getLockCountFromYottaDb() == 1
+
+    lock: { localvar, localvar2(4711), localvar("abc", 4711) }
+    assert getLockCountFromYottaDb() == 3
+
+    lock: {} # release all locks
+    assert getLockCountFromYottaDb() == 0
 
 
 proc demoUpdate1(cnt: int, tn: int) =
@@ -158,4 +183,5 @@ when isMainModule:
   suite "DSL Lock Tests":
     test "Locks":
       test "Simple locks": testSimpleLocks()
+      test "Localvar locks": testLocalvarLocks()
       test "Deadlock test": testTryToCreateDeadlock()
