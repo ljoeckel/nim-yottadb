@@ -33,8 +33,6 @@ src/examples/hello_customer
 src/examples/dsl
 src/tests/dsl2_test
 src/tests/dsl3_test
-src/3n+1/solver
-src/3n+1/runner
 src/tests/dsl4_test
 src/serialization/clientser
 src/serialization/binser_test
@@ -42,3 +40,5 @@ src/tests/serialization_test
 src/examples/image_loader
 src/tests/dumptree
 src/examples/images
+src/3n1/runner
+src/3n1/solver
