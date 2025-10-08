@@ -106,10 +106,24 @@ Delete a subtree of a global. If all nodes are removed, the global itself is rem
 ## lock
 Lock upto 35 Global variables. Other processes trying to lock one of the globals will wait until the lock is released. {} Have to be used to enclose the variables and the optional timeout value. A empty {} will release all locks.
 An optional `timeout` may be given to define the time in nsec how long to wait for a lock.
-Defaults to `timeout=2147483643`, the value of YDB_LOCK_TIMEOUT.
+Defaults to `timeout=2147483643` nano seconds, the value of YDB_LOCK_TIMEOUT.
+
+Locks are visible in each Thread and each process on the same host.
+
+Each lock operation releases earlier locks.
+
+A single variable can be added or removed to the lock table with '+' or '-'.
+
 
 If lock: is called again, the previous locks are automatically released first.
 ```nim
+# Lock one variable at the time. Release old locks
+lock localvar
+lock lclv(4711)
+lock ^globalvar
+lock ^gbl(4711)
+
+# Lock multiple variables at once
 lock:
   {
     ^LL("HAUS", "11"),
@@ -122,7 +136,15 @@ lock: {} # release all locks
 assert 0 == getLockCountFromYottaDb()
 
 var id = 4711
-lock: { ^CNT(id), timeout=1000000 }
+# Set a timeout value in seconds
+lock: { ^CNT(id), timeout=1.5 }
+
+lock +^gbl # add lock without releasing old locks
+lock -^gbl # release only ^gbl from locks
+lock +lclv # add lock for local variable
+lock -lclv # release only lclv from locks
+
+lock { +^gbl(4711), timeout=0.5} # timeout must be in curly braces
 ```
 
 ## nextnode
@@ -167,22 +189,6 @@ Traverse the globals backwards on a given index level.
   assert rc == YDB_ERR_NODEEND and subs == @[""]
 ```
 
-## lockincr / lockdecr
-```nim
-template withlock(lockid: untyped, body: untyped): untyped =
-    var rc = lockincrement: ^LOCKS(lockid)
-    body
-    rc = lockdecr: ^LOCKS(lockid)
-```
-Using:
-```nim
-proc update() =
-    withlock(4711):
-        echo "locks setvar:", getLockCountFromYottaDb()
-        # do the work here
-        
-    echo "After locks:", getLockCountFromYottaDb()
-```
 ## str2zwr
 Save binary data through YottaDB's api.
 Theoretically the maximum size of the useable data is the half of the maximum string length of 1MB.
@@ -229,6 +235,7 @@ It's experimental and may be removed in the future.
 
 # Local Variables
 All methods available for globals can also be applied for local variables.
+
 ```nim
 setvar:
   myvar(1) = 1

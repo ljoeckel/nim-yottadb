@@ -117,15 +117,9 @@ delexcl: { DELTEST1, DELTEST3, DELTEST5 }
 - ### lock:
 ```nim
 lock: { ^House("FLOOR", 11), ^House("FLOOR", 12) }
-lock: { ^House("FLOOR"), timeout=1000000 }
-```
-- ### lockincrement:
-```nim
-lockincrement: ^House("FLOOR", 11)
-```
-- ### lockdecr:
-```nim
-lockdecr: ^House("FLOOR", 11)
+lock: { lclvar, ^House("FLOOR"), timeout=1000000 }
+lock +^gblvar
+lock -lclvar
 ```
 
 All API-Calls are available in a single- or multi-threaded version and ara automatically selected via the **when compileOption("threads")**

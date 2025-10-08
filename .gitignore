@@ -42,3 +42,5 @@ src/tests/dumptree
 src/examples/images
 src/3n1/runner
 src/3n1/solver
+doc/about_lothar_joeckel.md
+src/examples/dsl_lock_test

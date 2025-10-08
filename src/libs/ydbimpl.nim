@@ -429,19 +429,27 @@ proc ydb_getblob_db*(name: string, keys: Subscripts = @[], tptoken: uint64): str
 
 
 # --- Locks ---
-proc ydb_lock_incr_db*(timeout_nsec: culonglong, name: string, keys: Subscripts, tptoken: uint64) =
+proc ydb_lock_incr_db*(timeout_nsec: int, name: string, keys: Subscripts, tptoken: uint64) =
   ## Increment lock for variable
   check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
-  when compileOption("threads"):
-    rc = ydb_lock_incr_st(tptoken, ERRMSG.addr, timeout_nsec, GLOBAL.addr, keys.len.cint, IDXARR[0].addr)
+  var subslen: cint
+  if keys.len == 1 and IDXARR[0].len_used == 0:
+    subslen = 0
   else:
-    rc = ydb_lock_incr_s(timeout_nsec, GLOBAL.addr, keys.len.cint, IDXARR[0].addr)
+    subslen = keys.len.cint
+
+  when compileOption("threads"):
+    rc = ydb_lock_incr_st(tptoken, ERRMSG.addr, timeout_nsec.culonglong, GLOBAL.addr, subslen, IDXARR[0].addr)
+  else:
+    rc = ydb_lock_incr_s(timeout_nsec.culonglong, GLOBAL.addr, subslen, IDXARR[0].addr)
 
   if rc < YDB_OK:
     raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{keys}")
+  elif rc == YDB_LOCK_TIMEOUT:
+    raise newException(YdbError, fmt"YDB_LOCK_TIMEOUT while setting: {keys}")
 
 
 proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken: uint64) =
@@ -450,10 +458,16 @@ proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken: uint64) =
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
-  when compileOption("threads"):
-    rc = ydb_lock_decr_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr)
+  var subslen: cint
+  if keys.len == 1 and IDXARR[0].len_used == 0:
+    subslen = 0
   else:
-    rc = ydb_lock_decr_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr)
+    subslen = keys.len.cint
+
+  when compileOption("threads"):
+    rc = ydb_lock_decr_st(tptoken, ERRMSG.addr, GLOBAL.addr, subslen, IDXARR[0].addr)
+  else:
+    rc = ydb_lock_decr_s(GLOBAL.addr, subslen, IDXARR[0].addr)
 
   if rc < YDB_OK:
     raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{keys}")
@@ -468,81 +482,91 @@ proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_b
     else:
       rc = ydb_lock_s(timeout, 0.cint)
   else:
+    # Set subslen to 0 if we pass an empty subscript
+    # g.e. lock: ^gbl
+    # will be passed as seq["^gbl", ""]
+    var subslen: array[35, cint]
+    for i in 0..<35:
+      if subs[i].len == 1 and subs[i][0].len_used == 0:  
+        subslen[i] = 0
+      else:
+        subslen[i] = subs[i].len.cint
+
     when compileOption("threads"):
       rc = ydb_lock_st(tptoken, ERRMSG.addr, timeout, numOfLocks.cint, 
-        addr names[0], subs[0].len.cint, addr subs[0][0],
-        addr names[1], subs[1].len.cint, addr subs[1][0],
-        addr names[2], subs[2].len.cint, addr subs[2][0],
-        addr names[3], subs[3].len.cint, addr subs[3][0],
-        addr names[4], subs[4].len.cint, addr subs[4][0],
-        addr names[5], subs[5].len.cint, addr subs[5][0],
-        addr names[6], subs[6].len.cint, addr subs[6][0],
-        addr names[7], subs[7].len.cint, addr subs[7][0],
-        addr names[8], subs[8].len.cint, addr subs[8][0],
-        addr names[9], subs[9].len.cint, addr subs[9][0],
-        addr names[10], subs[10].len.cint, addr subs[10][0],
-        addr names[11], subs[11].len.cint, addr subs[11][0],
-        addr names[12], subs[12].len.cint, addr subs[12][0],
-        addr names[13], subs[13].len.cint, addr subs[13][0],
-        addr names[14], subs[14].len.cint, addr subs[14][0],
-        addr names[15], subs[15].len.cint, addr subs[15][0],
-        addr names[16], subs[16].len.cint, addr subs[16][0],
-        addr names[17], subs[17].len.cint, addr subs[17][0],
-        addr names[18], subs[18].len.cint, addr subs[18][0],
-        addr names[19], subs[19].len.cint, addr subs[19][0],
-        addr names[20], subs[20].len.cint, addr subs[20][0],
-        addr names[21], subs[21].len.cint, addr subs[21][0],
-        addr names[22], subs[22].len.cint, addr subs[22][0],
-        addr names[23], subs[23].len.cint, addr subs[23][0],
-        addr names[24], subs[24].len.cint, addr subs[24][0],
-        addr names[25], subs[25].len.cint, addr subs[25][0],
-        addr names[26], subs[26].len.cint, addr subs[26][0],
-        addr names[27], subs[27].len.cint, addr subs[27][0],
-        addr names[28], subs[28].len.cint, addr subs[28][0],
-        addr names[29], subs[29].len.cint, addr subs[29][0],
-        addr names[30], subs[30].len.cint, addr subs[30][0],
-        addr names[31], subs[31].len.cint, addr subs[31][0],
-        addr names[32], subs[32].len.cint, addr subs[32][0],
-        addr names[33], subs[33].len.cint, addr subs[33][0],
-        addr names[34], subs[34].len.cint, addr subs[34][0]
+        addr names[0], subslen[0], addr subs[0][0],
+        addr names[1], subslen[1], addr subs[1][0],
+        addr names[2], subslen[2], addr subs[2][0],
+        addr names[3], subslen[3], addr subs[3][0],
+        addr names[4], subslen[4], addr subs[4][0],
+        addr names[5], subslen[5], addr subs[5][0],
+        addr names[6], subslen[6], addr subs[6][0],
+        addr names[7], subslen[7], addr subs[7][0],
+        addr names[8], subslen[8], addr subs[8][0],
+        addr names[9], subslen[9], addr subs[9][0],
+        addr names[10], subslen[10], addr subs[10][0],
+        addr names[11], subslen[11], addr subs[11][0],
+        addr names[12], subslen[12], addr subs[12][0],
+        addr names[13], subslen[13], addr subs[13][0],
+        addr names[14], subslen[14], addr subs[14][0],
+        addr names[15], subslen[15], addr subs[15][0],
+        addr names[16], subslen[16], addr subs[16][0],
+        addr names[17], subslen[17], addr subs[17][0],
+        addr names[18], subslen[18], addr subs[18][0],
+        addr names[19], subslen[19], addr subs[19][0],
+        addr names[20], subslen[20], addr subs[20][0],
+        addr names[21], subslen[21], addr subs[21][0],
+        addr names[22], subslen[22], addr subs[22][0],
+        addr names[23], subslen[23], addr subs[23][0],
+        addr names[24], subslen[24], addr subs[24][0],
+        addr names[25], subslen[25], addr subs[25][0],
+        addr names[26], subslen[26], addr subs[26][0],
+        addr names[27], subslen[27], addr subs[27][0],
+        addr names[28], subslen[28], addr subs[28][0],
+        addr names[29], subslen[29], addr subs[29][0],
+        addr names[30], subslen[30], addr subs[30][0],
+        addr names[31], subslen[31], addr subs[31][0],
+        addr names[32], subslen[32], addr subs[32][0],
+        addr names[33], subslen[33], addr subs[33][0],
+        addr names[34], subslen[34], addr subs[34][0]
         )
     else:
       rc = ydb_lock_s(timeout, numOfLocks.cint, 
-        addr names[0], subs[0].len.cint, addr subs[0][0],
-        addr names[1], subs[1].len.cint, addr subs[1][0],
-        addr names[2], subs[2].len.cint, addr subs[2][0],
-        addr names[3], subs[3].len.cint, addr subs[3][0],
-        addr names[4], subs[4].len.cint, addr subs[4][0],
-        addr names[5], subs[5].len.cint, addr subs[5][0],
-        addr names[6], subs[6].len.cint, addr subs[6][0],
-        addr names[7], subs[7].len.cint, addr subs[7][0],
-        addr names[8], subs[8].len.cint, addr subs[8][0],
-        addr names[9], subs[9].len.cint, addr subs[9][0],
-        addr names[10], subs[10].len.cint, addr subs[10][0],
-        addr names[11], subs[11].len.cint, addr subs[11][0],
-        addr names[12], subs[12].len.cint, addr subs[12][0],
-        addr names[13], subs[13].len.cint, addr subs[13][0],
-        addr names[14], subs[14].len.cint, addr subs[14][0],
-        addr names[15], subs[15].len.cint, addr subs[15][0],
-        addr names[16], subs[16].len.cint, addr subs[16][0],
-        addr names[17], subs[17].len.cint, addr subs[17][0],
-        addr names[18], subs[18].len.cint, addr subs[18][0],
-        addr names[19], subs[19].len.cint, addr subs[19][0],
-        addr names[20], subs[20].len.cint, addr subs[20][0],
-        addr names[21], subs[21].len.cint, addr subs[21][0],
-        addr names[22], subs[22].len.cint, addr subs[22][0],
-        addr names[23], subs[23].len.cint, addr subs[23][0],
-        addr names[24], subs[24].len.cint, addr subs[24][0],
-        addr names[25], subs[25].len.cint, addr subs[25][0],
-        addr names[26], subs[26].len.cint, addr subs[26][0],
-        addr names[27], subs[27].len.cint, addr subs[27][0],
-        addr names[28], subs[28].len.cint, addr subs[28][0],
-        addr names[29], subs[29].len.cint, addr subs[29][0],
-        addr names[30], subs[30].len.cint, addr subs[30][0],
-        addr names[31], subs[31].len.cint, addr subs[31][0],
-        addr names[32], subs[32].len.cint, addr subs[32][0],
-        addr names[33], subs[33].len.cint, addr subs[33][0],
-        addr names[34], subs[34].len.cint, addr subs[34][0]
+        addr names[0], subslen[0], addr subs[0][0],
+        addr names[1], subslen[1], addr subs[1][0],
+        addr names[2], subslen[2], addr subs[2][0],
+        addr names[3], subslen[3], addr subs[3][0],
+        addr names[4], subslen[4], addr subs[4][0],
+        addr names[5], subslen[5], addr subs[5][0],
+        addr names[6], subslen[6], addr subs[6][0],
+        addr names[7], subslen[7], addr subs[7][0],
+        addr names[8], subslen[8], addr subs[8][0],
+        addr names[9], subslen[9], addr subs[9][0],
+        addr names[10], subslen[10], addr subs[10][0],
+        addr names[11], subslen[11], addr subs[11][0],
+        addr names[12], subslen[12], addr subs[12][0],
+        addr names[13], subslen[13], addr subs[13][0],
+        addr names[14], subslen[14], addr subs[14][0],
+        addr names[15], subslen[15], addr subs[15][0],
+        addr names[16], subslen[16], addr subs[16][0],
+        addr names[17], subslen[17], addr subs[17][0],
+        addr names[18], subslen[18], addr subs[18][0],
+        addr names[19], subslen[19], addr subs[19][0],
+        addr names[20], subslen[20], addr subs[20][0],
+        addr names[21], subslen[21], addr subs[21][0],
+        addr names[22], subslen[22], addr subs[22][0],
+        addr names[23], subslen[23], addr subs[23][0],
+        addr names[24], subslen[24], addr subs[24][0],
+        addr names[25], subslen[25], addr subs[25][0],
+        addr names[26], subslen[26], addr subs[26][0],
+        addr names[27], subslen[27], addr subs[27][0],
+        addr names[28], subslen[28], addr subs[28][0],
+        addr names[29], subslen[29], addr subs[29][0],
+        addr names[30], subslen[30], addr subs[30][0],
+        addr names[31], subslen[31], addr subs[31][0],
+        addr names[32], subslen[32], addr subs[32][0],
+        addr names[33], subslen[33], addr subs[33][0],
+        addr names[34], subslen[34], addr subs[34][0]
         )
   return rc.cint
 
@@ -576,6 +600,9 @@ proc ydb_lock_db*(timeout_nsec: int, keys: seq[Subscripts], tptoken: uint64) =
   let rc = ydb_lock_db_variadic(keys.len, cast[culonglong](timeout_nsec), locknames, locksubs, tptoken)  
   if rc < YDB_OK:
     raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, {keys})")
+  elif rc == YDB_LOCK_TIMEOUT:
+    raise newException(YdbError, fmt"YDB_LOCK_TIMEOUT while setting: {keys}")
+
 
 
 # ----------- Call In Interface -------------

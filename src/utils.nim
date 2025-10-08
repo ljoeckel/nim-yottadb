@@ -5,9 +5,9 @@ import std/[times, strformat]
 
 template withlock*(lockid: untyped, body: untyped): untyped =
     ## Create a database lock named ^LOCKS(lockid) while executing the body
-    lockincr: ^LOCKS(lockid)
+    lock: {+^LOCKS(lockid)}
     body
-    lockdecr: ^LOCKS(lockid)
+    lock: {-^LOCKS(lockid)}
 
 
 # timed: templates

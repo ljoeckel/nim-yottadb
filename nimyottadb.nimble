@@ -36,4 +36,4 @@ task examples, "Compile the example apps":
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:on src/examples/tx_thread"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:on src/examples/ydbSet_thread"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/image_loader"
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/3n+1/solver"
+  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/3n1/solver"

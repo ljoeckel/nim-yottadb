@@ -101,7 +101,7 @@ proc ydb_lock*(timeout_nsec: int, keys: seq[Subscripts], tptoken: uint64 = 0) =
 
 
 # Only one variable name in one call
-proc ydb_lock_incr*(timeout_nsec: culonglong, name: string, keys: Subscripts, tptoken: uint64 = 0) =
+proc ydb_lock_incr*(timeout_nsec: int, name: string, keys: Subscripts, tptoken: uint64 = 0) =
   ydb_lock_incr_db(timeout_nsec, name, keys, tptoken)
 
 

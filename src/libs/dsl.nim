@@ -317,69 +317,61 @@ macro delexcl*(body: untyped): untyped =
   transformBodyStmt body
 
 
-# proc findAttribute(attr: string, node: NimNode): NimNode =
-#   if node.len == 1: return result
-#   for i in 0 ..< node.len:
-#     let arg = node[i]
-#     #echo("i:", i, " arg:", repr(arg), " kind=", $arg.kind)
-#     if arg.kind in { nnkExprEqExpr }:
-#       echo "node[0].strVal=", node[0].strVal, " attr=", attr
-#       #if node[0].strVal == attr:
-#       echo "have found TIMEOUT=", repr(node[i+1])
-#       return node[i+1]
-#     else:
-#       result = findAttribute(attr, arg)
+proc transformLock(args: var seq[NimNode], node: NimNode) =
+  var timeout: NimNode
+  case node.kind
+  of nnkCurly:
+    for n in 0..<node.len:
+      let child = node[n]        
+      if child.kind == nnkPrefix:
+        args.add(transformCallNode(child))
+        args.add(newLit"|")
+      elif child.kind == nnkExprEqExpr:
+        timeout = child[1]
+      elif child.kind == nnkIdent:
+        args.add(transformCallNode(child))
+        args.add(newLit"|")
+      elif child.kind == nnkCall:
+        args.add(transformCallNode(child))
+        args.add(newLit"|")
+      else:
+        echo "Unsupported node.kind:", child.kind
+
+  of nnkPrefix: # lock ^gbl
+    let s = node[0].strVal()
+    if s == "+" or s == "+^" or s == "-" or s == "-^":
+      if node[1].kind == nnkCall:
+        args.add(transformCallNode(node))
+        args.add(newLit"|")
+      elif node[1].kind == nnkIdent:
+        args.add(newLit(s & node[1].strVal))
+        args.add(newLit"|")
+      else:
+        echo "Illegal node.kind:", node[1].kind, ", node:", repr(node)
+    elif node[1].kind in { nnkCall, nnkIdent }:
+      args.add(transformCallNode(node))
+      args.add(newLit"|")
+
+  of nnkIdent, nnkCall: # lock localvar
+    args.add(transformCallNode(node))
+    args.add(newLit"|")
+
+  else:
+    echo "Illegal node.kind:", node.kind, ", node:", repr(node)
+
+  if timeout == nil: timeout = newLit"0"
+  args.add(newCall(ident"$", timeout))
 
 
 macro lock*(body: untyped): untyped =
-  var args: seq[NimNode] = @[]
-  var kwargs = initTable[string, NimNode]()
-  proc transform(node: NimNode): NimNode =
-    var timeout: NimNode
-    if node.kind == nnkCurly:
-      for n in 0..<node.len:
-        let child = node[n]        
-        if child.kind == nnkPrefix:
-          args.add(transformCallNode(child))
-          args.add(newLit"|")
-        elif child.kind == nnkExprEqExpr:
-          timeout = child[1]
-        elif child.kind == nnkIdent:
-          args.add(transformCallNode(child))
-          args.add(newLit"|")
-        elif child.kind == nnkCall:
-          args.add(transformCallNode(child))
-          args.add(newLit"|")
-        else:
-          echo "Unsupported node.kind:", child.kind
-      if timeout != nil:
-        args.add(newCall(ident"$", timeout))
-        return newCall(ident"locktimeout", args)
-      else:
-        args.add(newLit("0"))
-        return newCall(ident"locktimeout", args)
-    else:
-      return node
+  if body.kind == nnkStmtList and body.len > 1:
+    raise newException(Exception, "Only one line allowed for macro. Use lock: { ^var1, var2, ..}")
   
-  transformBodyStmt body
-
-
-macro lockincr*(body: untyped): untyped =
+  var args: seq[NimNode] = @[]
   proc transform(node: NimNode): NimNode =
-    if node.kind == nnkPrefix:
-      var args = transformCallNode(node)
-      return newCall(ident"lockincrxxx", args)
-    else:
-      return node
-  transformBodyStmt body
+    transformLock(args, node)
+    return newCall(ident("locktimeout"), args)
 
-macro lockdecr*(body: untyped): untyped =
-  proc transform(node: NimNode): NimNode =
-    if node.kind == nnkPrefix:
-      var args = transformCallNode(node)
-      return newCall(ident"lockdecrxxx", args)
-    else:
-      return node
   transformBodyStmt body
 
 
@@ -692,55 +684,77 @@ proc delexclxxx*(args: varargs[string]) =
   ydb_delete_excl(args[0..^1])
 
 
-# ---------------------
-# lock proc
-# ---------------------
-proc lockxxx*(timeout: var int, args: varargs[string]) =
-  # Convert 
-  # args=["^LL", "HAUS", "11", "|", "^LL", "HAUS", "12", "|"] ->
-  # subs:@[@["^LL", "HAUS", "11"], @["^LL", "HAUS", "12"]]
-  var subs:seq[seq[string]] = @[]
-  var tmp:seq[string] = @[]
-  for arg in args:
-    if arg == "|":
-      if tmp.len == 1: # add empty subscript if only ^x()
-        tmp.add("")
-      subs.add(tmp)
-      tmp = @[]
-    else:
-      tmp.add(arg)
-  try:
-    if timeout == 0: timeout = YDB_LOCK_TIMEOUT
-    ydb_lock(timeout, subs)
-  except:
-    echo getCurrentExceptionMsg()
-
-proc locktimeout*(args: varargs[string]) =
-  var timeout:int = 0
-  if args.len > 1:
-    try:  # numeric timeout value?
-      timeout = parseInt(args[^1])
-    except:
-      # No, use default timeout
-      timeout = YDB_LOCK_TIMEOUT
-    lockxxx(timeout, args[0..^2])
-  elif args.len == 1: # lock: {}
-    try:  # numeric timeout value?
-      timeout = parseInt(args[0])
-    except:
-      # No, use default timeout
-      timeout = YDB_LOCK_TIMEOUT
-    lockxxx(timeout, @[])
-
-
 # ----------------------
 # lockincr / decr proc's
 # ----------------------
-proc lockincrxxx*(args: varargs[string]) =
+proc lockincrxxx*(timeout: int, args: seq[seq[string]]) =
   # Increment lock count for variable
-  # TODO: make timeout readable from DSL macro ^LL("HAUS"),100000 o.ä.
-  ydb_lock_incr(100000.culonglong, args[0], args[1..^1])
+  for arg in args:
+    ydb_lock_incr(timeout, arg[0], arg[1..^1])
 
-proc lockdecrxxx*(args: varargs[string]) =
+proc lockdecrxxx*(args: seq[seq[string]]) =
   # Decrement lock count for variable
-  ydb_lock_decr(args[0], args[1..^1])
+  for arg in args:
+    ydb_lock_decr(arg[0], arg[1..^1])
+
+proc lockxxx*(timeout: var int, args: seq[seq[string]]) =
+  if timeout == 0: timeout = YDB_LOCK_TIMEOUT
+  ydb_lock(timeout, args)
+
+proc locktimeout*(args: varargs[string]) =
+  var lockargs: seq[seq[string]]
+  var onearg: seq[string]
+  for arg in args:
+    if arg == "|":
+      lockargs.add(onearg)
+      onearg = @[]
+    else:
+      onearg.add(arg)
+  
+  proc transformArgs(argslist: var seq[seq[string]], args: seq[string]) =
+      var tmp = args
+      if args[0].startsWith("-") or args[0].startsWith("+"):
+        tmp[0] = args[0][1..^1] # remove +/- sign
+      else:
+        tmp = args
+      if tmp.len == 1: tmp.add("")
+      argslist.add(tmp)
+
+  var incargs: seq[seq[string]]
+  var decargs: seq[seq[string]]
+  var normalargs: seq[seq[string]]
+  for arg in lockargs:
+    if arg[0].startsWith("+"):
+      transformArgs(incargs, arg)
+    elif arg[0].startsWith("-"):
+      transformArgs(decargs, arg)
+    else:
+      transformArgs(normalargs, arg)
+
+  var timeout:int = 0
+  # Release Locks? lock: {}
+  if args.len == 1:
+    try:  # numeric timeout value?
+      timeout = parseInt(args[0])
+    except:
+      timeout = YDB_LOCK_TIMEOUT
+    lockxxx(timeout, @[])
+    return
+
+  # Lock the normal locks
+  if normalargs.len > 0:
+    try:  # numeric timeout value?
+      timeout = parseInt(args[^1])
+    except:
+      timeout = YDB_LOCK_TIMEOUT
+    lockxxx(timeout, normalargs)
+
+  if incargs.len > 0:
+    try:  # numeric timeout value?
+      timeout = parseInt(args[^1])
+    except:
+      timeout = YDB_LOCK_TIMEOUT
+    lockincrxxx(timeout, incargs)
+
+  if decargs.len > 0:
+    lockdecrxxx(decargs)

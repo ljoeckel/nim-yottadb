@@ -149,7 +149,6 @@ proc testLock()  =
       ^LL("HAUS", "12"),
       ^LL("HAUS", "XX"), # not yet existent, but ok
     }
-
   var numOfLocks = getLockCountFromYottaDb()
   assert 3 == numOfLocks
 
@@ -159,46 +158,46 @@ proc testLock()  =
   
 
 proc testLockIncrement() =
-  lockincr: ^LL("HAUS", "ELEKTRIK")
+  lock: +^LL("HAUS", "ELEKTRIK")
   assert getLockCountFromYottaDb() == 1
-  lockincr: ^LL("HAUS", "HEIZUNG")
+  lock: +^LL("HAUS", "HEIZUNG")
   assert getLockCountFromYottaDb() == 2
-  lockincr: ^LL("HAUS", "FLAECHEN")
+  lock: +^LL("HAUS", "FLAECHEN")
   assert getLockCountFromYottaDb() == 3
 
   # Decrement locks one by one
-  lockdecr: ^LL("HAUS", "FLAECHEN")
+  lock: -^LL("HAUS", "FLAECHEN")
   assert getLockCountFromYottaDb() == 2
-  lockdecr: ^LL("HAUS", "HEIZUNG")
+  lock: -^LL("HAUS", "HEIZUNG")
   assert getLockCountFromYottaDb() == 1
-  lockdecr: ^LL("HAUS", "ELEKTRIK")
+  lock: -^LL("HAUS", "ELEKTRIK")
   assert getLockCountFromYottaDb() == 0
 
   # Increment non existing subscript (Lock will be created)
-  lockincr: ^LL("HAUS", "XXXXXXX")
+  lock: +^LL("HAUS", "XXXXXXX")
   assert getLockCountFromYottaDb() == 1
-  lockdecr: ^LL("HAUS", "XXXXXXX")
+  lock: -^LL("HAUS", "XXXXXXX")
   assert getLockCountFromYottaDb() == 0
 
   # Decrement non existing global (Lock will be created)
-  lockincr: ^ZZZZ("HAUS", "XXXXXXX")
+  lock: +^ZZZZ("HAUS", "XXXXXXX")
   assert getLockCountFromYottaDb() == 1
-  lockdecr: ^ZZZZ("HAUS", "XXXXXXX")
+  lock: -^ZZZZ("HAUS", "XXXXXXX")
   assert getLockCountFromYottaDb() == 0
 
   # Increment 3 times same lock
-  lockincr: ^ZZZZ("HAUS", 31)
+  lock: +^ZZZZ("HAUS", 31)
   assert getLockCountFromYottaDb() == 1
-  lockincr: ^ZZZZ("HAUS", 31)  
+  lock: +^ZZZZ("HAUS", 31)  
   assert getLockCountFromYottaDb() == 1
-  lockincr: ^ZZZZ("HAUS", 31)  
+  lock: +^ZZZZ("HAUS", 31)  
   assert getLockCountFromYottaDb() == 1
   # Decrement 3 times
-  lockdecr: ^ZZZZ("HAUS", 31)  
+  lock: -^ZZZZ("HAUS", 31)  
   assert getLockCountFromYottaDb() == 1
-  lockdecr: ^ZZZZ("HAUS", 31)  
+  lock: -^ZZZZ("HAUS", 31)  
   assert getLockCountFromYottaDb() == 1
-  lockdecr: ^ZZZZ("HAUS", 31)  
+  lock: -^ZZZZ("HAUS", 31)  
   assert getLockCountFromYottaDb() == 0
   
 
