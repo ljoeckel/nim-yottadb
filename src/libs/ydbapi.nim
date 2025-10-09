@@ -277,18 +277,21 @@ proc getGlobals*(): seq[string] =
     discard waitForExit(p)  # Wait until process finishes
 
 
-proc getLocksFromYottaDb*(): seq[string] =
+proc getLocksFromYottaDb*(all: bool = false): seq[string] =
   # Show real locks on db with 'lke show'
+  let pid = ydb_get("$JOB")
   result = @[]
 
   let lke = findExe("lke")
   let lines = execProcess(lke & " show")
   for line in lines.split('\n'):
-    if line.contains("Owned by"):
+    if all and line.contains("Owned by"):
+      result.add(line)    
+    elif line.contains("Owned by") and line.contains(pid):
       result.add(line)    
 
-proc getLockCountFromYottaDb*(): int =
-  getLocksFromYottaDb().len
+proc getLockCountFromYottaDb*(all: bool = false): int =
+  getLocksFromYottaDb(all).len
 
 
 proc isLocked*(lock: string): bool =
