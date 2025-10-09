@@ -104,18 +104,22 @@ Delete a subtree of a global. If all nodes are removed, the global itself is rem
 ```
 
 ## lock
-Lock upto 35 Global variables. Other processes trying to lock one of the globals will wait until the lock is released. {} Have to be used to enclose the variables and the optional timeout value. A empty {} will release all locks.
-An optional `timeout` may be given to define the time in nsec how long to wait for a lock.
-Defaults to `timeout=2147483643` nano seconds, the value of YDB_LOCK_TIMEOUT.
+Lock upto 35 Global variables at once. Other processes trying to lock one of the globals will wait until the lock is released or a timeout expires. 
 
-Locks are visible in each Thread and each process on the same host.
+A {} has to be used to enclose more than one variable and an optional `timeout` value. 
 
-Each lock operation releases earlier locks.
+A empty {} will release all locks.
 
-A single variable can be added or removed to the lock table with '+' or '-'.
+A `timeout` defines the time in nsec how long to wait for a lock.
+Defaults to 2147483643 nano seconds, the value of YDB_LOCK_TIMEOUT.
+The `timeout` value can also be specified in seconds with a decimal point. Values > 2.147 seconds are set to the default.
 
+Locks are visible in each Thread. Global lock's affects each process on the same host.
 
-If lock: is called again, the previous locks are automatically released first.
+Each new lock operation releases earlier locks.
+
+A single variable can be added or removed to the lock table with '+' or '-' without releasing earlier locks.
+
 ```nim
 # Lock one variable at the time. Release old locks
 lock localvar
@@ -130,21 +134,17 @@ lock:
     ^LL("HAUS", "12"),
     ^LL("HAUS", "XX"), # not yet existent, but ok
   }
-var numOfLocks = getLockCountFromYottaDb()
-assert 3 == numOfLocks
+assert 3 == getLockCountFromYottaDb()
 lock: {} # release all locks
 assert 0 == getLockCountFromYottaDb()
 
 var id = 4711
 # Set a timeout value in seconds
-lock: { ^CNT(id), timeout=1.5 }
+lock { ^CNT(id), timeout=0.5 }
 
 lock +^gbl # add lock without releasing old locks
 lock -^gbl # release only ^gbl from locks
 lock +lclv # add lock for local variable
-lock -lclv # release only lclv from locks
-
-lock { +^gbl(4711), timeout=0.5} # timeout must be in curly braces
 ```
 
 ## nextnode

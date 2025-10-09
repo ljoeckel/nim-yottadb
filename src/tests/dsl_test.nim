@@ -114,10 +114,14 @@ proc testSetGet() =
 
 proc testIncrement() =  
   # Increment
-  delnode: ^CNT("TXID")
+  delnode ^CNT("TXID")
+  delnode ^cnt
   assert 1 == increment ^CNT("TXID")
-  let incrval = increment: ^CNT("TXID", by=10)
+  let incrval = increment ^CNT("TXID", by=10)
   assert 11 == incrval
+  assert 1 == increment ^cnt
+  assert 11 == increment ^cnt(by=10)
+
 
 
 proc testGetUpdate() =
@@ -404,10 +408,14 @@ proc test_ydb_ci() =
     return
 
   let tm = getTime()
-  setvar: VAR1()=tm                      # set a YottaDB variable
+  setvar: VAR1()=tm # pass this callm.m
   ydb_ci: "method1"
-  let result = get: RESULT()  # Read the YottaDB variable from the Callin
+  var result = get: RESULT  # Read the YottaDB variable from the Callin
   assert $tm == result
+
+  ydb_ci: "method2"
+  result = get: RESULT
+  assert "TheResultFrom YDB" == result
 
 
 proc test() =

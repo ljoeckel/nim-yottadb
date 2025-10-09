@@ -65,8 +65,8 @@ setvar: ^Customer(4711,"Name")="John Doe"
 ```
 - increment:
 ```nim
-let: int txid = increment: ^CNT("TXID") # +1
-let: int csid = increment: ^CNT("CSID", by=5) # +5
+let: int txid = increment ^CNT("TXID") # +1
+let: int csid = increment ^CNT("CSID", by=5) # +5
 ```
 - ### get / getblob
 ```nim

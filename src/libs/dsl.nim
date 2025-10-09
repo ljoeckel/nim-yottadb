@@ -256,22 +256,7 @@ macro increment*(body: untyped): untyped =
         inner = newCall(ident"incrxxx", args)
         inner.add newCall(ident"$", kwargs["by"])
       else:
-        inner = newCall(ident"incr1xxx", args)
-
-      # # optionally wrap with lock
-      # if kwargs.hasKey("lock") and $kwargs["lock"] == "true":
-      #   return quote do:
-      #     withlock:
-      #       `inner`
-      # else:
-        return inner
-
-    #elif node.kind == nnkAsgn:
-      # let lhs = node[0]
-      # let rhs = node[1]
-      # var args = transformCallNode(lhs)
-      # args.add newCall(ident"$", rhs)
-      # return newCall(ident"incrxxx", args)
+        return newCall(ident"incr1xxx", args)
 
     else:
       return node
@@ -710,8 +695,26 @@ proc locktimeout*(args: varargs[string]) =
       onearg = @[]
     else:
       onearg.add(arg)
-  
-  proc transformArgs(argslist: var seq[seq[string]], args: seq[string]) =
+
+  proc getTimeout(arg: string): int =
+    result = YDB_LOCK_TIMEOUT
+    if arg.contains('.'):
+      try: # float numeric timeout value?
+        let f = parseFloat(arg)
+        if f <= 2.147:
+          result = (f * 1000000000).int
+      except:
+        discard
+    else:
+      try:  # int numeric timeout value?
+        let i = parseInt(arg)
+        if i <= YDB_LOCK_TIMEOUT:
+          result = i
+      except:
+        discard
+
+
+  func transformArgs(argslist: var seq[seq[string]], args: seq[string]) =
       var tmp = args
       if args[0].startsWith("-") or args[0].startsWith("+"):
         tmp[0] = args[0][1..^1] # remove +/- sign
@@ -734,27 +737,19 @@ proc locktimeout*(args: varargs[string]) =
   var timeout:int = 0
   # Release Locks? lock: {}
   if args.len == 1:
-    try:  # numeric timeout value?
-      timeout = parseInt(args[0])
-    except:
-      timeout = YDB_LOCK_TIMEOUT
+    timeout = getTimeout(args[0])
     lockxxx(timeout, @[])
-    return
 
   # Lock the normal locks
   if normalargs.len > 0:
-    try:  # numeric timeout value?
-      timeout = parseInt(args[^1])
-    except:
-      timeout = YDB_LOCK_TIMEOUT
+    timeout = getTimeout(args[^1])
     lockxxx(timeout, normalargs)
 
+  # Increment lock
   if incargs.len > 0:
-    try:  # numeric timeout value?
-      timeout = parseInt(args[^1])
-    except:
-      timeout = YDB_LOCK_TIMEOUT
+    timeout = getTimeout(args[^1])
     lockincrxxx(timeout, incargs)
 
+  # Decrement lock
   if decargs.len > 0:
     lockdecrxxx(decargs)

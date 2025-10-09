@@ -7,10 +7,13 @@ Therefore the Call-In Interface supports only a simple call to a method name e.g
 
 YottaDB requires a .ci file to be placed on a location defined in the environment variable **ydb_ci**. 
 
-**.profile**
+**.profile / .bashrc**
 ```bash
     . /usr/local/lib/yottadb/r202/ydb_env_set
+    # x86
     export ydb_ci=$HOME/.yottadb/r2.02_x86_64/r/callm.ci
+    # mac arm
+    export ydb_ci=$HOME/.yottadb/r2.02_aarch64/r/callm.ci
 ```
 **callm.ci**
 ```bash
