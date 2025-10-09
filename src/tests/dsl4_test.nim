@@ -58,6 +58,34 @@ proc testSetGet() =
   assert get(gbl(id3).int) == 3
   assert get(gbl(id3).float) == 3.0
 
+proc testSetGetSingleVar() =
+  setvar: localvar="xyz"
+  assert "xyz" == get(localvar)
+  assert "xyz" == get localvar
+
+  setvar:
+      localvar2 = "abc"
+      localvar3 = "def"
+  assert "abc" & "def" == get(localvar2) & get(localvar3)
+  assert "abc" & "def" == (get localvar2) & (get localvar3)
+
+  setvar: ^gbl = "abc"
+  assert "abc" == get(^gbl)
+  assert "abc" == get ^gbl 
+
+  setvar:
+      ^gbl1="gbl1"
+      ^gbl2="gbl2"
+  assert "gbl1" & "gbl2" == get(^gbl1) & get(^gbl2)
+  assert "gbl1" & "gbl2" == (get ^gbl1) & (get ^gbl2)
+
+  setvar:
+      ^gbl(1)="gbl1"
+      ^gbl(2)="gbl2"
+  assert "gbl1" & "gbl2" == get(^gbl(1)) & get(^gbl(2))
+  assert "gbl1" & "gbl2" == (get ^gbl(1)) & (get ^gbl(2))
+
+
 proc teststr2zwr() =
   discard str2zwr("hello\9World")
   assert str2zwr("hello\9World") == """"hello"_$C(9)_"World""""
@@ -234,6 +262,7 @@ proc testGetWithException() =
 when isMainModule:
   suite "Locals Tests":
     test "set/get": testSetGet()
+    test "set/get single var", testSetGetSingleVar()
     test "str2zwr": teststr2zwr()
     test "zwr2str": testzwr2str()
     test "binary": testBinaryPostfix()

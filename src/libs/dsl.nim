@@ -223,7 +223,7 @@ macro setvar*(body: untyped): untyped =
     if node.kind == nnkAsgn:
       let lhs = node[0]
       let rhs = node[1]
-      if lhs.kind == nnkPrefix or lhs.kind == nnkCall:
+      if lhs.kind == nnkPrefix or lhs.kind == nnkCall or lhs.kind == nnkIdent:
         var args = transformCallNode(lhs)
         args.add newCall(ident"$", rhs)
         return newCall(ident"setxxx", args)
