@@ -68,11 +68,11 @@ proc testData() =
     ^X(7,3)="H"
   
   var dta = data: ^X(0)
-  assert YdbData(dta) == YDB_DATA_UNDEF
-  assert ord(YDB_DATA_UNDEF) == data ^x(0)
-  assert ord(YDB_DATA_VALUE_NODESC) == data ^X(6)
-  assert ord(YDB_DATA_VALUE_DESC) == data ^X(5)
-  assert data(^X(7)) == ord(YDB_DATA_NOVALUE_DESC)
+  assert dta == YDB_DATA_UNDEF
+  assert YDB_DATA_UNDEF == data ^x(0)
+  assert YDB_DATA_VALUE_NODESC == data ^X(6)
+  assert YDB_DATA_VALUE_DESC == data ^X(5)
+  assert data(^X(7)) == YDB_DATA_NOVALUE_DESC
 
 
 proc testSetGet() =

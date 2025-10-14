@@ -39,9 +39,13 @@ proc findAttributes(node: NimNode, kv: var Table[string, NimNode]) =
 
 proc transform(node: NimNode, args: var seq[NimNode]) =
     case node.kind
-    of nnkStmtList, nnkCurly, nnkTupleConstr:
+    of nnkStmtList, nnkTupleConstr:
         for i in 0..<node.len:
             transform(node[i], args)
+    of nnkCurly:
+        for i in 0..<node.len:
+            transform(node[i], args)
+            args.add(newLit(FIELDMARK))
     of nnkPrefix:
         args.add(newLit(node[0].strVal))
         transform(node[1], args)
@@ -88,6 +92,11 @@ macro get*(body: untyped): untyped =
             return newCall(ident("getxxx" & typename), args[0..^3])
     return newCall(ident"getxxx", args)    
 
+macro data*(body: untyped): untyped =
+    var args: seq[NimNode]
+    transform(body, args)
+    return newCall(ident"dataxxx", args)    
+
 macro setvar*(body: untyped): untyped =
     let args = processStmtList(body)
     return newCall(ident"setxxx", args)
@@ -110,24 +119,39 @@ macro increment*(body: untyped): untyped =
         args.add(newCall(ident"$", kv["by"]))
     return newCall(ident"incrementxxx", args)
 
+macro lock*(body: untyped): untyped =
+    var args = processStmtList(body)
+    var kv: Table[string, NimNode]
+    findAttributes(body, kv)
+    if kv.hasKey("timeout"):
+        args.add(newLit(DATAVAL))
+        args.add(newCall(ident"$", kv["timeout"]))
+    return newCall(ident"lockxxx", args)
+
 
 # ----------------------------
 # proc related helper proc's
 # ----------------------------
-
-proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
+proc removeTerminator(args: varargs[string]): seq[Subscripts] =
     var subs: Subscripts
-    var ydbvar: YdbVar
 
-    var transargs: seq[Subscripts]
     # Remove terminator arg
     for arg in args:
         if arg != FIELDMARK:
             subs.add(arg)
         else:
-            transargs.add(subs)
+            result.add(subs)
             subs = @[]
+
+proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
+    var 
+        subs: Subscripts
+        #transargs: seq[Subscripts]
+        ydbvar: YdbVar
     
+    # Remove terminator arg
+    let transargs = removeTerminator(args)
+
     # process all transargs
     for trans in transargs:
         for i in 0..<trans.len:
@@ -169,7 +193,6 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
 
 proc seqToYdbVar(args: varargs[string]): YdbVar =
     if args[0].len == 1 and args[0][0] in PREFIX_CHARS:
-    #if "^$@".find(args[0]) >= 0:   # have prefix?
         result.prefix = args[0]
         let arg = args[1]
         # Handle indirection
@@ -200,6 +223,28 @@ proc seqToYdbVar(args: varargs[string]): YdbVar =
         result.subscripts = args[1..^1]
 
 
+proc getTimeout(arg: string): int =
+    result = YDB_LOCK_TIMEOUT
+    if arg.contains('.'):
+      try: # float numeric timeout value?
+        let f = parseFloat(arg)
+        if f <= 2.147:
+          result = (f * 1000000000).int
+      except:
+        discard
+    else:
+      try:  # int numeric timeout value?
+        let i = parseInt(arg)
+        if i <= YDB_LOCK_TIMEOUT:
+          result = i
+      except:
+        discard
+    if result == 0: result = YDB_LOCK_TIMEOUT
+
+# ----------------------------------------
+# macros call's one of this for each macro
+# ----------------------------------------
+
 proc setxxx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
@@ -212,9 +257,17 @@ proc deltreexxx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_delete_tree(ydbvar.name, ydbvar.subscripts)
 
+proc dataxxx*(args: varargs[string]): int =
+    let ydbvar = seqToYdbVar(args)
+    ydb_data(ydbvar.name, ydbvar.subscripts)
+
 proc getxxx*(args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)
     ydb_get(ydbvar.name, ydbvar.subscripts)
+
+proc getxxxbinary*(args: varargs[string]): string =
+    let ydbvar = seqToYdbVar(args)
+    ydb_getblob(ydbvar.name, ydbvar.subscripts)
 
 proc getxxxint*(args: varargs[string]): int =
     parseInt(getxxx(args)).int
@@ -299,3 +352,27 @@ proc incrementxxx*(args: varargs[string]): int =
     var ydbvar = seqToYdbVar(args)
     if ydbvar.value == "": ydbvar.value = "1"
     ydb_increment(ydbvar.name, ydbvar.subscripts, parseInt(ydbvar.value))
+
+proc lockxxx*(args: varargs[string]) =
+    # timeout from lock: { ^GBL, timeout=12345 }
+    var timeout = YDB_LOCK_TIMEOUT
+    if args.len > 2 and args[^2] == DATAVAL:
+        timeout = getTimeout(args[^1])
+
+    let ydbvars = seqToYdbVars(args)
+    var vars: seq[Subscripts]
+    # create seq of subscripts for each var
+    # @[@["^XXX", ""], @["^GBL", "2"], @["^GBL", "2", "3"], @["^GBL", "2", "3", "abc"]]
+    for ydbvar in ydbvars:
+        # timeout from lock: ^GBL, timeout=12345
+        if ydbvar.name == "timeout" and ydbvar.value != "":
+            timeout = getTimeout(ydbvar.value)
+            continue
+        var subs: seq[string]
+        subs.add(ydbvar.name)
+        for sub in ydbvar.subscripts:
+            subs.add(sub)
+        if subs.len == 1: subs.add("") # lock only on variable add empty subscripts
+        vars.add(subs)
+
+    ydb_lock(timeout, vars)

@@ -51,8 +51,8 @@ proc testGlobals() =
     assert a == "gbl(1)" and b == "4711"
 
 
-
 proc testGetWithType() =
+    setvar: ^GBL = int.high
     setvar: ^GBL("int") = int.high
     setvar: ^GBL("int8") = int8.high
     setvar: ^GBL("int16") = int16.high
@@ -66,6 +66,7 @@ proc testGetWithType() =
     setvar: ^GBL("float") = 3.1414
     setvar: ^GBL("float32") = 3.1414
 
+    assert int.high == get ^GBL.int
     assert int.high == get ^GBL("int").int
     assert int8.high == get ^GBL("int8").int8
     assert int16.high == get ^GBL("int16").int16
@@ -179,6 +180,24 @@ proc testDeleteTree() =
     deltree: ^GBL
     doAssertRaises(YdbError): discard get ^GBL
 
+proc testData() =
+    deltree ^GBL
+    setvar: 
+        ^GBL="gbl"
+        ^GBL(1,1)="1,1"
+        ^GBL(1,2)="1,2"
+        ^GBL(2,1)="2,1"
+        ^GBL(2,2)="2,2"
+        ^GBL(3,3)="3,3"
+        ^GBL(5,1) = "5,1"
+        ^GBL(6)="6"
+
+    assert YDB_DATA_UNDEF == data ^GBLX
+    assert YDB_DATA_VALUE_DESC == data ^GBL
+    assert YDB_DATA_NOVALUE_DESC == data ^GBL(5) 
+    assert YDB_DATA_VALUE_NODESC == data ^GBL(6)
+
+
 proc testIncrement() =
     setvar: ^CNT = 0
     var value = increment: ^CNT
@@ -206,16 +225,46 @@ proc testIncrement() =
     value = increment: (@gbl, by=10)
     assert 11 == value
 
+proc testLock() =
+    lock:
+        ^XXX
+        ^GBL(2)
+        ^GBL(2,3)
+        ^GBL(2,3,"abc")
+        timeout = 0.002
+    assert getLockCountFromYottaDb() == 4
+
+    let gbl = "^GBL(2)"
+    lock: @gbl
+    assert getLockCountFromYottaDb() == 1
+
+    lock: {@gbl}
+    assert getLockCountFromYottaDb() == 1
+
+    lock: { ^XXX, ^GBL(2), ^GBL(2,3), ^GBL(2,3,"abc"), timeout = 0.002}
+    assert getLockCountFromYottaDb() == 4
+
+    lock: {}
+    assert getLockCountFromYottaDb() == 0
+
+    lock: {@gbl}
+    assert getLockCountFromYottaDb() == 1
+    lock:
+        discard 
+    assert getLockCountFromYottaDb() == 0
+
 
 if isMainModule:
     testLocals()
     testGlobals()
+    testData()
     testSpecialVars()
     testIndirection()
     testGetWithType()
     testDeleteNode()
     testDeleteTree()
     testIncrement()
-    benchTest()
+    testLock()
+    #benchTest()
 
 

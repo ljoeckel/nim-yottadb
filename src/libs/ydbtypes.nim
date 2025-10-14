@@ -13,6 +13,11 @@ const
     YDB_TP_ROLLBACK* = (YDB_INT_MAX - 2)
     YDB_LOCK_TIMEOUT* = (YDB_INT_MAX - 4) 
 
+    YDB_DATA_UNDEF* = 0 # Node is undefined
+    YDB_DATA_VALUE_NODESC* = 1 # Node has a value but no descendants
+    YDB_DATA_NOVALUE_DESC* = 10 # Node has no value but has descendants
+    YDB_DATA_VALUE_DESC* = 11 # Node has both value and descendants
+
 type
   # Helper type for Multi-Threaded transaction processing
   YDB_tp2fnptr_t* = proc (tptoken: uint64, buff: ptr struct_ydb_buffer_t, param: pointer): cint {.cdecl, gcsafe.}
@@ -20,20 +25,6 @@ type
   Direction* = enum
     Next,
     Previous
-
-  YdbData* = enum 
-    YDB_DATA_UNDEF = 0, # Node is undefined
-    YDB_DATA_VALUE_NODESC = 1, # Node has a value but no descendants
-    x2 = 2,
-    x3 = 3,
-    x4 = 4,
-    x5 = 5,
-    x6 = 6,
-    x7 = 7,
-    x8 = 8,
-    x9 = 9,
-    YDB_DATA_NOVALUE_DESC = 10, # Node has no value but has descendants
-    YDB_DATA_VALUE_DESC = 11 # Node has both value and descendants
 
   YdbError* = object of CatchableError
 
