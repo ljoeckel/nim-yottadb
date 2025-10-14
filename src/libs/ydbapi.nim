@@ -121,22 +121,22 @@ proc zwr2str*(name: string, tptoken: uint64 = 0): string =
 proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = ""): YdbVar =
   if global.isEmptyOrWhitespace: raise newException(YdbError, "Empty 'global' param")
 
-  result.global = global
+  result.name = global
   result.subscripts = subscripts
   result.value = value
   # Read from / or write to DB
   if value.isEmptyOrWhitespace:
-    result.value = ydb_get(result.global, result.subscripts)
+    result.value = ydb_get(result.name, result.subscripts)
   else:
-    ydb_set(result.global, result.subscripts, result.value)    
+    ydb_set(result.name, result.subscripts, result.value)    
 
 
 proc `$`*(v: YdbVar): string =
-  ydb_get(v.global, v.subscripts)
+  ydb_get(v.name, v.subscripts)
 
 
 proc `[]=`*(v: var YdbVar; val: string) =
-  ydb_set(v.global, v.subscripts, val)
+  ydb_set(v.name, v.subscripts, val)
   v.value = val
 
 

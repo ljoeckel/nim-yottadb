@@ -369,15 +369,15 @@ proc testDeleteExcl() =
   # Set local variables
   setvar:
     DELTEST0("deltest")="deltest"
-    DELTEST1()="1"
-    DELTEST2()="2"
-    DELTEST3()="3"
-    DELTEST4()="4"
-    DELTEST5()="5"
+    DELTEST1="1"
+    DELTEST2="2"
+    DELTEST3="3"
+    DELTEST4="4"
+    DELTEST5="5"
 
   # Test if local variable is readable
   discard get: DELTEST0("deltest")
-  discard get: DELTEST1()
+  discard get: DELTEST1
   
   # Remove all except the following
   delexcl: 
@@ -386,17 +386,17 @@ proc testDeleteExcl() =
     }
 
   # 1,3 and 5 should be there
-  discard get: DELTEST1()
-  discard get: DELTEST3()
-  discard get: DELTEST5()
+  discard get: DELTEST1
+  discard get: DELTEST3
+  discard get: DELTEST5
 
   # Removed vars should raise exception on access
-  doAssertRaises(YdbError): discard get: DELTEST2()
-  doAssertRaises(YdbError): discard get: DELTEST4()
+  doAssertRaises(YdbError): discard get: DELTEST2
+  doAssertRaises(YdbError): discard get: DELTEST4
 
   # delete all variables
   delexcl: {}
-  doAssertRaises(YdbError): discard get: DELTEST1()
+  doAssertRaises(YdbError): discard get: DELTEST1
 
 proc test_ydb_ci() =
   let ydb_ci = getEnv("ydb_ci")

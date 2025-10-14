@@ -40,6 +40,8 @@ type
   Subscripts* = seq[string]
 
   YdbVar* = object 
-    global*: string
+    prefix*: string
+    name*: string
     subscripts*: Subscripts
     value*: string
+    typdesc*: string
