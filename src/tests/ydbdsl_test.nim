@@ -7,6 +7,8 @@ import ydbdsl
 import libs/ydbapi
 import libs/ydbtypes
 import utils
+when compileOption("profiler"):
+  import std/nimprof
 
 
 proc testLocals() =

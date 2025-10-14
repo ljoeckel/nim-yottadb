@@ -46,3 +46,4 @@ doc/about_lothar_joeckel.md
 src/examples/dsl_lock_test
 doc/blog_correction.md
 src/tests/ydbdsl_test
+src/tests/profile_results.txt

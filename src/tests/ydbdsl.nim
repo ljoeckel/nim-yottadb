@@ -9,25 +9,44 @@ import libs/libydb
 import libs/ydbtypes
 import libs/ydbapi
 import serialization/bingoser
+when compileOption("profiler"):
+  import std/nimprof
 
+const 
+    PREFIX_CHARS = {'^', '$', '@'}
+    INDIRECTION = "@"
+    VALUEMARK = "!"
+    TYPEDESC = "|TD|"
+    DATAVAL = "|VAL|"
+    FIELDMARK = "|"
 
 proc transformCallNode(node: NimNode, args: var seq[NimNode]) =
     if node.kind in [nnkStrLit, nnkIntLit, nnkIdent]:
         args.add(newCall(ident"$", node))
     else:
-        echo "transformCallNode Invalid kind: ", node.kind
+        discard
 
-proc transform(node: NimNode, kv: var Table[string, NimNode], args: var seq[NimNode]) =
-    echo "kind:", node.kind, " node:", repr(node)
+proc findAttributes(node: NimNode, kv: var Table[string, NimNode]) =
     case node.kind
-    of nnkStmtList:
+    of nnkStmtList, nnkCall, nnkCurly, nnkTupleConstr:
         for i in 0..<node.len:
-            transform(node[i], kv, args)
+            findAttributes(node[i], kv)
+    of nnkExprEqExpr:   # by=, timeout=,...
+        kv[repr(node[0])] = node[1]
+    else:
+        discard
+
+
+proc transform(node: NimNode, args: var seq[NimNode]) =
+    case node.kind
+    of nnkStmtList, nnkCurly, nnkTupleConstr:
+        for i in 0..<node.len:
+            transform(node[i], args)
     of nnkPrefix:
         args.add(newLit(node[0].strVal))
-        transform(node[1], kv, args)
+        transform(node[1], args)
     of nnkIdent:
-        if args.len > 0 and args[0].strVal == "@": # indirektion
+        if args.len > 0 and args[0].strVal == INDIRECTION:
             args.add(node)
         else:
             args.add(newLit(node.strVal))
@@ -36,42 +55,38 @@ proc transform(node: NimNode, kv: var Table[string, NimNode], args: var seq[NimN
         for i in 1..<node.len:
             transformCallNode(node[i], args)
     of nnkAsgn:
-        transform(node[0], kv, args) # resolve lhs
+        transform(node[0], args) # resolve lhs
         args.add(newCall(ident"$", node[1])) # add value
-        args.add(newLit("!")) # value marker
+        args.add(newLit(VALUEMARK))
     of nnkIntLit, nnkStrLit, nnkFloatLit:
         args.add(newCall(ident"$", node))
-    of nnkExprEqExpr:   # by=, timeout=,...
-        kv[repr(node[0])] = node[1]
-        echo "eqexpr ", repr(node[1])
+    of nnkExprEqExpr:   # by=, timeout=,... handeled by findAttributes
+        discard
     of nnkDotExpr:
-        transform(node[0], kv, args)
-        args.add(newLit("|TD|"))
+        transform(node[0], args)
+        args.add(newLit(TYPEDESC))
         args.add(newCall(ident"$", node[1]))
-    of nnkCurly, nnkTupleConstr:
-        for i in 0..<node.len:
-            transform(node[i], kv, args)
     else:
         echo "transform Invalid kind: ", node.kind
 
 proc processStmtList(body: NimNode): seq[NimNode] =
-    var kv: Table[string, NimNode]
     for i in 0..<body.len:
-        transform(body[i], kv, result)
-        result.add(newLit("|"))
+        transform(body[i], result)
+        result.add(newLit(FIELDMARK))
     
 macro get*(body: untyped): untyped =
     var args: seq[NimNode]
-    var kv: Table[string, NimNode]
-    transform(body, kv, args)
+    transform(body, args)
         
     # check for type conversion
-    if args.len > 2 and repr(args[^2]).contains("|TD|"):
+    if args.len > 2 and repr(args[^2]).contains(TYPEDESC):
         let s = repr(args[^1])
-        var typename = s[s.find('(')+1..s.find(')')-1]
-        return newCall(ident("getxxx" & typename), args[0..^3])
-    else:
-        return newCall(ident"getxxx", args)    
+        let openPar = s.find('(') # any subscripts 
+        if openPar != -1:
+            let closePar = s.find(')', openPar)
+            let typename = s[openPar + 1 ..< closePar]
+            return newCall(ident("getxxx" & typename), args[0..^3])
+    return newCall(ident"getxxx", args)    
 
 macro setvar*(body: untyped): untyped =
     let args = processStmtList(body)
@@ -88,10 +103,10 @@ macro deltree*(body: untyped): untyped =
 macro increment*(body: untyped): untyped =
     var args: seq[NimNode]
     var kv: Table[string, NimNode]
-    transform(body, kv, args)
-    var by: NimNode
+    findAttributes(body, kv)
+    transform(body, args)
     if kv.hasKey("by"):
-        args.add(newLit("|VAL|"))
+        args.add(newLit(DATAVAL))
         args.add(newCall(ident"$", kv["by"]))
     return newCall(ident"incrementxxx", args)
 
@@ -107,7 +122,7 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
     var transargs: seq[Subscripts]
     # Remove terminator arg
     for arg in args:
-        if arg != "|":
+        if arg != FIELDMARK:
             subs.add(arg)
         else:
             transargs.add(subs)
@@ -117,7 +132,7 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
     for trans in transargs:
         for i in 0..<trans.len:
             let arg = trans[i]
-            if arg == "!": # a value terminator (setvar)
+            if arg == VALUEMARK: # a value terminator (setvar)
                 ydbvar.value = trans[i - 1]
                 if subs.len > 0: subs.delete(subs.len - 1)
                 if ydbvar.subscripts.len == 0: ydbvar.subscripts = subs # dont overwrite @indirektions
@@ -125,16 +140,18 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
                 subs = @[]
                 ydbvar = YdbVar()
             else:
-                if subs.len == 0 and "^$@".find(arg) >= 0:
+                if subs.len == 0 and arg.len == 1 and arg[0] in PREFIX_CHARS:
                     ydbvar.prefix = arg
                     continue
                 if ydbvar.name == "":
-                    if ydbvar.prefix == "@":
-                        if arg.contains('('):
-                            let index = arg[arg.find('(')+1..arg.find(')')-1]
+                    if ydbvar.prefix == INDIRECTION: # indirection
+                        let openPar = arg.find('(') # handle subscripts
+                        if openPar != -1:
+                            let closePar = arg.find(')', openPar)
+                            let index = arg[openPar + 1 ..< closePar]
                             for idx in split(index, ','):
                                 ydbvar.subscripts.add(idx.strip())
-                            ydbvar.name = arg[0..arg.find('(')-1]
+                            ydbvar.name = arg[0..<openPar]
                         else:
                             ydbvar.name = arg
                     else:
@@ -143,7 +160,7 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
                     subs.add(arg)
     
         # something other than with value terminator (delnode, deltree, etc.)
-        if ydbvar.name.len > 0:
+        if ydbvar.name != "":
             if ydbvar.subscripts.len == 0: ydbvar.subscripts = subs
             result.add(ydbvar)
             subs = @[]
@@ -151,26 +168,29 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
 
 
 proc seqToYdbVar(args: varargs[string]): YdbVar =
-    if "^$@".find(args[0]) >= 0:   # have prefix?
+    if args[0].len == 1 and args[0][0] in PREFIX_CHARS:
+    #if "^$@".find(args[0]) >= 0:   # have prefix?
         result.prefix = args[0]
         let arg = args[1]
         # Handle indirection
-        if result.prefix == "@":
-            if arg.contains('('):
-                let index = arg[arg.find('(')+1..arg.find(')')-1]
+        if result.prefix == INDIRECTION:
+            let openPar = arg.find('(') # handle subscripts
+            if openPar != -1:
+                let closePar = arg.find(')', openPar)
+                let index = arg[openPar + 1 ..< closePar]
                 for idx in split(index, ','):
                     result.subscripts.add(idx.strip())
-                result.name = arg[0..arg.find('(')-1]
+                result.name = arg[0..<openPar]
             else:
                 result.name = arg
         else:
             result.name = result.prefix & arg
 
         # handle typedesc "int16", ...
-        if args.len > 2 and args[^2] == "|TD|":
+        if args.len > 2 and args[^2] == TYPEDESC:
             result.typdesc = args[^1]
             if result.subscripts.len == 0: result.subscripts = args[2..^3]
-        elif args.len > 2 and args[^2] == "|VAL|":
+        elif args.len > 2 and args[^2] == DATAVAL:
             result.value = args[^1]
             if result.subscripts.len == 0: result.subscripts = args[2..^3]
         else:
