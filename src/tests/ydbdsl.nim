@@ -3,11 +3,13 @@ import std/strutils
 import std/strformat
 import std/sets
 import std/unittest
+import std/tables
 import utils
 import libs/libydb
 import libs/ydbtypes
 import libs/ydbapi
 import serialization/bingoser
+
 
 proc transformCallNode(node: NimNode, args: var seq[NimNode]) =
     if node.kind in [nnkStrLit, nnkIntLit, nnkIdent]:
@@ -15,15 +17,15 @@ proc transformCallNode(node: NimNode, args: var seq[NimNode]) =
     else:
         echo "transformCallNode Invalid kind: ", node.kind
 
-proc transform(node: NimNode, args: var seq[NimNode]) =
-    #echo "kind:", node.kind, " node:", repr(node)
+proc transform(node: NimNode, kv: var Table[string, NimNode], args: var seq[NimNode]) =
+    echo "kind:", node.kind, " node:", repr(node)
     case node.kind
     of nnkStmtList:
         for i in 0..<node.len:
-            transform(node[i], args)
+            transform(node[i], kv, args)
     of nnkPrefix:
         args.add(newLit(node[0].strVal))
-        transform(node[1], args)
+        transform(node[1], kv, args)
     of nnkIdent:
         if args.len > 0 and args[0].strVal == "@": # indirektion
             args.add(node)
@@ -34,27 +36,35 @@ proc transform(node: NimNode, args: var seq[NimNode]) =
         for i in 1..<node.len:
             transformCallNode(node[i], args)
     of nnkAsgn:
-        transform(node[0], args) # resolve lhs
+        transform(node[0], kv, args) # resolve lhs
         args.add(newCall(ident"$", node[1])) # add value
         args.add(newLit("!")) # value marker
     of nnkIntLit, nnkStrLit, nnkFloatLit:
         args.add(newCall(ident"$", node))
+    of nnkExprEqExpr:   # by=, timeout=,...
+        kv[repr(node[0])] = node[1]
+        echo "eqexpr ", repr(node[1])
     of nnkDotExpr:
-        transform(node[0], args)
+        transform(node[0], kv, args)
         args.add(newLit("|TD|"))
         args.add(newCall(ident"$", node[1]))
     of nnkCurly, nnkTupleConstr:
         for i in 0..<node.len:
-            transform(node[i], args)
+            transform(node[i], kv, args)
     else:
         echo "transform Invalid kind: ", node.kind
+
+proc processStmtList(body: NimNode): seq[NimNode] =
+    var kv: Table[string, NimNode]
+    for i in 0..<body.len:
+        transform(body[i], kv, result)
+        result.add(newLit("|"))
     
 macro get*(body: untyped): untyped =
     var args: seq[NimNode]
-    if body.kind == nnkStmtList and body.len == 1:
-        transform(body[0], args)
-    else:
-        transform(body, args)
+    var kv: Table[string, NimNode]
+    transform(body, kv, args)
+        
     # check for type conversion
     if args.len > 2 and repr(args[^2]).contains("|TD|"):
         let s = repr(args[^1])
@@ -64,18 +74,31 @@ macro get*(body: untyped): untyped =
         return newCall(ident"getxxx", args)    
 
 macro setvar*(body: untyped): untyped =
-    var args: seq[NimNode]
-    for i in 0..<body.len:
-        transform(body[i], args)
-        args.add(newLit("|"))
+    let args = processStmtList(body)
     return newCall(ident"setxxx", args)
 
 macro delnode*(body: untyped): untyped =
-    var args: seq[NimNode]
-    for i in 0..<body.len:
-        transform(body[i], args)
-        args.add(newLit("|"))
+    let args = processStmtList(body)
     return newCall(ident"delnodexxx", args)
+
+macro deltree*(body: untyped): untyped =
+    let args = processStmtList(body)
+    return newCall(ident"deltreexxx", args)
+
+macro increment*(body: untyped): untyped =
+    var args: seq[NimNode]
+    var kv: Table[string, NimNode]
+    transform(body, kv, args)
+    var by: NimNode
+    if kv.hasKey("by"):
+        args.add(newLit("|VAL|"))
+        args.add(newCall(ident"$", kv["by"]))
+    return newCall(ident"incrementxxx", args)
+
+
+# ----------------------------
+# proc related helper proc's
+# ----------------------------
 
 proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
     var subs: Subscripts
@@ -147,6 +170,9 @@ proc seqToYdbVar(args: varargs[string]): YdbVar =
         if args.len > 2 and args[^2] == "|TD|":
             result.typdesc = args[^1]
             if result.subscripts.len == 0: result.subscripts = args[2..^3]
+        elif args.len > 2 and args[^2] == "|VAL|":
+            result.value = args[^1]
+            if result.subscripts.len == 0: result.subscripts = args[2..^3]
         else:
             if result.subscripts.len == 0: result.subscripts = args[2..^1]
     else: # no prefix
@@ -161,6 +187,10 @@ proc setxxx*(args: varargs[string]) =
 proc delnodexxx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_delete_node(ydbvar.name, ydbvar.subscripts)
+
+proc deltreexxx*(args: varargs[string]) =
+    for ydbvar in seqToYdbVars(args):
+        ydb_delete_tree(ydbvar.name, ydbvar.subscripts)
 
 proc getxxx*(args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)
@@ -244,3 +274,8 @@ proc getxxxOrderedSet*(args: varargs[string]): OrderedSet[int] =
     else:
         for s in split(str, ","):
             result.incl(parseInt(strip(s)))
+
+proc incrementxxx*(args: varargs[string]): int =
+    var ydbvar = seqToYdbVar(args)
+    if ydbvar.value == "": ydbvar.value = "1"
+    ydb_increment(ydbvar.name, ydbvar.subscripts, parseInt(ydbvar.value))

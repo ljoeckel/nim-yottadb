@@ -160,6 +160,51 @@ proc testDeleteNode() =
     doAssertRaises(YdbError): discard get ^GBL(2)
     doAssertRaises(YdbError): discard get ^GBL(3)
 
+proc testDeleteTree() =
+    setvar: 
+        ^GBL="gbl"
+        ^GBL(1,1)="1,1"
+        ^GBL(1,2)="1,2"
+        ^GBL(2,1)="2,1"
+        ^GBL(2,2)="2,2"
+        
+    deltree: ^GBL(1)
+    doAssertRaises(YdbError): discard get ^GBL(1,1)
+    doAssertRaises(YdbError): discard get ^GBL(1,2)
+    deltree: ^GBL(2)
+    doAssertRaises(YdbError): discard get ^GBL(2,1)
+    doAssertRaises(YdbError): discard get ^GBL(2,2)
+    deltree: ^GBL
+    doAssertRaises(YdbError): discard get ^GBL
+
+proc testIncrement() =
+    setvar: ^CNT = 0
+    var value = increment: ^CNT
+    assert 1 == value
+    value = increment: (^CNT, by=10)
+    assert 11 == value
+
+    setvar: ^CNT("txid") = 0
+    value = increment: ^CNT("txid")
+    assert 1 == value
+    value = increment: (^CNT("txid"), by=10)
+    assert 11 == value
+
+    let id = "custid"
+    setvar: ^CNT(id) = 0
+    value = increment: ^CNT(id)
+    assert 1 == value
+    value = increment: (^CNT(id), by=10)
+    assert 11 == value
+
+    let gbl = "^CNT(123)"
+    setvar: @gbl = 0
+    value = increment: @gbl
+    assert 1 == value
+    value = increment: (@gbl, by=10)
+    assert 11 == value
+
+
 if isMainModule:
     testLocals()
     testGlobals()
@@ -167,6 +212,8 @@ if isMainModule:
     testIndirection()
     testGetWithType()
     testDeleteNode()
+    testDeleteTree()
+    testIncrement()
     benchTest()
 
 
