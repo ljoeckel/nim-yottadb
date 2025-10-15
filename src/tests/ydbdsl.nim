@@ -13,7 +13,7 @@ when compileOption("profiler"):
   import std/nimprof
 
 const 
-    PREFIX_CHARS = {'^', '$', '@'}
+    PREFIX_CHARS = {'^', '+', '-', '$', '@'}
     INDIRECTION = "@"
     VALUEMARK = "!"
     TYPEDESC = "|TD|"
@@ -35,7 +35,6 @@ proc findAttributes(node: NimNode, kv: var Table[string, NimNode]) =
         kv[repr(node[0])] = node[1]
     else:
         discard
-
 
 proc transform(node: NimNode, args: var seq[NimNode]) =
     case node.kind
@@ -132,67 +131,77 @@ macro lock*(body: untyped): untyped =
 # ----------------------------
 # proc related helper proc's
 # ----------------------------
-proc removeTerminator(args: varargs[string]): seq[Subscripts] =
-    var subs: Subscripts
-
-    # Remove terminator arg
-    for arg in args:
-        if arg != FIELDMARK:
-            subs.add(arg)
-        else:
-            result.add(subs)
-            subs = @[]
-
 proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
-    var 
-        subs: Subscripts
-        #transargs: seq[Subscripts]
-        ydbvar: YdbVar
-    
-    # Remove terminator arg
-    let transargs = removeTerminator(args)
+  var
+    resultVars: seq[YdbVar]
+    ydbvar: YdbVar
+    subs: Subscripts
 
-    # process all transargs
-    for trans in transargs:
-        for i in 0..<trans.len:
-            let arg = trans[i]
-            if arg == VALUEMARK: # a value terminator (setvar)
-                ydbvar.value = trans[i - 1]
-                if subs.len > 0: subs.delete(subs.len - 1)
-                if ydbvar.subscripts.len == 0: ydbvar.subscripts = subs # dont overwrite @indirektions
-                result.add(ydbvar)
-                subs = @[]
-                ydbvar = YdbVar()
-            else:
-                if subs.len == 0 and arg.len == 1 and arg[0] in PREFIX_CHARS:
-                    ydbvar.prefix = arg
-                    continue
-                if ydbvar.name == "":
-                    if ydbvar.prefix == INDIRECTION: # indirection
-                        let openPar = arg.find('(') # handle subscripts
-                        if openPar != -1:
-                            let closePar = arg.find(')', openPar)
-                            let index = arg[openPar + 1 ..< closePar]
-                            for idx in split(index, ','):
-                                ydbvar.subscripts.add(idx.strip())
-                            ydbvar.name = arg[0..<openPar]
-                        else:
-                            ydbvar.name = arg
-                    else:
-                        ydbvar.name = ydbvar.prefix & arg
-                else:
-                    subs.add(arg)
-    
-        # something other than with value terminator (delnode, deltree, etc.)
-        if ydbvar.name != "":
-            if ydbvar.subscripts.len == 0: ydbvar.subscripts = subs
-            result.add(ydbvar)
-            subs = @[]
-            ydbvar = YdbVar()
+  var lastArg: string
+  for arg in args:
+    if arg == FIELDMARK:
+      # End of one YdbVar group
+      if ydbvar.name.len > 0:
+        if ydbvar.subscripts.len == 0:
+          ydbvar.subscripts = subs
+        resultVars.add(ydbvar)
+      # Reset for next
+      ydbvar = YdbVar()
+      subs = @[]
+      continue
+
+    if arg == VALUEMARK:
+      # End of value-based YdbVar
+      ydbvar.value = lastArg
+      subs.delete(subs.len - 1)
+      #if subs.len > 0: subs.setLen(subs.len - 1) # Remove last sub if it's the value
+      if ydbvar.subscripts.len == 0: ydbvar.subscripts = subs
+      resultVars.add(ydbvar)
+      ydbvar = YdbVar()
+      subs = @[]
+      continue
+
+    # Handle prefix at the start
+    if ydbvar.name.len == 0 and ydbvar.prefix.len == 0:
+      if arg.len == 1 and arg[0] in PREFIX_CHARS:
+        ydbvar.prefix = arg
+        continue
+      elif arg.len == 2 and arg[0] in PREFIX_CHARS and arg[1] in PREFIX_CHARS:
+        ydbvar.prefix = arg
+        continue
+
+    # Name assignment
+    if ydbvar.name.len == 0:
+      if ydbvar.prefix == INDIRECTION:
+        let openPar = arg.find('(')
+        if openPar != -1:
+          let closePar = arg.find(')', openPar)
+          let subsStr = arg[openPar + 1 ..< closePar]
+          for idx in subsStr.split(','):
+            ydbvar.subscripts.add(idx.strip())
+          ydbvar.name = arg[0..<openPar]
+        else:
+          ydbvar.name = arg
+      else:
+        if ydbvar.prefix.len > 0 and ydbvar.prefix[0] in {'+', '-'}:
+          ydbvar.name = ydbvar.prefix[1..^1] & arg
+        else:
+          ydbvar.name = ydbvar.prefix & arg
+    else:
+      subs.add(arg)
+      lastArg = arg
+
+  # Final flush if any
+  if ydbvar.name.len > 0:
+    if ydbvar.subscripts.len == 0:
+      ydbvar.subscripts = subs
+    resultVars.add(ydbvar)
+  return resultVars
+
 
 
 proc seqToYdbVar(args: varargs[string]): YdbVar =
-    if args[0].len == 1 and args[0][0] in PREFIX_CHARS:
+    if args[0].len > 0 and args[0][0] in PREFIX_CHARS:
         result.prefix = args[0]
         let arg = args[1]
         # Handle indirection
@@ -353,6 +362,16 @@ proc incrementxxx*(args: varargs[string]): int =
     if ydbvar.value == "": ydbvar.value = "1"
     ydb_increment(ydbvar.name, ydbvar.subscripts, parseInt(ydbvar.value))
 
+proc lockincrxxx*(timeout: int, ydbvars: seq[YdbVar]) =
+    # Increment lock count for variable(s)
+    for ydbvar in ydbvars:
+        ydb_lock_incr(timeout, ydbvar.name, ydbvar.subscripts)
+
+proc lockdecrxxx*(timeout: int, ydbvars: seq[YdbVar]) =
+  # Decrement lock count for variable
+  for ydbvar in ydbvars:
+    ydb_lock_decr(ydbvar.name, ydbvar.subscripts)
+
 proc lockxxx*(args: varargs[string]) =
     # timeout from lock: { ^GBL, timeout=12345 }
     var timeout = YDB_LOCK_TIMEOUT
@@ -361,13 +380,24 @@ proc lockxxx*(args: varargs[string]) =
 
     let ydbvars = seqToYdbVars(args)
     var vars: seq[Subscripts]
+    var incvars: seq[YdbVar]
+    var decvars: seq[YdbVar]
     # create seq of subscripts for each var
     # @[@["^XXX", ""], @["^GBL", "2"], @["^GBL", "2", "3"], @["^GBL", "2", "3", "abc"]]
     for ydbvar in ydbvars:
         # timeout from lock: ^GBL, timeout=12345
+        if ydbvar.name == DATAVAL: continue
         if ydbvar.name == "timeout" and ydbvar.value != "":
             timeout = getTimeout(ydbvar.value)
             continue
+        if ydbvar.prefix.len > 0:
+            if ydbvar.prefix[0] == '+':
+                incvars.add(ydbvar)
+                continue
+            elif ydbvar.prefix[0] == '-':
+                decvars.add(ydbvar)
+                continue
+
         var subs: seq[string]
         subs.add(ydbvar.name)
         for sub in ydbvar.subscripts:
@@ -375,4 +405,12 @@ proc lockxxx*(args: varargs[string]) =
         if subs.len == 1: subs.add("") # lock only on variable add empty subscripts
         vars.add(subs)
 
-    ydb_lock(timeout, vars)
+    # set locks, or release all
+    if vars.len > 0 or (vars.len == 0 and incvars.len == 0 and decvars.len == 0):
+        ydb_lock(timeout, vars)
+
+    # Increment / Decrement locks?
+    if incvars.len > 0:
+        lockincrxxx(timeout, incvars)
+    if decvars.len > 0:
+        lockdecrxxx(timeout, decvars)

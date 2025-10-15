@@ -181,7 +181,7 @@ proc testDeleteTree() =
     doAssertRaises(YdbError): discard get ^GBL
 
 proc testData() =
-    deltree ^GBL
+    assert deleteGlobal("^GBL")
     setvar: 
         ^GBL="gbl"
         ^GBL(1,1)="1,1"
@@ -194,6 +194,7 @@ proc testData() =
 
     assert YDB_DATA_UNDEF == data ^GBLX
     assert YDB_DATA_VALUE_DESC == data ^GBL
+    echo "data=", data ^GBL(5)
     assert YDB_DATA_NOVALUE_DESC == data ^GBL(5) 
     assert YDB_DATA_VALUE_NODESC == data ^GBL(6)
 
@@ -253,6 +254,19 @@ proc testLock() =
         discard 
     assert getLockCountFromYottaDb() == 0
 
+proc testLockIncrement() =
+    lock: ^GBL(4711)
+    assert getLockCountFromYottaDb() == 1
+    lock: +^GBL(4712)
+    assert getLockCountFromYottaDb() == 2 # 4712 lock.count = 1
+    lock: +^GBL(4712)
+    assert getLockCountFromYottaDb() == 2 # 4712 lock.count = 2
+    lock: -^GBL(4712)
+    assert getLockCountFromYottaDb() == 2 # 4712 lock.count = 1
+    lock: -^GBL(4712)
+    assert getLockCountFromYottaDb() == 1 # 4712 removed
+    lock: {}
+    assert getLockCountFromYottaDb() == 0
 
 if isMainModule:
     testLocals()
@@ -265,6 +279,5 @@ if isMainModule:
     testDeleteTree()
     testIncrement()
     testLock()
-    #benchTest()
-
-
+    testLockIncrement()
+    benchTest()
