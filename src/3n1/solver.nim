@@ -80,8 +80,7 @@ proc check(fromN: int, toN: int) =
         assert reconstruct(n) == verify(n)
 
 proc cleanDb() =
-    if not deleteGlobal("^solver"):
-        raise newException(YdbError, "Could not delete global ^solver")
+    deleteGlobal("^solver")
 
 proc statistics(fromN: int, toN: int) =
     echo "solver from: ", fromN, " to: ", toN

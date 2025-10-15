@@ -295,11 +295,11 @@ proc testDelnode() =
 
  
 proc deleteData() =
-  assert deleteGlobal("^hello")
-  assert deleteGlobal("^hello2")
-  assert deleteGlobal("^TMP")
-  assert deleteGlobal("^CNT")
-  assert deleteGlobal("^test")
+  deleteGlobal("^hello")
+  deleteGlobal("^hello2")
+  deleteGlobal("^TMP")
+  deleteGlobal("^CNT")
+  deleteGlobal("^test")
 
 when isMainModule:
   suite "DSL Tests":

@@ -291,9 +291,9 @@ proc testExtendSubscriptWithString =
 
 
 proc setup() =
-  assert deleteGlobal("^tmp")
-  assert deleteGlobal("^tmp2")
-  assert deleteGlobal("^images")
+  deleteGlobal("^tmp")
+  deleteGlobal("^tmp2")
+  deleteGlobal("^images")
 
 
 when isMainModule:

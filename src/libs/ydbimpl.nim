@@ -218,7 +218,7 @@ proc ydb_data_db*(name: string, keys: Subscripts, tptoken: uint64): int =
     rc = ydb_data_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, value.addr)
 
   if rc < YDB_OK:
-    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
+    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Name: {name}({keys})")
   else:
     return value.int # 0,1,10,11
 
@@ -234,9 +234,8 @@ proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64) 
     rc = ydb_delete_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, cast[cint](deltype))
   else:
     rc = ydb_delete_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, deltype.cint)
-
   if rc < YDB_OK:
-    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
+    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Name: {name}({keys})")
 
 proc ydb_delete_node_db*(name: string, keys: Subscripts, tptoken: uint64) =
   ## Delete a single node
@@ -275,7 +274,7 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken: 
     rc = ydb_incr_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr, INCRBUF.addr)
 
   if rc < YDB_OK:
-    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Global:{name}({keys})")
+    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Name: {name}({keys})")
   else:
       INCRBUF.buf_addr[INCRBUF.len_used] = '\0' # null terminate
       let buf = $INCRBUF.buf_addr
@@ -318,10 +317,10 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken
       if len_used > 0:
         IDXARR[i].buf_addr[len_used] = '\0' # null terminate
         sbscr.add($IDXARR[i].buf_addr)
-  
-    return (rc.int, sbscr)
+    if sbscr.len == 0: rc = YDB_ERR_NODEEND
+    return (rc, sbscr)
   else:
-    return (rc.int, @[])
+    return (rc, @[])
 
 proc ydb_node_next_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
   ## Traverse to next node  
@@ -364,10 +363,12 @@ proc subscript_traverse(direction: Direction, name: string, keys: Subscripts, tp
       subs.add($DATABUF.buf_addr)
     else:
       subs[^1] = $DATABUF.buf_addr
+    return (rc.int, subs)
+  elif rc == YDB_ERR_NODEEND:
+    return (rc.int, @[])
   else:
-    subs = @[]
+    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Name: {name}({keys})")
 
-  return (rc.int, subs)
 
 proc ydb_subscript_next_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
   ## Traverse to next subscript  

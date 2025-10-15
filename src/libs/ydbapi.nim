@@ -1,8 +1,15 @@
 import std/[strutils, os, osproc, streams]
+import pegs
 import ydbtypes
 import ydbimpl
 import libydb
 import bingo
+
+type ValueType = enum 
+  UNKNOWN,
+  ALPHA,
+  INTEGER,
+  FLOAT
 
 proc ydbMessage*(status: cint): string =
   ydbMessage_db(status)
@@ -190,25 +197,41 @@ proc deserializeFromDb*[T](idargs: varargs[string], tptoken: uint64 = 0): T =
 
 
 # ------- Helpers --------
+func classify(input: string): ValueType =
+  var numeric: bool
+  var numeric_float: bool
+  for c in input:
+    numeric = c in {'0','1','2','3','4','5','6','7','8','9','.'}
+    if c == '.': numeric_float = true
+  if numeric_float and numeric: return ValueType.FLOAT
+  elif numeric: return ValueType.INTEGER
+  else: return ValueType.ALPHA
 
-func keysToString*(subscript: Subscripts): string =
-  for i, idx in subscript:
-    try:
-      let nmbr = parseInt(idx)
+
+proc keysToString*(subscript: Subscripts): string =
+  for i, s in subscript:
+    let valueType = classify(s)
+    case valueType
+    of INTEGER:
+      let nmbr = parseInt(s)
       result.add($nmbr)
-    except ValueError:
-      result.add("\"" & idx & "\"")
+    of FLOAT:
+      let nmbr = parseFloat(s)
+      result.add($nmbr)
+    else:
+      result.add(s)
+
     if i < subscript.len - 1:
       result.add(",")
 
 
-func keysToString*(global: string, subscript: Subscripts): string =
+proc keysToString*(global: string, subscript: Subscripts): string =
   result = global & "("
   result.add(keysToString(subscript))
   result.add(")")
 
 
-func keysToString*(global: string, subscript: Subscripts, value:string): string =
+proc keysToString*(global: string, subscript: Subscripts, value:string): string =
   result = global & "("
   result.add(keysToString(subscript))
   result.add(")")
@@ -237,14 +260,16 @@ proc listGlobal*(global: string) =
     (rc, sub)= ydb_node_next(global, sub)
 
 
-proc deleteGlobal*(global: string): bool =
+proc deleteGlobal*(global: string) =
   var (rc, subs) = ydb_node_next(global)
   while rc == YDB_OK:
     ydb_delete_node(global, subs)
     (rc, subs) = ydb_node_next(global, subs)
   # test if really empty
   (rc, subs) = ydb_node_next(global, @[])
-  return rc == YDB_ERR_NODEEND
+  if rc != YDB_ERR_NODEEND:
+    raise newException(YdbError, "Data exists after deleteGlobal '" & global & "' but should not.")
+
 
 
 proc getGlobals*(): seq[string] =

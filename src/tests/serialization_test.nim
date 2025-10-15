@@ -75,7 +75,7 @@ proc testCompositionSerialization() =
 
 
 proc testBinarySerialization() =
-  assert deleteGlobal("^Customer")
+  deleteGlobal("^Customer")
 
   for i in 0..10:
     let data = Responder(id: i, name: "John Smith", gender: male, occupation: "student", age: 18,

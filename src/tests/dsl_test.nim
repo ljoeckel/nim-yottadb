@@ -245,7 +245,7 @@ proc testOrder() =
     assert results[2] == "^XX(1,2,4)=124"
     assert results[3] == "^XX(1,2,5,9)=1259"
     assert results[4] == "^XX(1,6)=16"
-    assert results[5] == "^XX(\"B\",1)=AB"
+    assert results[5] == "^XX(B,1)=AB"
 
   # Go backwards
   block:
@@ -261,7 +261,7 @@ proc testOrder() =
     assert results[3] == "^XX(1,2,4)=124"
     assert results[2] == "^XX(1,2,5,9)=1259"
     assert results[1] == "^XX(1,6)=16"
-    assert results[0] == "^XX(\"B\",1)=AB"
+    assert results[0] == "^XX(B,1)=AB"
 
 
 proc testNextCount() =

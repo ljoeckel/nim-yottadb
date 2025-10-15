@@ -10,6 +10,9 @@ import utils
 when compileOption("profiler"):
   import std/nimprof
 
+const 
+    BENCH_MAX_RECS = 1_000_000
+
 
 proc testLocals() =
     setvar: LOCAL = "a single local"
@@ -45,7 +48,6 @@ proc testGlobals() =
     assert "abc" == get ^GBL(id)
     setvar: ^GBL($id) = "abc"
     assert "abc" == get ^GBL($id)
-
 
     let (a,b) = (get ^GBL(1), get ^GBL(4711))
     assert a == "gbl(1)" and b == "4711"
@@ -86,43 +88,102 @@ proc testGetWithType() =
     let osdb = get @gbl.OrderedSet
     assert os == osdb
 
+
 proc testSpecialVars() =
-    echo get $ZVERSION
+    assert (get $ZVERSION).startsWith("GT.M")
+    let specialname = "$ZVERSION"
+    assert (get @specialname).startsWith("GT.M")
+
 
 proc testIndirection() =
     let gbl = "^GBL"
-    setvar: @gbl = "gbl"
-    assert "gbl" == get @gbl
+    setvar: @gbl = "TheValue"
+    assert "TheValue" == get @gbl
 
     let gbl123 = "^GBL(123, 4711)"
     setvar: @gbl123 = "gbl(123)"
     assert "gbl(123)" == get @gbl123
 
-proc benchTest() =
-    const maxrecs = 1_000_000
+
+proc benchTestGlobals() =
+    var rc = 0
+
     timed:
         echo "setvar ^GBL(i)"
-        for i in 0..maxrecs:
+        for i in 0..BENCH_MAX_RECS:
             setvar: ^GBL(i) = i
     timed:
         echo "get ^GBL(i)"
         var sum1, sum2 = 0
-        for i in 0..maxrecs:
+        for i in 0..BENCH_MAX_RECS:
             sum1 += i
             sum2 += get ^GBL(i).int
         assert sum1 == sum2
     timed:
         echo "ydb_set ^GBL(i)"
-        for i in 0..maxrecs:
+        for i in 0..BENCH_MAX_RECS:
             ydb_set("^GBL", @[$i], $i)
     timed:
         sum1 = 0
         sum2 = 0
         echo "ydb_get ^GBL(i)"
-        for i in 0..maxrecs:
+        for i in 0..BENCH_MAX_RECS:
             sum1 += i
             sum2 += parseInt(ydb_get("^GBL", @[$i]))
         assert sum1 == sum2
+    timed:
+        echo "nextnode dsl"
+        var gbl = "^GBL"
+        while gbl != "":
+            (rc, gbl) = nextnode @gbl
+    timed:
+        echo "Delete nodes"
+        for i in 0..BENCH_MAX_RECS:
+            delnode: ^GBL(i)
+
+
+proc benchTestLocals() =
+    var rc = 0
+
+    timed:
+        echo "setvar LCL(i)"
+        for i in 0..BENCH_MAX_RECS:
+            setvar: LCL(i) = i
+    timed:
+        echo "get LCL(i)"
+        var sum1, sum2 = 0
+        for i in 0..BENCH_MAX_RECS:
+            sum1 += i
+            sum2 += get LCL(i).int
+        assert sum1 == sum2
+    timed:
+        echo "ydb_set LCL(i)"
+        for i in 0..BENCH_MAX_RECS:
+            ydb_set("LCL", @[$i], $i)
+    timed:
+        sum1 = 0
+        sum2 = 0
+        echo "ydb_get LCL(i)"
+        for i in 0..BENCH_MAX_RECS:
+            sum1 += i
+            sum2 += parseInt(ydb_get("LCL", @[$i]))
+        assert sum1 == sum2
+    timed:
+        echo "nextnode dsl"
+        var gbl = "LCL"
+        while gbl != "":
+            (rc, gbl) = nextnode @gbl
+    timed:
+        echo "Delete nodes"
+        for i in 0..BENCH_MAX_RECS:
+            delnode: LCL(i)
+        
+        gbl = "LCL"
+        while gbl != "":
+            (rc, gbl) = nextnode @gbl
+        assert rc == YDB_ERR_NODEEND
+        assert gbl == ""
+
 
 proc testDeleteNode() =
     setvar: ^GBL="hallo"
@@ -163,6 +224,7 @@ proc testDeleteNode() =
     doAssertRaises(YdbError): discard get ^GBL(2)
     doAssertRaises(YdbError): discard get ^GBL(3)
 
+
 proc testDeleteTree() =
     setvar: 
         ^GBL="gbl"
@@ -180,8 +242,15 @@ proc testDeleteTree() =
     deltree: ^GBL
     doAssertRaises(YdbError): discard get ^GBL
 
+    var
+        rc = 0
+        gbl = "^GBL"
+    (rc, gbl) = nextnode @gbl
+    assert gbl == ""
+
+
 proc testData() =
-    assert deleteGlobal("^GBL")
+    deleteGlobal("^GBL")
     setvar: 
         ^GBL="gbl"
         ^GBL(1,1)="1,1"
@@ -194,7 +263,6 @@ proc testData() =
 
     assert YDB_DATA_UNDEF == data ^GBLX
     assert YDB_DATA_VALUE_DESC == data ^GBL
-    echo "data=", data ^GBL(5)
     assert YDB_DATA_NOVALUE_DESC == data ^GBL(5) 
     assert YDB_DATA_VALUE_NODESC == data ^GBL(6)
 
@@ -226,6 +294,7 @@ proc testIncrement() =
     value = increment: (@gbl, by=10)
     assert 11 == value
 
+
 proc testLock() =
     lock:
         ^XXX
@@ -254,6 +323,7 @@ proc testLock() =
         discard 
     assert getLockCountFromYottaDb() == 0
 
+
 proc testLockIncrement() =
     lock: ^GBL(4711)
     assert getLockCountFromYottaDb() == 1
@@ -268,16 +338,197 @@ proc testLockIncrement() =
     lock: {}
     assert getLockCountFromYottaDb() == 0
 
+
+proc testNextNode() =
+    var 
+        rc = 0
+        gbl = ""
+
+    deleteGlobal("^GBL")
+    setvar:
+        ^GBL="GBL"
+        ^GBL(1)=1
+        ^GBL(1,"a")="1a"
+        ^GBL(1,1)="1,1"
+        ^GBL(1,1,"A")="1,1,A"
+        ^GBL(1,1,"B")="1,1,B"
+        ^GBL(2,1)="2,1"
+        ^GBL(2,1,"A")="2,1,A"
+        ^GBL(3,1,"A")="3,1,A"
+        ^GBL(3,1,"B")="3,1,B"
+
+    let refdata = @["^GBL", "^GBL(1)", "^GBL(1,1)", "^GBL(1,1,A)", "^GBL(1,1,B)", "^GBL(1,a)", "^GBL(2,1)", "^GBL(2,1,A)", "^GBL(3,1,A)", "^GBL(3,1,B)"]
+    var dbdata: seq[string]
+
+    gbl = "^GBL"
+    while gbl != "":
+        dbdata.add(gbl)
+        (rc, gbl) = nextnode @gbl
+    assert rc == YDB_ERR_NODEEND
+    assert refdata == dbdata
+
+    setvar:
+        LCL="GBL"
+        LCL(1)=1
+        LCL(1,"a")="1a"
+        LCL(1,1)="1,1"
+        LCL(1,1,"A")="1,1,A"
+        LCL(1,1,"B")="1,1,B"
+        LCL(2,1)="2,1"
+        LCL(2,1,"A")="2,1,A"
+        LCL(3,1,"A")="3,1,A"
+        LCL(3,1,"B")="3,1,B"
+
+    let refdataL = @["LCL", "LCL(1)", "LCL(1,1)", "LCL(1,1,A)", "LCL(1,1,B)", "LCL(1,a)", "LCL(2,1)", "LCL(2,1,A)", "LCL(3,1,A)", "LCL(3,1,B)"]
+    var dbdataL: seq[string]
+
+    gbl = "LCL"
+    while gbl != "":
+        dbdataL.add(gbl)
+        (rc, gbl) = nextnode @gbl
+    assert rc == YDB_ERR_NODEEND
+    assert gbl == ""
+    assert refdataL == dbdataL
+
+
+proc testPreviousNode() =
+    var 
+        rc = 0
+        gbl = ""
+
+    deleteGlobal("^GBL")
+    setvar:
+        ^GBL="GBL"
+        ^GBL(1)=1
+        ^GBL(1,"a")="1a"
+        ^GBL(1,1)="1,1"
+        ^GBL(1,1,"A")="1,1,A"
+        ^GBL(1,1,"B")="1,1,B"
+        ^GBL(2,1)="2,1"
+        ^GBL(2,1,"A")="2,1,A"
+        ^GBL(3,1,"A")="3,1,A"
+        ^GBL(3,1,"B")="3,1,B"
+
+    let refdata = @["^GBL(3,1,B)","^GBL(3,1,A)","^GBL(2,1,A)","^GBL(2,1)","^GBL(1,a)","^GBL(1,1,B)","^GBL(1,1,A)","^GBL(1,1)","^GBL(1)"]
+    var dbdata: seq[string]
+
+    gbl = "^GBL"
+    while gbl != "":
+        (rc, gbl) = prevnode @gbl
+        if rc == YDB_OK:
+            dbdata.add(gbl)
+
+    assert rc == YDB_ERR_NODEEND
+    assert refdata == dbdata
+
+    setvar:
+        LCL="GBL"
+        LCL(1)=1
+        LCL(1,"a")="1a"
+        LCL(1,1)="1,1"
+        LCL(1,1,"A")="1,1,A"
+        LCL(1,1,"B")="1,1,B"
+        LCL(2,1)="2,1"
+        LCL(2,1,"A")="2,1,A"
+        LCL(3,1,"A")="3,1,A"
+        LCL(3,1,"B")="3,1,B"
+    
+    let refdataL = @["LCL(3,1,B)","LCL(3,1,A)","LCL(2,1,A)","LCL(2,1)","LCL(1,a)","LCL(1,1,B)","LCL(1,1,A)","LCL(1,1)","LCL(1)"]
+    var dbdataL: seq[string]
+
+    gbl = "LCL"
+    while gbl != "":
+        (rc, gbl) = prevnode @gbl
+        if rc == YDB_OK:
+            dbdataL.add(gbl)
+
+    assert rc == YDB_ERR_NODEEND
+    assert gbl == ""
+    assert refdataL == dbdataL
+
+proc testNextSubscript() =
+    deleteGlobal("^GBL")
+    setvar:
+        ^GBL="GBL"
+        ^GBL(1)=1
+        ^GBL(1,"a")="1a"
+        ^GBL(1,1)="1,1"
+        ^GBL(1,1,"A")="1,1,A"
+        ^GBL(1,1,"B")="1,1,B"
+        ^GBL(2,1)="2,1"
+        ^GBL(2,1,"A")="2,1,A"
+        ^GBL(3,1,"A")="3,1,A"
+        ^GBL(3,1,"B")="3,1,B"
+    
+    var gbl = "^GBL"
+    var rc = YDB_OK
+    var refdata = @["^GBL(1)","^GBL(2)", "^GBL(3)"]
+    var dbdata: seq[string]
+    while rc == YDB_OK:
+        (rc, gbl) = nextsubscript @gbl
+        if rc == YDB_OK:
+            dbdata.add(gbl)
+    assert dbdata == refdata
+
+    gbl = "^GBL(1,1,)"
+    rc = YDB_OK
+    refdata = @["^GBL(1,1,A)", "^GBL(1,1,B)"]
+    dbdata = @[]
+    while rc == YDB_OK:
+        (rc, gbl) = nextsubscript @gbl
+        if rc == YDB_OK:
+            dbdata.add(gbl)
+    assert dbdata == refdata
+
+proc testPrevSubscript() =
+    deleteGlobal("^GBL")
+    setvar:
+        ^GBL="GBL"
+        ^GBL(1)=1
+        ^GBL(1,"a")="1a"
+        ^GBL(1,1)="1,1"
+        ^GBL(1,1,"A")="1,1,A"
+        ^GBL(1,1,"B")="1,1,B"
+        ^GBL(2,1)="2,1"
+        ^GBL(2,1,"A")="2,1,A"
+        ^GBL(3,1,"A")="3,1,A"
+        ^GBL(3,1,"B")="3,1,B"
+    
+    var gbl = "^GBL"
+    var rc = YDB_OK
+    var refdata = @["^GBL(3)","^GBL(2)", "^GBL(1)"]
+    var dbdata: seq[string]
+    while rc == YDB_OK:
+        (rc, gbl) = prevsubscript @gbl
+        if rc == YDB_OK:
+            dbdata.add(gbl)
+    assert dbdata == refdata
+
+    gbl = "^GBL(1,1,)"
+    rc = YDB_OK
+    refdata = @["^GBL(1,1,B)", "^GBL(1,1,A)"]
+    dbdata = @[]
+    while rc == YDB_OK:
+        (rc, gbl) = prevsubscript @gbl
+        if rc == YDB_OK:
+            dbdata.add(gbl)
+    assert dbdata == refdata
+
 if isMainModule:
-    testLocals()
-    testGlobals()
-    testData()
-    testSpecialVars()
-    testIndirection()
-    testGetWithType()
-    testDeleteNode()
-    testDeleteTree()
-    testIncrement()
-    testLock()
-    testLockIncrement()
-    benchTest()
+    test "Locals": testLocals()
+    test "Globals": testGlobals()
+    test "Data": testData()
+    test "SpecialVars": testSpecialVars()
+    test "Indirection": testIndirection()
+    test "GetWithType": testGetWithType()
+    test "DeleteNode": testDeleteNode()
+    test "DeleteTree": testDeleteTree()
+    test "Increment": testIncrement()
+    test "Lock": testLock()
+    test "Lock Increment": testLockIncrement()
+    test "NextNode": testNextNode()
+    test "PrevNode": testPreviousNode()
+    test "NextSubscript": testNextSubscript()
+    test "PrevSubscript": testPrevSubscript()
+    test "Bench Globals": benchTestGlobals()
+    test "Bench Locals": benchTestLocals()
