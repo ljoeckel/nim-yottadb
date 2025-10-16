@@ -21,6 +21,10 @@ const
     FIELDMARK = "|"
 
 
+# ------------------
+# Macro procs
+# ------------------
+
 proc findAttributes(node: NimNode, kv: var Table[string, NimNode]) =
     case node.kind
     of nnkStmtList, nnkCall, nnkCurly, nnkTupleConstr:
@@ -70,6 +74,8 @@ proc transform(node: NimNode, args: var seq[NimNode]) =
         transform(node[0], args)
         args.add(newLit(TYPEDESC))
         args.add(newCall(ident"$", node[1]))
+    of nnkInfix:
+        raise newException(Exception, "Illegal variable name name:" & repr(node))
     else:
         raise newException(Exception, "Unsupported node.kind:" & $node.kind)
 
@@ -80,7 +86,12 @@ proc processStmtList(body: NimNode): seq[NimNode] =
             result.add(newLit(FIELDMARK))
     else:
         raise newException(Exception, "Statement list needs ':' g.e. delnode: ^xxx(...)")
-    
+
+
+# ------------------
+# Macros
+# ------------------
+
 macro get*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
@@ -100,10 +111,6 @@ macro data*(body: untyped): untyped =
     transform(body, args)
     return newCall(ident"dataxxx", args)    
 
-macro setvar*(body: untyped): untyped =
-    let args = processStmtList(body)
-    return newCall(ident"setxxx", args)
-
 macro delnode*(body: untyped): untyped =
     let args = processStmtList(body)
     return newCall(ident"delnodexxx", args)
@@ -111,6 +118,10 @@ macro delnode*(body: untyped): untyped =
 macro deltree*(body: untyped): untyped =
     let args = processStmtList(body)
     return newCall(ident"deltreexxx", args)
+
+macro delexcl*(body: untyped): untyped =
+    let args = processStmtList(body)
+    return newCall(ident"delexclxxx", args)
 
 macro increment*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -150,6 +161,10 @@ macro prevsubscript*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
     return newCall(ident"prevsubscriptxxx", args)    
+
+macro setvar*(body: untyped): untyped =
+    let args = processStmtList(body)
+    return newCall(ident"setxxx", args)
 
 
 # ----------------------------
@@ -311,10 +326,6 @@ proc getTimeout(arg: string): int =
 # macros call's one of this for each macro
 # ----------------------------------------
 
-proc setxxx*(args: varargs[string]) =
-    for ydbvar in seqToYdbVars(args):
-        ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
-
 proc dataxxx*(args: varargs[string]): int =
     let ydbvar = seqToYdbVar(args)
     ydb_data(ydbvar.name, ydbvar.subscripts)
@@ -322,6 +333,12 @@ proc dataxxx*(args: varargs[string]): int =
 proc delnodexxx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_delete_node(ydbvar.name, ydbvar.subscripts)
+
+proc delexclxxx*(args: varargs[string]) =
+    var names: seq[string]
+    for ydbvar in seqToYdbVars(args):
+        names.add(ydbvar.name)
+    ydb_delete_excl(names)
 
 proc deltreexxx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
@@ -334,6 +351,12 @@ proc getxxx*(args: varargs[string]): string =
 proc getxxxbinary*(args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)
     ydb_getblob(ydbvar.name, ydbvar.subscripts)
+
+proc getxxxfloat*(args: varargs[string]): float =
+    parseFloat(getxxx(args))
+
+proc getxxxfloat32*(args: varargs[string]): float32 =
+  parseFloat(getxxx(args)).float32
 
 proc getxxxint*(args: varargs[string]): int =
     parseInt(getxxx(args)).int
@@ -397,12 +420,6 @@ proc getxxxuint64*(args: varargs[string]): uint64 =
   else:
     return value.uint64
 
-proc getxxxfloat*(args: varargs[string]): float =
-    parseFloat(getxxx(args))
-
-proc getxxxfloat32*(args: varargs[string]): float32 =
-  parseFloat(getxxx(args)).float32
-
 proc getxxxOrderedSet*(args: varargs[string]): OrderedSet[int] =
     let str = getxxx(args)
 
@@ -419,15 +436,15 @@ proc incrementxxx*(args: varargs[string]): int =
     if ydbvar.value == "": ydbvar.value = "1"
     ydb_increment(ydbvar.name, ydbvar.subscripts, parseInt(ydbvar.value))
 
-proc lockincrxxx*(timeout: int, ydbvars: seq[YdbVar]) =
-    # Increment lock count for variable(s)
-    for ydbvar in ydbvars:
-        ydb_lock_incr(timeout, ydbvar.name, ydbvar.subscripts)
-
-proc lockdecrxxx*(timeout: int, ydbvars: seq[YdbVar]) =
+proc lockdecrxxx(timeout: int, ydbvars: seq[YdbVar]) =
   # Decrement lock count for variable
   for ydbvar in ydbvars:
     ydb_lock_decr(ydbvar.name, ydbvar.subscripts)
+
+proc lockincrxxx(timeout: int, ydbvars: seq[YdbVar]) =
+    # Increment lock count for variable(s)
+    for ydbvar in ydbvars:
+        ydb_lock_incr(timeout, ydbvar.name, ydbvar.subscripts)
 
 proc lockxxx*(args: varargs[string]) =
     # timeout from lock: { ^GBL, timeout=12345 }
@@ -515,3 +532,7 @@ proc prevsubscriptxxx*(args: varargs[string]): (int, string) =
     else:
         let message = ydbMessage(rc.cint)
         raise newException(YdbError, fmt"{message}, Names: {ydbvar.name}({ydbvar.subscripts})")
+
+proc setxxx*(args: varargs[string]) =
+    for ydbvar in seqToYdbVars(args):
+        ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
