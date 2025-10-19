@@ -12,7 +12,7 @@ QEMU
 sudo apt install --no-install-recommends clang llvm lld
 sudo apt-get install --no-install-recommends file cmake make gawk gcc git curl tcsh libjansson4 {libconfig,libelf,libicu,libncurses,libreadline,libjansson,libssl}-dev binutils ca-certificates
 ```
-clang, llvm and lld only if you want to CLANG as the compiler backend.
+clang, llvm and lld only if you want to CLANG as the compiler backend or YottaDB Rust support.
 
 ```bash
 ydb_distrib="https://gitlab.com/api/v4/projects/7957109/repository/tags"
