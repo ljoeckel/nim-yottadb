@@ -291,7 +291,7 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken
   setYdbBuffer(GLOBAL, name)
 
   var subs: Subscripts
-  if direction == Direction.Previous and keys == @[] or keys == @[""]:
+  if direction == Direction.Previous and (keys == @[] or keys == @[""]):
     subs = LAST_INDEX
   else:
     subs = keys

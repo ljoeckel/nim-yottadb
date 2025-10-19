@@ -5,6 +5,8 @@ This project adds 'Nim' (https://nim-lang.org) as another language to access Yot
 
 YottaDB is a proven Multi-Language NoSQL database engine whose code base has decades of maturity and continuous investment. It is currently in production at some of the largest real-time core banking applications and electronic health record deployments.
 
+For latest changes see the [CHANGELOG](doc/CHANGELOG.md)
+
 The nim-yottadb implementation delievers the following features:
 ### Simple-API ###
 - ydb_data (Get the state of a node or tree)

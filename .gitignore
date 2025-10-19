@@ -47,3 +47,15 @@ src/examples/dsl_lock_test
 doc/blog_correction.md
 src/tests/ydbdsl_test
 src/tests/profile_results.txt
+src/tests/binary
+src/tests/callin
+src/tests/delexcl
+src/tests/setget
+src/tests/nextnode
+src/tests/setgetlocal
+src/tests/data
+src/tests/locks
+src/tests/zwr
+src/tests/delete
+src/tests/increment
+src/tests/special_vars

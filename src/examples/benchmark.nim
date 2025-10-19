@@ -32,9 +32,9 @@ proc nextnode() =
 
 proc nextnode_dsl() =
     var cnt = 0
-    var (rc, subs) = nextnode: ^BENCHMARK2()
+    var (rc, subs) = nextnode: ^BENCHMARK2().seq
     while rc == YDB_OK:
-        (rc, subs) = nextnode: ^BENCHMARK2(subs)
+        (rc, subs) = nextnode: ^BENCHMARK2(subs).seq
         inc cnt
     assert cnt == MAX
 

@@ -2,28 +2,41 @@ import yottadb
 import utils
 
 proc create() =
+    deletevar: ^hello
     for id in 0..<10000000:
         setvar: ^hello(id)=id
 
 proc count() =
     var cnt = 0
-    var (rc, subs) = nextnode: ^hello()
+    var (rc, gbl) = nextnode: ^hello
     while rc == YDB_OK:
         inc(cnt)
-        (rc, subs) = nextnode: ^hello(subs)
+        (rc, gbl) = nextnode: @gbl
     echo "Have ", cnt, " entries"
 
 proc getdata() =
     for id in 0..<10000000:
-        discard get: ^hello(id)
+        let val = get: ^hello(id)
 
 proc delete() =
     for id in 0..<10000000:
         delnode: ^hello(id)
 
+proc collectGlobals(): seq[string] =
+    timed:
+        var (rc, gbl) = nextnode: ^hello
+        while rc == YDB_OK:
+            result.add(gbl)
+            (rc, gbl) = nextnode: @gbl
+        echo "Collected ", result.len, " globals"
+
+proc getDataFromCollection() =
+    for id in collectGlobals():
+        let val = get @id
 
 when isMainModule:
     timed("sayHello"): create()
     timed("sayHelloCount"): count()
     timed("sayHelloGet"): getdata()
+    timed("DataFromColleciton"): getDataFromCollection()
     timed("sayHelloDelete"): delete()

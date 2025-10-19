@@ -80,7 +80,7 @@ proc check(fromN: int, toN: int) =
         assert reconstruct(n) == verify(n)
 
 proc cleanDb() =
-    deleteGlobal("^solver")
+    deletevar: ^solver
 
 proc statistics(fromN: int, toN: int) =
     echo "solver from: ", fromN, " to: ", toN

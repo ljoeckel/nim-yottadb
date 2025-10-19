@@ -2,7 +2,7 @@ import std/[strformat, strutils, unittest, times, os]
 import ../yottadb
 
 const
-  MAX = 1000
+  MAX = 10
 
 proc setupLL() =
   let global = "^LL"
@@ -102,9 +102,13 @@ proc testData() =
 
 proc testNextNode(global: string, start: Subscripts = @[]) =
   var cnt = 0
-  for subs in ydb_node_next_iter(global, start):
-    inc(cnt)
-  doAssert cnt == MAX * 2 + 3
+  var (rc, subs) = ydb_node_next(global, start)
+  while rc == YDB_OK:
+    inc cnt
+    (rc, subs) = ydb_node_next(global, subs)
+  assert cnt > 0
+  assert rc == YDB_ERR_NODEEND
+  assert subs == @[]
 
 
 proc testPreviousNode(global: string, start: Subscripts = @[]) =
@@ -113,39 +117,40 @@ proc testPreviousNode(global: string, start: Subscripts = @[]) =
     inc(cnt)
   doAssert cnt == MAX * 2 + 2
 
-proc testNextNodeIterator(global: string, start: Subscripts = @[]) =
-  deleteGlobal("^X")
+proc testNextNodeIterator() =
+  deletevar: ^X
 
   setvar:
-    ^X(@["5", "1"])=1
-    ^X(@["5", "2"])=2
-    ^X(@["7", "3"])=3
-    ^X(@["123", "1"])=4
-    ^X(@["123", "2"])=5
-    ^X(@["123", "3"])=6
-    ^X(@["123", "123"])=7
-    ^X(@["4711", "i"])=8
-    ^X(@["123", "f"])=9
-    ^X(@["123", "123", "4711", "i"])=10
-    ^X(@["123", "i", "4711"])=11
-    ^X(@["123", "s"])=12
+    ^X(5, 1) = 1
+    ^X(5, 2) = 2
+    ^X(7, 3) = 3
+    ^X(123, 1) = 4
+    ^X(123, 2) = 5
+    ^X(123, 3) = 6
+    ^X(123, 123) = 7
+    ^X(4711, "i") = 8
+    ^X(123, "f") = 9
+    ^X(123, 123, 4711, "i") = 10
+    ^X(123, "i", 4711) = 11
+    ^X(123, "s") = 12
 
   let refdata = @[
     @["5", "1"], @["5", "2"], @["7", "3"], @["123", "1"], @["123", "2"], @["123", "3"], 
     @["123", "123"], @["123", "123", "4711", "i"], @["123", "f"], @["123", "i", "4711"], @["123", "s"], @["4711", "i"]
   ]
   var dbdata: seq[Subscripts]
-  for subs in ydb_node_next_iter(global, start):
+  let start: Subscripts = @[""]
+  for subs in ydb_node_next_iter("^X", start):
     dbdata.add(subs)
   assert dbdata == refdata
 
-proc testPreviousNodeIterator(global: string, start: Subscripts = @[]) =
+proc testPreviousNodeIterator() =
   let refdata = @[
     @["4711", "i"], @["123", "s"], @["123", "i", "4711"], @["123", "f"], @["123", "123", "4711", "i"], @["123", "123"], @["123", "3"],
     @["123", "2"], @["123", "1"], @["7", "3"], @["5", "2"], @["5", "1"]
   ]
   var dbdata: seq[Subscripts]
-  for subs in ydb_node_previous_iter(global, start):
+  for subs in ydb_node_previous_iter("^X", @[]):
     dbdata.add(subs)
   assert dbdata == refdata
 
@@ -376,57 +381,51 @@ proc test_ydb_ci() =
 
 setupLL()
 
-proc test() =
-  suite "YottaDB Tests":
-    test "Basic functionality":
-      test "simpleSet": simpleSet("^X", MAX)
-      test "simpleGet": simpleGet("^X", MAX)
-      test "simpleDelete": simpleDelete("^X", MAX)
-      test "testYdbVar": testYdbVar()
-      test "testWithError": setWithError()
-    test "Write and Read Data":
-      test "testYdbSetGet": testYdbSetGet()
+suite "YottaDB Tests":
+  test "Basic functionality":
+    test "simpleSet": simpleSet("^X", MAX)
+    test "simpleGet": simpleGet("^X", MAX)
+    test "simpleDelete": simpleDelete("^X", MAX)
+    test "testYdbVar": testYdbVar()
+    test "testWithError": setWithError()
+  test "Write and Read Data":
+    test "testYdbSetGet": testYdbSetGet()
     test "Check Data Structure":
       test "testData": testData()
-    test "next/previous Node":
-      test "testNextNode ^LJ": testNextNode("^LJ")
-      test "testNextNodeIterator ^X": testNextNodeIterator("^X")
-      test "testPreviousNodeIterator ^X": testPreviousNodeIterator("^X", @["99999"])
-      test "testPreviousNode": testPreviousNode("^LJ", @["LAND", "STRASSE"])
-    test "nextSubscript":
-      test "nextSubscript1": nextSubscript("^LL", @["HAUS", "ELE..."], @["HAUS", "ELEKTRIK"])
-      test "nextSubscript2": nextSubscript("^LL", @["HAUS", "ELEKTRIK"], @["HAUS", "FLAECHEN"])
-      test "nextSubscript3": nextSubscript("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "DOSEN"])
-      test "nextSubscript4": nextSubscript("^LL", @["HAUS", "ELEKTRIK", "DOSEN", ""], @["HAUS", "ELEKTRIK", "DOSEN", "1"])
-    test "ydb_subscript_next_iterate":
-      test "nextSubscript1": ydb_subscript_next_iterate("^LL", @["HAUS"], @["ORT"])
-      test "nextSubscript2": ydb_subscript_next_iterate("^LL", @["HAUS", "ELE..."], @["HAUS", "HEIZUNG"])
-      test "nextSubscript3": ydb_subscript_next_iterate("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
-      test "nextSubscript4": ydb_subscript_next_iterate("^LL", @["HAUS", "ELEKTRIK", "DOSEN", ""], @["HAUS", "ELEKTRIK", "DOSEN", "4"])
-    test "previousSubscript":
-      test "previousSubscript1":previousSubscript("^LL", @["HAUS", "ELEKTRIK", "SICHERUN..."], @["HAUS", "ELEKTRIK", "DOSEN"] )
-      test "previousSubscript2":previousSubscript("^LL", @["HAUS", "ELEKTRIK", "DOSEN", "99999"], @["HAUS", "ELEKTRIK", "DOSEN", "1"] )
-      test "previousSubscript3":previousSubscript("^LL", @["HAUS"], @[] )
-    test "ydb_subscript_previous_iter4":
-      test "ydb_subscript_next_iter":nextSubsIter("^LL", @["HAUS", "ELEKT..."], @["HAUS", "HEIZUNG"])
-      test "ydb_subscript_previous_iter":previousSubsIter("^LL", @["HAUS", "ZZZZ"], @["HAUS", "ELEKTRIK"])
-    test "Delete Operations":
-      test "deleteTree": deleteTree()
-      test "deleteNode": deleteNode()
-      test "deleteGlobalVar": testDeleteTree()
-      test "testLocalVarExcl": testDeleteExcl()
-    test "Misc":
-      test "testSpecialVariables": testSpecialVariables()
-      test "increment": testIncrement()
-      test "maxSubscripts": testMaxSubscripts()
-      test "Call-In Interface": test_ydb_ci()
-    test "Set and Get Variable":
-      test "testSetAndGetVariable": testSetAndGetVariable()
-    test "Lock Handling":
-      test "testLock": testLock()
-      test "testLockIncrement": testLockIncrement()
-
-
-when isMainModule:
-  test() # threads:off=31s, threads:on=33s
-  #test "Call-In Interface": test_ydb_ci()
+  test "next/previous Node":
+    test "testNextNode ^LL": testNextNode("^LL")
+    test "testNextNodeIterator": testNextNodeIterator()
+    test "testPreviousNodeIterator": testPreviousNodeIterator()
+    test "testPreviousNode": testPreviousNode("^LJ", @["LAND", "STRASSE"])
+  test "nextSubscript":
+    test "nextSubscript1": nextSubscript("^LL", @["HAUS", "ELE..."], @["HAUS", "ELEKTRIK"])
+    test "nextSubscript2": nextSubscript("^LL", @["HAUS", "ELEKTRIK"], @["HAUS", "FLAECHEN"])
+    test "nextSubscript3": nextSubscript("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "DOSEN"])
+    test "nextSubscript4": nextSubscript("^LL", @["HAUS", "ELEKTRIK", "DOSEN", ""], @["HAUS", "ELEKTRIK", "DOSEN", "1"])
+  test "ydb_subscript_next_iterate":
+    test "nextSubscript1": ydb_subscript_next_iterate("^LL", @["HAUS"], @["ORT"])
+    test "nextSubscript2": ydb_subscript_next_iterate("^LL", @["HAUS", "ELE..."], @["HAUS", "HEIZUNG"])
+    test "nextSubscript3": ydb_subscript_next_iterate("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
+    test "nextSubscript4": ydb_subscript_next_iterate("^LL", @["HAUS", "ELEKTRIK", "DOSEN", ""], @["HAUS", "ELEKTRIK", "DOSEN", "4"])
+  test "previousSubscript":
+    test "previousSubscript1":previousSubscript("^LL", @["HAUS", "ELEKTRIK", "SICHERUN..."], @["HAUS", "ELEKTRIK", "DOSEN"] )
+    test "previousSubscript2":previousSubscript("^LL", @["HAUS", "ELEKTRIK", "DOSEN", "99999"], @["HAUS", "ELEKTRIK", "DOSEN", "1"] )
+    test "previousSubscript3":previousSubscript("^LL", @["HAUS"], @[] )
+  test "ydb_subscript_previous_iter4":
+    test "ydb_subscript_next_iter":nextSubsIter("^LL", @["HAUS", "ELEKT..."], @["HAUS", "HEIZUNG"])
+    test "ydb_subscript_previous_iter":previousSubsIter("^LL", @["HAUS", "ZZZZ"], @["HAUS", "ELEKTRIK"])
+  test "Delete Operations":
+    test "deleteTree": deleteTree()
+    test "deleteNode": deleteNode()
+    test "deleteGlobalVar": testDeleteTree()
+    test "testLocalVarExcl": testDeleteExcl()
+  test "Misc":
+    test "testSpecialVariables": testSpecialVariables()
+    test "increment": testIncrement()
+    test "maxSubscripts": testMaxSubscripts()
+    test "Call-In Interface": test_ydb_ci()
+  test "Set and Get Variable":
+    test "testSetAndGetVariable": testSetAndGetVariable()
+  test "Lock Handling":
+    test "testLock": testLock()
+    test "testLockIncrement": testLockIncrement()

@@ -1,33 +1,11 @@
-import macros
 import std/strutils
-import std/strformat
 import std/sets
 import std/unittest
-import ydbdsl
-import libs/ydbapi
-import libs/ydbtypes
+import yottadb
 import utils
-when compileOption("profiler"):
-  import std/nimprof
 
 const 
     BENCH_MAX_RECS = 1_000_000
-
-
-proc testLocals() =
-    setvar: LOCAL = "a single local"
-    assert "a single local" == get LOCAL
-
-    setvar:
-        LOCAL = "Hallo"
-        LOCAL(4711) = "Hello 4711"
-        LOCAL("4711", "ABC") = "Hello from 4711,ABC"
-    assert "Hallo" == get LOCAL
-    assert "Hello 4711" == get LOCAL(4711)
-    assert "Hello from 4711,ABC" == get LOCAL("4711", "ABC")
-
-    let (a, b) = (get LOCAL, get LOCAL(4711))
-    assert a == "Hallo" and b == "Hello 4711"
 
 
 proc testGlobals() =
@@ -89,23 +67,9 @@ proc testGetWithType() =
     assert os == osdb
 
 
-proc testSpecialVars() =
-    assert (get $ZVERSION).startsWith("GT.M")
-    let specialname = "$ZVERSION"
-    assert (get @specialname).startsWith("GT.M")
-
-
-proc testIndirection() =
-    let gbl = "^GBL"
-    setvar: @gbl = "TheValue"
-    assert "TheValue" == get @gbl
-
-    let gbl123 = "^GBL(123, 4711)"
-    setvar: @gbl123 = "gbl(123)"
-    assert "gbl(123)" == get @gbl123
-
-
 proc benchTestGlobals() =
+    deletevar: ^GBL
+
     var rc = 0
 
     timed:
@@ -120,29 +84,30 @@ proc benchTestGlobals() =
             sum2 += get ^GBL(i).int
         assert sum1 == sum2
     timed:
-        echo "ydb_set ^GBL(i)"
+        echo "ydb_set ^GBL(@[i])"
         for i in 0..BENCH_MAX_RECS:
             ydb_set("^GBL", @[$i], $i)
     timed:
         sum1 = 0
         sum2 = 0
-        echo "ydb_get ^GBL(i)"
+        echo "ydb_get ^GBL(@[i])"
         for i in 0..BENCH_MAX_RECS:
             sum1 += i
             sum2 += parseInt(ydb_get("^GBL", @[$i]))
         assert sum1 == sum2
     timed:
-        echo "nextnode dsl"
+        echo "nextnode @gbl Indirection"
         var gbl = "^GBL"
         while gbl != "":
             (rc, gbl) = nextnode @gbl
     timed:
-        echo "Delete nodes"
+        echo "delnode: nodes"
         for i in 0..BENCH_MAX_RECS:
             delnode: ^GBL(i)
 
 
 proc benchTestLocals() =
+    deletevar: LCL
     var rc = 0
 
     timed:
@@ -250,7 +215,7 @@ proc testDeleteTree() =
 
 
 proc testData() =
-    deleteGlobal("^GBL")
+    deletevar: ^GBL
     setvar: 
         ^GBL="gbl"
         ^GBL(1,1)="1,1"
@@ -387,7 +352,7 @@ proc testNextNode() =
         rc = 0
         gbl = ""
 
-    deleteGlobal("^GBL")
+    deletevar: ^GBL
     setvar:
         ^GBL="GBL"
         ^GBL(1)=1
@@ -439,7 +404,7 @@ proc testPreviousNode() =
         rc = 0
         gbl = ""
 
-    deleteGlobal("^GBL")
+    deletevar: ^GBL
     setvar:
         ^GBL="GBL"
         ^GBL(1)=1
@@ -490,7 +455,7 @@ proc testPreviousNode() =
     assert refdataL == dbdataL
 
 proc testNextSubscript() =
-    deleteGlobal("^GBL")
+    deletevar: ^GBL
     setvar:
         ^GBL="GBL"
         ^GBL(1)=1
@@ -524,7 +489,7 @@ proc testNextSubscript() =
     assert dbdata == refdata
 
 proc testPrevSubscript() =
-    deleteGlobal("^GBL")
+    deletevar: ^GBL
     setvar:
         ^GBL="GBL"
         ^GBL(1)=1
@@ -558,11 +523,8 @@ proc testPrevSubscript() =
     assert dbdata == refdata
 
 if isMainModule:
-    test "Locals": testLocals()
     test "Globals": testGlobals()
     test "Data": testData()
-    test "SpecialVars": testSpecialVars()
-    test "Indirection": testIndirection()
     test "GetWithType": testGetWithType()
     test "DeleteNode": testDeleteNode()
     test "DeleteTree": testDeleteTree()
@@ -574,5 +536,5 @@ if isMainModule:
     test "PrevNode": testPreviousNode()
     test "NextSubscript": testNextSubscript()
     test "PrevSubscript": testPrevSubscript()
-    #test "Bench Globals": benchTestGlobals()
-    #test "Bench Locals": benchTestLocals()
+    test "Bench Globals": benchTestGlobals()
+    test "Bench Locals": benchTestLocals()

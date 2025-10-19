@@ -201,7 +201,7 @@ func classify(input: string): ValueType =
   var numeric: bool
   var numeric_float: bool
   for c in input:
-    numeric = c in {'0','1','2','3','4','5','6','7','8','9','.'}
+    numeric = numeric and (c in {'0','1','2','3','4','5','6','7','8','9','.'})
     if c == '.': numeric_float = true
   if numeric_float and numeric: return ValueType.FLOAT
   elif numeric: return ValueType.INTEGER
@@ -261,14 +261,11 @@ proc listGlobal*(global: string) =
 
 
 proc deleteGlobal*(global: string) =
-  var (rc, subs) = ydb_node_next(global)
-  while rc == YDB_OK:
-    ydb_delete_node(global, subs)
-    (rc, subs) = ydb_node_next(global, subs)
+  ydb_delete_tree(global, @[])
   # test if really empty
-  (rc, subs) = ydb_node_next(global, @[])
+  var (rc, subs) = ydb_node_next(global, @[])
   if rc != YDB_ERR_NODEEND:
-    raise newException(YdbError, "Data exists after deleteGlobal '" & global & "' but should not.")
+    raise newException(YdbError, "Data exists after deleteGlobal '" & global & "' but should not. data=" & $subs)
 
 
 
