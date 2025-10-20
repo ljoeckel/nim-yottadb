@@ -119,7 +119,7 @@ proc testPreviousNode(global: string, start: Subscripts = @[]) =
   doAssert cnt == MAX * 2 + 2
 
 proc testNextNodeIterator() =
-  deletevar: ^X
+  kill: ^X
 
   setvar:
     ^X(5, 1) = 1

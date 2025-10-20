@@ -5,7 +5,7 @@ import yottadb
 import ydbutils
 
 proc setup() =
-    deletevar:
+    kill:
       ^tmp
       ^images
 
@@ -33,7 +33,7 @@ proc testBinaryPostfix() =
 
 
 proc testBinaryPostfixHugeWrite(): int =
-  deletevar: ^tmphuge
+  kill: ^tmphuge
   var totalBytes = 0
   for size in [512, 1024, 1025, 2048, 2049, 8192, 16384, 32767, 65535, 131073]:
     let data = createBinData(size)

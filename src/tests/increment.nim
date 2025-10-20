@@ -61,7 +61,7 @@ proc testIncrementLocalsByTen() =
     assert 11 == e
 
 proc testIncrementBy() =
-    delnode: ^CNT("XXX")
+    killnode: ^CNT("XXX")
     var x = increment: ^CNT("XXX")
     assert x == 1
     x = increment: (^CNT("XXX"), by=100)
@@ -71,7 +71,7 @@ proc testIncrementBy() =
         var z = increment (local("abc"), by=5)
         assert z == i * 5 + 5
 
-    delnode: ^CNT("XXX")
+    killnode: ^CNT("XXX")
     for i in 0..10:
         var z = increment (^CNT("XXX"), by=5)
         assert z == i * 5 + 5

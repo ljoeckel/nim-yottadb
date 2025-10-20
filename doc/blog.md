@@ -83,8 +83,8 @@ proc traverse(start: Subscripts = @[]) =
 traverse()
 traverse(@["HAUS", "ELEKT.."])
 traverse(@["HAUS", "ELEKTRIK", ""])
-delnode: ^LL("HAUS", "FLAECHEN", "RAUM1") # Delete a node [HAUS, FLAECHEN] remains
-deltree: ^LL("HAUS", "ELEKTRIK") # Delete an entire subtree
+killnode: ^LL("HAUS", "FLAECHEN", "RAUM1") # Delete a node [HAUS, FLAECHEN] remains
+kill: ^LL("HAUS", "ELEKTRIK") # Delete an entire subtree
 traverse(@["HAUS",""])
 ```
 Produces the following output:

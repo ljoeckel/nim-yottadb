@@ -104,13 +104,13 @@ YDB_DATA_VALUE_NODESC = 1, # Node has a value but no descendants
 YDB_DATA_NOVALUE_DESC = 10, # Node has no value but has descendants
 YDB_DATA_VALUE_DESC = 11 # # Node has both value and descendants
 ```
-- ### delnode:
+- ### killnode:
 ```nim
-delnode: ^House("FLOOR",1)
+killnode: ^House("FLOOR",1)
 ```
-- ### deltree:
+- ### kill:
 ```nim
-deltree: ^House("FLOOR")
+kill: ^House("FLOOR")
 ```
 - ### delexcl:
 ```nim

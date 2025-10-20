@@ -29,7 +29,7 @@ proc testLocals() =
 
 
 proc testSetGetLocal() =
-  deletevar: local
+  kill: local
 
   setvar: local(1) = 1
   assert "1" == get local(1)

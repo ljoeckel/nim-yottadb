@@ -2,7 +2,7 @@ import std/unittest
 import yottadb
 
 proc setup() =
-    deletevar:
+    kill:
         ^tmp2
         ^images
     setvar:
@@ -44,12 +44,12 @@ proc stringAndSequence() =
         assert idx == val
         assert idx == get @v.int
 
-proc netxtnodeWithDelnode() = 
+proc netxtnodeWithKillnode() = 
     for i in 1000..1020:
         setvar: ^tmp2(i)=i
 
     for i in 1010..1015:
-        delnode: ^tmp2(i)
+        killnode: ^tmp2(i)
 
     var (rc, subs) = nextnode ^tmp2.seq
     assert rc == YDB_OK and type(subs) is seq[string]
@@ -104,7 +104,7 @@ proc setNextPrevTest() =
   assert @["users", "46", "name"] == subs
 
 proc readnext() =
-  deletevar: ^hello
+  kill: ^hello
   setvar:
     ^hello("a") = "a"
     ^hello(1) = 1
@@ -125,6 +125,6 @@ proc readnext() =
 if isMainModule:
     test "setup": setup()
     test "stringAndSequence": stringAndSequence()
-    test "nextNodeWithDelnode": netxtnodeWithDelnode()
+    test "nextNodeWithKillnode": netxtnodeWithKillnode()
     test "setNextPrev": setNextPrevTest()
     test "readnext": readnext()

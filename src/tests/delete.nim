@@ -1,8 +1,8 @@
 import std/unittest
 import yottadb
 
-proc testDelnode() =
-  deletevar:
+proc testKill1() =
+  kill:
     ^hello
     ^tmp2
 
@@ -16,51 +16,52 @@ proc testDelnode() =
     ^hello(8,"A")="8A"
 
   # DELNODE
-  if data(^hello(1, "a")) > 0: delnode: ^hello(1, "a")
+  if data(^hello(1, "a")) > 0: killnode: ^hello(1, "a")
   assert data(^hello(1, "a")) == YDB_DATA_UNDEF
   
-  delnode: ^hello("2")
+  killnode: ^hello("2")
   assert data(^hello("2")) == YDB_DATA_UNDEF
 
   let idStr = "A"
-  delnode: ^hello(idStr)
+  killnode: ^hello(idStr)
   assert data(^hello(idStr)) == YDB_DATA_UNDEF
   
   let idSub:Subscripts = @["a", "1"]
-  delnode: ^hello(idSub)
+  killnode: ^hello(idSub)
   assert data(^hello(idSub)) == YDB_DATA_UNDEF
 
-  delnode:
+  killnode:
     ^hello(6)
     ^hello("7")
 
   let gbl = "^hello(8,A)"
   assert 1 == data @gbl
-  delnode: @gbl
+  killnode: @gbl
   assert 0 == data @gbl
 
-proc delnode() =
+
+proc testKill2() =
   var id: int
   # create some records  
   for i in 0..15:
     id = 1000 + i
     setvar: ^tmp2(id) = id
   
-  delnode:
+  killnode:
     ^tmp2(1001)
     ^tmp2(1002)
     ^tmp2(1003)
     ^tmp2(1004)
   
   id = 1005
-  delnode: ^tmp2(id)
+  killnode: ^tmp2(id)
 
   for i in 1005..<1010:
-    delnode: ^tmp2(i)
+    killnode: ^tmp2(i)
 
   let ids = "1012"
   let sub: Subscripts = @["1014"]
-  delnode:
+  killnode:
     ^tmp2("1011")
     ^tmp2(ids)
     ^tmp2(@["1013"])
@@ -75,13 +76,13 @@ proc delnode() =
   assert dbdata == refdata
 
 
-proc testDeltree() =
-  deletevar: ^X
+proc testKill3() =
+  kill: ^X
 
   setvar: ^X(1)="hello"
   let s = get: ^X(1)
   assert "hello" == s
-  delnode: ^X(1) # delete node
+  killnode: ^X(1) # delete node
   doAssertRaises(YdbError): # expect exception because node removed
     discard get: ^X(1)
   
@@ -90,11 +91,11 @@ proc testDeltree() =
   setvar: ^X(1,2)="world"
   let dta = data: ^X(1) 
   assert 10 == dta # Expect no data but subtree
-  deltree: ^X(1)
+  kill: ^X(1)
   doAssertRaises(YdbError): # expect exception because node removed
     discard  get: ^X(1)
 
 if isMainModule:
-  test "deleteNode": testDelnode()
-  test "deleteTree": testDeltree()
-  test "delnode": delnode()
+  test "killNode": testKill1()
+  test "kill": testKill2()
+  test "killnode": testKill3()

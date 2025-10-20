@@ -70,12 +70,12 @@ proc testCompositionSerialization() =
   assert customer3 == customer
 
   # Remvoe attribute in db to simulation class change
-  delnode: ^Customer("4711", "name")
+  killnode: ^Customer("4711", "name")
   doAssertRaises(YdbError): load(@["4711"], customer2)
 
 
 proc testBinarySerialization() =
-  deletevar: ^Customer
+  kill: ^Customer
 
   for i in 0..10:
     let data = Responder(id: i, name: "John Smith", gender: male, occupation: "student", age: 18,

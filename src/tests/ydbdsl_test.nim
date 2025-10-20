@@ -69,7 +69,7 @@ proc testGetWithType() =
 
 
 proc benchTestGlobals() =
-    deletevar: ^GBL
+    kill: ^GBL
 
     var rc = 0
 
@@ -102,13 +102,13 @@ proc benchTestGlobals() =
         while gbl != "":
             (rc, gbl) = nextnode @gbl
     timed:
-        echo "delnode: nodes"
+        echo "killnode: nodes"
         for i in 0..BENCH_MAX_RECS:
-            delnode: ^GBL(i)
+            killnode: ^GBL(i)
 
 
 proc benchTestLocals() =
-    deletevar: LCL
+    kill: LCL
     var rc = 0
 
     timed:
@@ -142,7 +142,7 @@ proc benchTestLocals() =
     timed:
         echo "Delete nodes"
         for i in 0..BENCH_MAX_RECS:
-            delnode: LCL(i)
+            killnode: LCL(i)
         
         gbl = "LCL"
         while gbl != "":
@@ -153,24 +153,24 @@ proc benchTestLocals() =
 
 proc testDeleteNode() =
     setvar: ^GBL="hallo"
-    delnode: ^GBL
+    killnode: ^GBL
     doAssertRaises(YdbError): discard get ^GBL
 
     let gbl = "^GBL(1)"
     setvar: @gbl = "gbl(1)"
-    delnode: @gbl
+    killnode: @gbl
     doAssertRaises(YdbError): discard get @gbl
 
     setvar: ^GBL1="hallo"
     assert "hallo" == get ^GBL1
-    delnode: ^GBL1
+    killnode: ^GBL1
     doAssertRaises(YdbError): discard get ^GBL1
 
     setvar:
         ^GBL1="gbl1"
         ^GBL2="gbl2"
         ^GBL3="gbl3"
-    delnode:
+    killnode:
         ^GBL1
         ^GBL2
         ^GBL3
@@ -182,7 +182,7 @@ proc testDeleteNode() =
         ^GBL(1)=1
         ^GBL(2)=2
         ^GBL(3)=3
-    delnode:
+    killnode:
         ^GBL(1)
         ^GBL(2)
         ^GBL(3)
@@ -199,13 +199,13 @@ proc testDeleteTree() =
         ^GBL(2,1)="2,1"
         ^GBL(2,2)="2,2"
         
-    deltree: ^GBL(1)
+    kill: ^GBL(1)
     doAssertRaises(YdbError): discard get ^GBL(1,1)
     doAssertRaises(YdbError): discard get ^GBL(1,2)
-    deltree: ^GBL(2)
+    kill: ^GBL(2)
     doAssertRaises(YdbError): discard get ^GBL(2,1)
     doAssertRaises(YdbError): discard get ^GBL(2,2)
-    deltree: ^GBL
+    kill: ^GBL
     doAssertRaises(YdbError): discard get ^GBL
 
     var
@@ -216,7 +216,7 @@ proc testDeleteTree() =
 
 
 proc testData() =
-    deletevar: ^GBL
+    kill: ^GBL
     setvar: 
         ^GBL="gbl"
         ^GBL(1,1)="1,1"
@@ -353,7 +353,7 @@ proc testNextNode() =
         rc = 0
         gbl = ""
 
-    deletevar: ^GBL
+    kill: ^GBL
     setvar:
         ^GBL="GBL"
         ^GBL(1)=1
@@ -405,7 +405,7 @@ proc testPreviousNode() =
         rc = 0
         gbl = ""
 
-    deletevar: ^GBL
+    kill: ^GBL
     setvar:
         ^GBL="GBL"
         ^GBL(1)=1
@@ -456,7 +456,7 @@ proc testPreviousNode() =
     assert refdataL == dbdataL
 
 proc testNextSubscript() =
-    deletevar: ^GBL
+    kill: ^GBL
     setvar:
         ^GBL="GBL"
         ^GBL(1)=1
@@ -490,7 +490,7 @@ proc testNextSubscript() =
     assert dbdata == refdata
 
 proc testPrevSubscript() =
-    deletevar: ^GBL
+    kill: ^GBL
     setvar:
         ^GBL="GBL"
         ^GBL(1)=1

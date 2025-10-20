@@ -64,7 +64,7 @@ proc testData() =
 
 proc testIncrement() =  
   # Increment
-  delnode:
+  killnode:
     ^CNT("TXID")
     ^cnt
   assert 1 == increment ^CNT("TXID")

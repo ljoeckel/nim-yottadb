@@ -36,10 +36,10 @@ proc tryToCreateDeadlock() =
     let numOfThreads = 8
     const maxCount = 1000
 
-    deltree:
+    kill:
         ^CNT(4711)
         ^CNT(4711.1)
-    delnode:
+    killnode:
         ^CNT("TEMPLATE_TEST")
     
     let ms = timed_ms:

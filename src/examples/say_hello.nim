@@ -2,7 +2,7 @@ import yottadb
 import ydbutils
 
 proc create() =
-    deletevar: ^hello
+    kill: ^hello
     for id in 0..<10000000:
         setvar: ^hello(id)=id
 
@@ -20,7 +20,7 @@ proc getdata() =
 
 proc delete() =
     for id in 0..<10000000:
-        delnode: ^hello(id)
+        killnode: ^hello(id)
 
 proc collectGlobals(): seq[string] =
     timed:

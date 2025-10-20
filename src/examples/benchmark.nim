@@ -10,7 +10,7 @@ proc upcount() =
         discard ydb_increment("^CNT", @["upcount"])
 
 proc upcount_dsl() =
-    delnode: ^CNT("upcount")
+    killnode: ^CNT("upcount")
     for cnt in 0..<MAX:
         discard increment: ^CNT("upcount")
 
@@ -38,13 +38,13 @@ proc nextnode_dsl() =
         inc cnt
     assert cnt == MAX
 
-proc delnode() =
+proc killnode() =
     for id in 0..<MAX:
         ydb_delete_node("^BENCHMARK1", @[$id])
 
-proc delnode_dsl() =
+proc killnode_dsl() =
     for id in 0..<MAX:
-        delnode: ^BENCHMARK2(id)
+        killnode: ^BENCHMARK2(id)
 
 
 when isMainModule:
@@ -55,5 +55,5 @@ when isMainModule:
     test("set simple dsl"): timed: setSimple_dsl()
     test("nextnode"): timed: nextnode()
     test("nextnode dsl"): timed: nextnode_dsl()
-    test("delnode"): timed: delnode()
-    test("delnode dsl"): timed: delnode_dsl()
+    test("killnode"): timed: killnode()
+    test("killnode dsl"): timed: killnode_dsl()

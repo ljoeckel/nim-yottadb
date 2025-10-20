@@ -61,7 +61,7 @@ proc setWithSubscript() =
 
 
 proc testSetGetGlobal() =
-  deletevar: ^global
+  kill: ^global
 
   setvar: ^global(1) = 1
   assert "1" == get ^global(1)
@@ -243,7 +243,7 @@ proc testSetMixed() =
 
 
 proc ifVariants() =
-  deletevar: ^hello
+  kill: ^hello
   setvar:
     ^hello("a") = "a"
     ^hello(1) = 1
@@ -333,7 +333,7 @@ proc testExtendSubscriptWithString =
   let path = get ^images(subs, "path")
   assert path == "imagepath"
   
-  deltree: ^images(4711)
+  kill: ^images(4711)
 
 proc testNumbersRange() =
   setvar:

@@ -12,8 +12,8 @@ proc walk(path: string): seq[string] =
             result.add(walk(path))
 
 proc saveImagesToDb(basedir: string): uint =
-    delnode: ^CNT("image_number")
-    deletevar: ^images 
+    killnode: ^CNT("image_number")
+    kill: ^images 
 
     var totalBytes: uint
     for image in walk(basedir):

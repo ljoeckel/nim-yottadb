@@ -3,7 +3,7 @@ import yottadb
 
 
 proc dataTest() =
-  deletevar:
+  kill:
     ^dta
     ^tmp2
 

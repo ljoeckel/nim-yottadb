@@ -57,7 +57,7 @@ let image = getblob(^images(4711))
 ## increment
 Atomic increment a global in the database
 ```nim
-let rc = delnode: ^CNT("TXID")
+let rc = killnode: ^CNT("TXID")
 var incrval = increment: ^CNT("TXID")
 assert 1 == incrval
 incrval = increment: ^CNT("TXID", by=10)
@@ -87,20 +87,21 @@ setvar:
   assert YdbData(dta) == YDB_DATA_VALUE_DESC
 ```
 
-## delnode
-Delete a node. If all nodes of a global are removed, the global itself is removed.
+## killnode
+Delete a node. If all nodes of a variable are removed, the variable itself is removed.
+No descendents are removed.
 ```nim
 setvar: ^X(1)="hello"
-var rc = delnode: ^X(1) # delete node
+killnode: ^X(1) # delete only this node
 ```
 
-## deltree
-Delete a subtree of a global. If all nodes are removed, the global itself is removed.
+## kill
+Delete a subtree of a variable. If all nodes are removed, the variable itself is removed.
 ```nim
   setvar: ^X(1,1)="hello"
   setvar: ^X(1,2)="world"
   let dta = data: ^X(1) # returns 10 (no data but subtree)
-  rc = deltree: ^X(1)
+  kill: ^X(1)
 ```
 
 ## lock

@@ -106,7 +106,7 @@ proc processStmtList(body: NimNode): seq[NimNode] =
             transform(body[i], result)
             result.add(newLit(FIELDMARK))
     else:
-        raise newException(Exception, "Statement list needs ':' g.e. delnode: ^xxx(...) body.kind=" & $body.kind)
+        raise newException(Exception, "Statement list needs ':' g.e. killnode: ^xxx(...) body.kind=" & $body.kind)
 
 func hasTypeConversion(typename: string, args: seq[NimNode]): bool =
     if args.len > 2 and repr(args[^2]).contains(TYPEDESC):    
@@ -144,17 +144,13 @@ macro data*(body: untyped): untyped =
     transform(body, args)
     newCall(ident"dataxxx", args)    
 
-macro deletevar*(body: untyped): untyped = 
+macro killnode*(body: untyped): untyped =
     let args = processStmtList(body)
-    newCall(ident"deletevarxxx", args)    
+    return newCall(ident"killnodexxx", args)
 
-macro delnode*(body: untyped): untyped =
+macro kill*(body: untyped): untyped =
     let args = processStmtList(body)
-    return newCall(ident"delnodexxx", args)
-
-macro deltree*(body: untyped): untyped =
-    let args = processStmtList(body)
-    return newCall(ident"deltreexxx", args)
+    return newCall(ident"killxxx", args)
 
 macro delexcl*(body: untyped): untyped =
     let args = processStmtList(body)
@@ -390,12 +386,7 @@ proc dataxxx*(args: varargs[string]): int =
     let ydbvar = seqToYdbVar(args)
     return ydb_data(ydbvar.name, ydbvar.subscripts)
 
-proc deletevarxxx*(args: varargs[string]) =
-    # delete a global / local variable complete
-    for ydbvar in seqToYdbVars(args):
-        deleteGlobal(ydbvar.name)
-        
-proc delnodexxx*(args: varargs[string]) =
+proc killnodexxx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_delete_node(ydbvar.name, ydbvar.subscripts)
 
@@ -405,7 +396,7 @@ proc delexclxxx*(args: varargs[string]) =
         names.add(ydbvar.name)
     ydb_delete_excl(names)
 
-proc deltreexxx*(args: varargs[string]) =
+proc killxxx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_delete_tree(ydbvar.name, ydbvar.subscripts)
 

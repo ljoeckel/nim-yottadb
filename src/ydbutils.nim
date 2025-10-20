@@ -14,6 +14,8 @@ template withlock*(lockid: untyped, body: untyped): untyped =
 
 proc getYdbKeys(name: string): seq[string] =
   var (rc, gbl) = nextnode @name
+  if data(@name) in {YDB_DATA_VALUE_DESC, YDB_DATA_VALUE_NODESC}: # node has data and/or descendents
+     result.add(name)
   while rc == YDB_OK:
     result.add(gbl)
     (rc, gbl) = nextnode @gbl

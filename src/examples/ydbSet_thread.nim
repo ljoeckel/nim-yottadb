@@ -56,7 +56,7 @@ proc count_data(): int =
 
 when isMainModule:
   # Reset counters
-  delnode: ^CNT("ydb_set")
+  killnode: ^CNT("ydb_set")
 
   timed("main"): main(api)
   timed("main_dsl"): main(dsl)

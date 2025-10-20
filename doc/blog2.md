@@ -229,15 +229,16 @@ setvar:
 dta = data: ^X(5)
 assert YdbData(dta) == YDB_DATA_VALUE_DESC
 ```
-#### delnode
+#### killnode
 Delete a node. If all nodes of a global are removed, the global itself is removed.
+No descendents are removed.
 ```nim
-delnode: ^X(1) # delete node
+killnode: ^X(1) # delete node
 ```
-#### deltree
+#### kill
 Delete a subtree of a global. If all nodes are removed, the global itself is removed.
 ```nim
-deltree: ^X(1)
+kill: ^X(1)
 ```
 #### lock
 Lock upto 35 Global variables. Other processes trying to lock one of the globals will wait until the lock is released. {} Have to be used if more than one global will be locked or an empty one to release all locks.
