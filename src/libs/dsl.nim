@@ -108,16 +108,6 @@ proc processStmtList(body: NimNode): seq[NimNode] =
     else:
         raise newException(Exception, "Statement list needs ':' g.e. delnode: ^xxx(...) body.kind=" & $body.kind)
 
-func hasTypeConversion(args: seq[NimNode]): string =
-    if args.len > 2 and repr(args[^2]).contains(TYPEDESC):
-        let s = repr(args[^1])
-        let openPar = s.find('(') # any subscripts 
-        if openPar != -1:
-            let closePar = s.find(')', openPar)
-            let tname = s[openPar + 1 ..< closePar]
-            return tname
-    nil
-
 func hasTypeConversion(typename: string, args: seq[NimNode]): bool =
     if args.len > 2 and repr(args[^2]).contains(TYPEDESC):    
         let s = repr(args[^1])
@@ -258,13 +248,6 @@ proc stringToSeq(s: string): Subscripts =
 proc stringToSeq(subs: Subscripts): Subscripts =
     for sub in subs:
         result.add(stringToSeq(sub))
-
-proc argsToSeq(args: varargs[string]): seq[string] =
-  for arg in args:
-    if arg.startsWith("@["):
-      result.add(stringToSeq(arg))
-    else:
-      result.add(arg)
 
 proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
   var
