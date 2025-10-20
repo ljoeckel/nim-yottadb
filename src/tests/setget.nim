@@ -306,9 +306,9 @@ proc testExtendSubscriptWithString =
     ^images("4711", "path") = "imagepath"
 
   var subs = @["4711"]
-  let image = get(^images(subs))
+  let image = get ^images(subs)
   assert image == "imagedata"
-  let path = get(^images(subs, "path"))
+  let path = get ^images(subs, "path")
   assert path == "imagepath"
   
   deltree: ^images(4711)
@@ -332,16 +332,18 @@ proc testNumbersRange() =
     ^tmp("int16.low") = int16.low
     ^tmp("int32.high") = int32.high
     ^tmp("int32.low") = int32.low
+
   assert get(^tmp("int64").int) == int.high
-  doAssertRaises(ValueError): discard get(^tmp("int64").int8)
+  doAssertRaises(RangeDefect): discard get ^tmp("int64").int8
+  doAssertRaises(RangeDefect): discard get ^tmp("int64").int16
+  doAssertRaises(RangeDefect): discard get ^tmp("int64").int32
+
   assert get(^tmp("int8.high").int8) == int8.high
   assert get(^tmp("int8.low").int8) == int8.low
   assert get(^tmp("int16.high").int16) == int16.high
   assert get(^tmp("int16.low").int16) == int16.low
-  doAssertRaises(ValueError): discard get(^tmp("int64").int16)
   assert get(^tmp("int32.high").int32) == int32.high
   assert get(^tmp("int32.low").int32) == int32.low
-  doAssertRaises(ValueError): discard get(^tmp("int64").int32)
   assert get(^tmp("int64").int64) == int64.high
 
   setvar:
@@ -355,16 +357,18 @@ proc testNumbersRange() =
     ^tmp("uint16.low") = uint16.low
     ^tmp("uint32.high") = uint32.high
     ^tmp("uint32.low") = uint32.low
+
   assert get(^tmp("uint64").uint) == uint.high
-  doAssertRaises(ValueError): discard get(^tmp("uint64").uint8)
+  assert uint8.high ==  get ^tmp("uint64").uint8
+  assert uint16.high == get ^tmp("uint64").uint16
+  assert uint32.high == get ^tmp("uint64").uint32
+
+  assert get(^tmp("uint32.high").uint32) == uint32.high
   assert get(^tmp("uint8.high").uint8) == uint8.high
   assert get(^tmp("uint8.low").uint8) == uint8.low
   assert get(^tmp("uint16.high").uint16) == uint16.high
   assert get(^tmp("uint16.low").uint16) == uint16.low
-  doAssertRaises(ValueError): discard get(^tmp("uint64").uint16)
-  assert get(^tmp("uint32.high").uint32) == uint32.high
   assert get(^tmp("uint32.low").uint32) == uint32.low
-  doAssertRaises(ValueError): discard get(^tmp("uint64").uint32)
   assert get(^tmp("uint64").uint64) == uint64.high
 
   setvar:
@@ -394,53 +398,53 @@ proc setget() =
     #^tmp(id + 10) = id + 10 #TODO: Not supported anymore
     ^tmp("X") = "X"
 
-  assert "1" == get(^tmp(id))
-  assert "1" == get(^tmp($id))
-  assert 1 == get(^tmp(id).int)
-  assert 1.0 == get(^tmp(id).float)
+  assert "1" == get ^tmp(id)
+  assert "1" == get ^tmp($id)
+  assert 1 == get ^tmp(id).int
+  assert 1.0 == get ^tmp(id).float
 
-  assert "4711" == get(^tmp(id, 4711))
-  assert 4711 == get(^tmp(id, 4711).int)
-  assert 4711.0 == get(^tmp(id, 4711).float)
-  assert "4711" == get(^tmp(id, "4711"))
-  assert 4711 == get(^tmp(id, "4711").int)
-  assert 4711.0 == get(^tmp(id, "4711").float)
+  assert "4711" == get ^tmp(id, 4711)
+  assert 4711 == get ^tmp(id, 4711).int
+  assert 4711.0 == get ^tmp(id, 4711).float
+  assert "4711" == get ^tmp(id, "4711")
+  assert 4711 == get ^tmp(id, "4711").int
+  assert 4711.0 == get ^tmp(id, "4711").float
   
-  assert "4712" == get(^tmp(id, 4712))
-  assert 4712 == get(^tmp(id, 4712).int)
-  assert 4712.0 == get(^tmp(id, 4712).float)
-  assert "4712" == get(^tmp(id, "4712"))
-  assert 4712 == get(^tmp(id, "4712").int)
-  assert 4712.0 == get(^tmp(id, "4712").float)
+  assert "4712" == get ^tmp(id, 4712)
+  assert 4712 == get ^tmp(id, 4712).int
+  assert 4712.0 == get ^tmp(id, 4712).float
+  assert "4712" == get ^tmp(id, "4712")
+  assert 4712 == get ^tmp(id, "4712").int
+  assert 4712.0 == get ^tmp(id, "4712").float
   
-  assert "4713,A" == get(^tmp(id, "4713", "A"))
-  assert "4713,A" == get(^tmp(id, 4713, "A"))
-  assert "4713,A" == get(^tmp(id, id1, "A"))
-  assert "4713,A" == get(^tmp(id, id1, id2))
+  assert "4713,A" == get ^tmp(id, "4713", "A")
+  assert "4713,A" == get ^tmp(id, 4713, "A")
+  assert "4713,A" == get ^tmp(id, id1, "A")
+  assert "4713,A" == get ^tmp(id, id1, id2)
   assert "4713,A" == get ^tmp(@[$id, $id1, $id2])
-  doAssertRaises(ValueError): discard get(^tmp(@[$id, $id1, id2]).int)
-  doAssertRaises(ValueError): discard get(^tmp(@[$id, id1, id2]).float)
+  doAssertRaises(ValueError): discard get ^tmp(@[$id, $id1, id2]).int
+  doAssertRaises(ValueError): discard get ^tmp(@[$id, id1, id2]).float
 
   var sub:Subscripts = @[$id, id1, id2]
-  assert "4713,A" == get(^tmp(sub))
-  doAssertRaises(ValueError): discard get(^tmp(sub).int)
-  doAssertRaises(ValueError): discard get(^tmp(sub).float)
+  assert "4713,A" == get ^tmp(sub)
+  doAssertRaises(ValueError): discard get ^tmp(sub).int
+  doAssertRaises(ValueError): discard get ^tmp(sub).float
  
-  assert "2" == get(^tmp(2))
-  assert 2 == get(^tmp(2).int)
-  assert 2.0 == get(^tmp(2).float)
+  assert "2" == get ^tmp(2)
+  assert 2 == get ^tmp(2).int
+  assert 2.0 == get ^tmp(2).float
 
-  assert "3" == get(^tmp("3"))
-  assert 3 == get(^tmp("3").int)
-  assert 3.0 == get(^tmp("3").float)
+  assert "3" == get ^tmp("3")
+  assert 3 == get ^tmp("3").int
+  assert 3.0 == get ^tmp("3").float
 
-  assert "4" ==  get(^tmp(@["4"]))
-  assert 4 == get(^tmp(@["4"]).int)
-  assert 4.0 == get(^tmp(@["4"]).float)
+  assert "4" ==  get ^tmp(@["4"])
+  assert 4 == get ^tmp(@["4"]).int
+  assert 4.0 == get ^tmp(@["4"]).float
 
-  assert "5" == get(^tmp(ids))
-  assert 5 == get(^tmp(ids).int)
-  assert 5.0 == get(^tmp(ids).float)
+  assert "5" == get ^tmp(ids)
+  assert 5 == get ^tmp(ids).int
+  assert 5.0 == get ^tmp(ids).float
 
 proc testIndirection() =
     let gbl = "^GBL"

@@ -199,20 +199,6 @@ macro nextnode*(body: untyped): untyped =
     else:
         return newCall(ident"nextnodexxx", args)
 
-    # # check for type conversion
-    # if args.len > 2 and repr(args[^2]).contains(TYPEDESC):
-    #     let s = repr(args[^1])
-    #     let openPar = s.find('(') # any subscripts 
-    #     if openPar != -1:
-    #         let closePar = s.find(')', openPar)
-    #         let typename = s[openPar + 1 ..< closePar]
-    #         if typename == "seq":
-    #             return newCall(ident("nextnodexxxseq"), args[0..^3])
-    #         else:
-    #             raise newException(Exception, "Only 'seq' is supported. error=" & typename)
-
-    #return newCall(ident"nextnodexxx", args)    
-
 macro nextsubscript*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
@@ -222,19 +208,6 @@ macro nextsubscript*(body: untyped): untyped =
         return newCall(ident("nextsubscriptxxxseq"), args[0..^3])
     else:
         return newCall(ident"nextsubscriptxxx", args)        
-
-    # if args.len > 2 and repr(args[^2]).contains(TYPEDESC):
-    #     let s = repr(args[^1])
-    #     let openPar = s.find('(') # any subscripts 
-    #     if openPar != -1:
-    #         let closePar = s.find(')', openPar)
-    #         let typename = s[openPar + 1 ..< closePar]
-    #         if typename == "seq":
-    #             return newCall(ident("nextsubscriptxxxseq"), args[0..^3])
-    #         else:
-    #             raise newException(Exception, "Only 'seq' is supported. error=" & typename)
-
-    # return newCall(ident"nextsubscriptxxx", args)    
 
 macro prevnode*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -246,19 +219,6 @@ macro prevnode*(body: untyped): untyped =
     else:
         return newCall(ident"prevnodexxx", args)
 
-    # if args.len > 2 and repr(args[^2]).contains(TYPEDESC):
-    #     let s = repr(args[^1])
-    #     let openPar = s.find('(') # any subscripts 
-    #     if openPar != -1:
-    #         let closePar = s.find(')', openPar)
-    #         let typename = s[openPar + 1 ..< closePar]
-    #         if typename == "seq":
-    #             return newCall(ident("prevnodexxxseq"), args[0..^3])
-    #         else:
-    #             raise newException(Exception, "Only 'seq' is supported. error=" & typename)
-
-    # return newCall(ident"prevnodexxx", args)    
-
 macro prevsubscript*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
@@ -268,19 +228,6 @@ macro prevsubscript*(body: untyped): untyped =
         return newCall(ident("prevsubscriptxxxseq"), args[0..^3])        
     else:
         return newCall(ident"prevsubscriptxxx", args)
-
-    # if args.len > 2 and repr(args[^2]).contains(TYPEDESC):
-    #     let s = repr(args[^1])
-    #     let openPar = s.find('(') # any subscripts 
-    #     if openPar != -1:
-    #         let closePar = s.find(')', openPar)
-    #         let typename = s[openPar + 1 ..< closePar]
-    #         if typename == "seq":
-    #             return newCall(ident("prevsubscriptxxxseq"), args[0..^3])
-    #         else:
-    #             raise newException(Exception, "Only 'seq' is supported. error=" & typename)
-    
-    # return newCall(ident"prevsubscriptxxx", args)
 
 macro setvar*(body: untyped): untyped =
     let args = processStmtList(body)
@@ -500,63 +447,24 @@ proc getxxxint*(args: varargs[string]): int =
     parseInt(getxxx(args)).int
 
 proc getxxxint8*(args: varargs[string]): int8 =
-    let value = parseInt(getxxx(args)).int
-    if value > int8.high or value < int8.low:
-        raise newException(ValueError, "Not in " & $int8.low & " .. " & $int8.high)
-    else:
-        return value.int8
-
+    parseInt(getxxx(args)).int8
 proc getxxxint16*(args: varargs[string]): int16 =
-    let value = parseInt(getxxx(args)).int
-    if value > int16.high or value < int16.low:
-        raise newException(ValueError, "Not in " & $int16.low & " .. " & $int16.high)
-    else:
-        return value.int16
-
+    parseInt(getxxx(args)).int16
 proc getxxxint32*(args: varargs[string]): int32 =
-    let value = parseInt(getxxx(args)).int
-    if value > int32.high or value < int32.low:
-        raise newException(ValueError, "Not in " & $int32.low & " .. " & $int32.high)
-    else:
-        return value.int32
-
+    parseInt(getxxx(args)).int32
 proc getxxxint64*(args: varargs[string]): int64 =
-    let value = parseInt(getxxx(args)).int
-    if value > int64.high or value < int64.low:
-        raise newException(ValueError, "Not in " & $int64.low & " .. " & $int64.high)
-    else:
-        return value.int64
-
+    parseInt(getxxx(args)).int64
 proc getxxxuint*(args: varargs[string]): uint =
     parseUInt(getxxx(args)).uint
 
 proc getxxxuint8*(args: varargs[string]): uint8 =
-    let value = parseUInt(getxxx(args)).uint
-    if value > uint8.high or value < 0:
-        raise newException(ValueError, "Not in " & $uint8.low & " .. " & $uint8.high)
-    else:
-        return value.uint8
-
+    parseUInt(getxxx(args)).uint8
 proc getxxxuint16*(args: varargs[string]): uint16 =
-  let value = parseUInt(getxxx(args)).uint
-  if value > uint16.high or value < 0:
-    raise newException(ValueError, "Not in " & $uint16.low & " .. " & $uint16.high)
-  else:
-    return value.uint16
-
+    parseUInt(getxxx(args)).uint16
 proc getxxxuint32*(args: varargs[string]): uint32 =
-  let value = parseUInt(getxxx(args)).uint
-  if value > uint32.high or value < 0:
-    raise newException(ValueError, "Not in " & $uint32.low & " .. " & $uint32.high)
-  else:
-    return value.uint32
-
+    parseUInt(getxxx(args)).uint32
 proc getxxxuint64*(args: varargs[string]): uint64 =
-  let value = parseUInt(getxxx(args)).uint
-  if value > uint64.high or value < 0:
-    raise newException(ValueError, "Not in " & $uint64.low & " .. " & $uint64.high)
-  else:
-    return value.uint64
+  parseUInt(getxxx(args)).uint64
 
 proc getxxxOrderedSet*(args: varargs[string]): OrderedSet[int] =
     let str = getxxx(args)
@@ -629,7 +537,6 @@ proc lockxxx*(args: varargs[string]) =
 
 proc nextnodexxx*(args: varargs[string]): (int, string) =
     var ydbvar = seqToYdbVar(args)
-    #echo "ydbvar=", repr(ydbvar)
     let (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
         return (rc, keysToString(ydbvar.name, subs))
@@ -640,9 +547,7 @@ proc nextnodexxx*(args: varargs[string]): (int, string) =
         raise newException(YdbError, fmt"{message}, Names: {ydbvar.name}({ydbvar.subscripts})")
 
 proc nextnodexxxseq*(args: varargs[string]): (int, seq[string]) =
-    #echo "args=", args
     var ydbvar = seqToYdbVar(args)
-    #echo "ydbvar=", repr(ydbvar)
     let (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
         return (rc, subs)
