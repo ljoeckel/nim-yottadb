@@ -33,7 +33,7 @@ proc findAttributes(node: NimNode, kv: var Table[string, NimNode]) =
 
 proc transformCallNode(node: NimNode, args: var seq[NimNode]) =
     case node.kind
-    of nnkIdent:
+    of nnkIdent, nnkInfix:
         args.add(newCall(ident"$", node))
     of nnkStrLit, nnkPrefix:  # "abc" / let id=4711; get ^gbl($id)
         args.add(node)
@@ -59,7 +59,7 @@ proc transform(node: NimNode, args: var seq[NimNode]) =
             #TODO: LJ richtig hier?
             args.add(newLit(node[0].strVal))
         transform(node[1], args)
-    of nnkIdent:
+    of nnkIdent, nnkInfix:
         if args.len > 0 and args[0].strVal == INDIRECTION:
             args.add(node)
         else:
@@ -91,14 +91,12 @@ proc transform(node: NimNode, args: var seq[NimNode]) =
             case node[i].kind
             of nnkPrefix: # [$varname, "x", 4711
                 args.add(newCall(ident"$", node[i][1]))
-            of nnkIdent:
+            of nnkIdent, nnkInfix:
                 args.add(newCall(ident"$", node[i]))
             else:
                 transform(node[i], args)
     #of nnkCommand:
     #    raise newException(Exception, "You may not mix YottaDB DSL commands with Nim commands" & repr(node))
-    of nnkInfix:
-        raise newException(Exception, "Illegal variable name name:" & repr(node))
     else:
         raise newException(Exception, "Unsupported node.kind:" & $node.kind)
 
@@ -291,7 +289,6 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
       # End of value-based YdbVar
       ydbvar.value = lastArg
       subs.delete(subs.len - 1)
-      #if subs.len > 0: subs.setLen(subs.len - 1) # Remove last sub if it's the value
       if ydbvar.subscripts.len == 0: ydbvar.subscripts = subs
       resultVars.add(ydbvar)
       ydbvar = YdbVar()

@@ -16,7 +16,29 @@ proc setGetSingleMulti() =
     assert "2" == get ^tmp2
     assert "3" == get ^tmp3
 
+proc setGetInfix() =
+    setvar: ^tmp = 1
+    setvar:
+        ^tmp(10) = 10
+        ^tmp(20) = 20
     
+    let id = 10
+    assert "10" == get ^tmp(id)
+    assert "20" == get ^tmp(id + 10)
+
+    setvar: ^tmp(id + 30) = 30
+    assert "30" == get ^tmp(id + 30)
+
+    for i in 0..100:
+      setvar: ^tmp(i + 1000 * 2) = i + 1000 * 2
+    for i in 0..100:
+      assert (i + 1000 * 2) == get ^tmp(i + 1000 * 2).int
+
+    let subs: Subscripts = @[$id]
+    assert "10" == get ^tmp(subs)
+    let subs2: Subscripts = @[$(id + 10)]
+    assert "20" == get ^tmp(subs2)
+   
 proc setWithSubscript() =
   var sub: Subscripts
   sub = @["A"]
@@ -458,10 +480,12 @@ proc testIndirection() =
 
 
 if isMainModule:
-    test"setGetSingleMulti": setGetSingleMulti()
+    test "setGetSingleMulti": setGetSingleMulti()
+    test "Infix": setGetInfix()
     test "testSetgetGlobal": testSetgetGlobal()
     test "setWithSubscript": setWithSubscript()
     test "SetGet": testSetGet()
+    test "IfVariants": ifVariants()
     test "GetUpdate": testGetUpdate()
     test "SetMixed": testSetMixed()
     test "echo": echoTest()
