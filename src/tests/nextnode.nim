@@ -24,7 +24,7 @@ proc stringAndSequence() =
     assert dbdata == refdata1
 
     for idx, sub in dbdata:
-        let val = get ^tmp2(sub).int
+        let val = getvar ^tmp2(sub).int
         assert idx == val
 
     # With indirektion
@@ -40,9 +40,9 @@ proc stringAndSequence() =
     assert dbdata2 == refdata2
 
     for idx, v in dbdata2:
-        let val = get @v.int
+        let val = getvar @v.int
         assert idx == val
-        assert idx == get @v.int
+        assert idx == getvar @v.int
 
 proc netxtnodeWithKillnode() = 
     for i in 1000..1020:
@@ -71,11 +71,11 @@ proc setNextPrevTest() =
     ^test("users", 45, "name") = "Lothar"
     ^test(sub0) = "Martina"
   
-  assert "Alice" == get ^test("users", "42", "name")
-  assert "Bob" == get ^test(id1, id2, id3)
-  assert (get ^test("users", "43", "name")) == "Bob"
-  assert "Lothar" == get ^test("users", 45, "name")
-  assert "Martina" == get ^test(sub0)
+  assert "Alice" == getvar ^test("users", "42", "name")
+  assert "Bob" == getvar ^test(id1, id2, id3)
+  assert (getvar ^test("users", "43", "name")) == "Bob"
+  assert "Lothar" == getvar ^test("users", 45, "name")
+  assert "Martina" == getvar ^test(sub0)
 
   # NEXTSUB / PREVSUB example
   var (rc, subs) = nextsubscript ^test("users", "42").seq

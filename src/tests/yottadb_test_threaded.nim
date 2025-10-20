@@ -61,7 +61,7 @@ proc validateCounters() =
 
   assert cntidx == MAX * NUM_OF_THREADS
   # check the number of results in the db
-  assert get(COUNTER(0).int) == cntidx
+  assert getvar(COUNTER(0).int) == cntidx
 
   # Test if each number is found in the set
   for i in 1..MAX*NUM_OF_THREADS:

@@ -12,7 +12,7 @@ setvar:
   ^Users("john_doe", "profile", "name") = "John Doe"
   ^Users("john_doe", "profile", "email") = "john@example.com"
 
-let userName = get: ^Users("john_doe", "profile", "name")
+let userName = getvar  ^Users("john_doe", "profile", "name")
 echo "Hello, ", userName
 ```
 
@@ -200,7 +200,7 @@ setvar: ^building("Room", 1, "Window")=22.5
 setvar:
     ^XX(1,2,3)=123
     ^XX("B",1)="AB"
-let var1 = get(^XX(1,2,3))
+let var1 = getvar(^XX(1,2,3))
 let image = getblob(^images(4711))
 ```
 #### Support for mixed type subscripts
@@ -272,8 +272,8 @@ Traverse a global/subscript in the collating sequence.
 #### 'get' with postfix
 It is possible to enforce a type when getting data from YottaDB. By using a 'postfix' a expected type can be defined and tested.
 ```nim
-let i = get: ^global(1).int16
-let f = get: ^global(4711).float32
+let i = getvar  ^global(1).int16
+let f = getvar  ^global(4711).float32
 ```
 If the value from the db is greater or smaller than the range defined through the postfix, a `ValueError` exception is raised.
 

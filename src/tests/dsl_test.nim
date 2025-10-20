@@ -156,7 +156,7 @@ proc testNextNode() =
 
   (rc, node) = nextnode: @node
   assert node == "^LL(HAUS,ELEKTRIK,DOSEN,1)"
-  assert "Telefondose" == get @node
+  assert "Telefondose" == getvar @node
 
 proc testPrevNode() =
   var rc:int

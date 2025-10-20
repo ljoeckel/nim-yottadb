@@ -41,7 +41,7 @@ The DSL allows to write programs with globals in very natural way.
 ```nim
   withlock(4711):
     let id = @["4711", "Acc123"]
-    var amount = get: ^account(id).float
+    var amount = getvar  ^account(id).float
     amount += 1500.0
     setvar ^account(id) = amount # update db
   echo "Done"
@@ -72,8 +72,8 @@ let: int csid = increment ^CNT("CSID", by=5) # +5
 ```
 - ### get / getblob
 ```nim
-let name = get: ^Customer(4711,"Name")
-let f: float = get: ^Customer(4711, accountId, transactionId, "amount").float
+let name = getvar  ^Customer(4711,"Name")
+let f: float = getvar  ^Customer(4711, accountId, transactionId, "amount").float
 let image = getblob(^images("folderA", 815))
 ```
 - ### nextnode:
@@ -160,7 +160,7 @@ proc loadImagesToDb(basedir: string) =
             ^images($image_number, "path") = image
             ^images($image_number, "created") = now()
 
-proc saveImage(target: string, path: string, img: string) =
+proc saveImage(targetvar  string, path: string, img: string) =
     if not dirExists(target):
         createDir(target)
 
@@ -168,11 +168,11 @@ proc saveImage(target: string, path: string, img: string) =
     let fullpath = target & "/" & filename
     writeFile(fullpath, img)
 
-proc readImagesFromDb(target: string) =
+proc readImagesFromDb(targetvar  string) =
     var (rc, subs) = nextsubscript: ^images(@[""]) # -> @["223"], @["224"], ...
     while rc == YDB_OK:
         let img     = getblob(^images(subs))
-        let path    = get(^images(subs, "path"))
+        let path    = getvar(^images(subs, "path"))
         saveImage(target, path, img)
         (rc, subs) = nextsubscript: ^images(subs)
 

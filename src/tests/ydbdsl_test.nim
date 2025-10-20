@@ -11,24 +11,24 @@ const
 
 proc testGlobals() =
     setvar: ^GBL="gbl"
-    assert "gbl" == get ^GBL
+    assert "gbl" == getvar ^GBL
     setvar: ^GBL(1)="gbl(1)"
-    assert "gbl(1)" == get ^GBL(1)
+    assert "gbl(1)" == getvar ^GBL(1)
     setvar: 
         ^GBL = "gbl"
         ^GBL(4711) = "4711"
         ^GBL("4711", "ABC") = "4711,ABC"
-    assert "gbl" == get ^GBL 
-    assert "4711" == get ^GBL(4711)
-    assert "4711,ABC" == get ^GBL("4711", "ABC")
+    assert "gbl" == getvar ^GBL 
+    assert "4711" == getvar ^GBL(4711)
+    assert "4711,ABC" == getvar ^GBL("4711", "ABC")
 
     let id = "abc"
     setvar: ^GBL(id) = "abc"
-    assert "abc" == get ^GBL(id)
+    assert "abc" == getvar ^GBL(id)
     setvar: ^GBL($id) = "abc"
-    assert "abc" == get ^GBL($id)
+    assert "abc" == getvar ^GBL($id)
 
-    let (a,b) = (get ^GBL(1), get ^GBL(4711))
+    let (a,b) = (getvar ^GBL(1), getvar ^GBL(4711))
     assert a == "gbl(1)" and b == "4711"
 
 
@@ -47,24 +47,24 @@ proc testGetWithType() =
     setvar: ^GBL("float") = 3.1414
     setvar: ^GBL("float32") = 3.1414
 
-    assert int.high == get ^GBL.int
-    assert int.high == get ^GBL("int").int
-    assert int8.high == get ^GBL("int8").int8
-    assert int16.high == get ^GBL("int16").int16
-    assert int32.high == get ^GBL("int32").int32
-    assert int64.high == get ^GBL("int64").int64
-    assert uint.high == get ^GBL("uint").uint
-    assert uint8.high == get ^GBL("uint8").uint8
-    assert uint16.high == get ^GBL("uint16").uint16
-    assert uint32.high == get ^GBL("uint32").uint32
-    assert uint64.high == get ^GBL("uint64").uint64
-    assert 3.1414 == get ^GBL("float").float
-    assert 3.1414.float32 == get ^GBL("float32").float32
+    assert int.high == getvar ^GBL.int
+    assert int.high == getvar ^GBL("int").int
+    assert int8.high == getvar ^GBL("int8").int8
+    assert int16.high == getvar ^GBL("int16").int16
+    assert int32.high == getvar ^GBL("int32").int32
+    assert int64.high == getvar ^GBL("int64").int64
+    assert uint.high == getvar ^GBL("uint").uint
+    assert uint8.high == getvar ^GBL("uint8").uint8
+    assert uint16.high == getvar ^GBL("uint16").uint16
+    assert uint32.high == getvar ^GBL("uint32").uint32
+    assert uint64.high == getvar ^GBL("uint64").uint64
+    assert 3.1414 == getvar ^GBL("float").float
+    assert 3.1414.float32 == getvar ^GBL("float32").float32
     
     let os = toOrderedSet([1,2,3,4,5,6,7,8,9,10])
     let gbl = "^GBL(\"os\")"
     setvar: @gbl = $os
-    let osdb = get @gbl.OrderedSet
+    let osdb = getvar @gbl.OrderedSet
     assert os == osdb
 
 
@@ -78,11 +78,11 @@ proc benchTestGlobals() =
         for i in 0..BENCH_MAX_RECS:
             setvar: ^GBL(i) = i
     timed:
-        echo "get ^GBL(i)"
+        echo "getvar ^GBL(i)"
         var sum1, sum2 = 0
         for i in 0..BENCH_MAX_RECS:
             sum1 += i
-            sum2 += get ^GBL(i).int
+            sum2 += getvar ^GBL(i).int
         assert sum1 == sum2
     timed:
         echo "ydb_set ^GBL(@[i])"
@@ -91,7 +91,7 @@ proc benchTestGlobals() =
     timed:
         sum1 = 0
         sum2 = 0
-        echo "ydb_get ^GBL(@[i])"
+        echo "ydb_getvar ^GBL(@[i])"
         for i in 0..BENCH_MAX_RECS:
             sum1 += i
             sum2 += parseInt(ydb_get("^GBL", @[$i]))
@@ -116,11 +116,11 @@ proc benchTestLocals() =
         for i in 0..BENCH_MAX_RECS:
             setvar: LCL(i) = i
     timed:
-        echo "get LCL(i)"
+        echo "getvar LCL(i)"
         var sum1, sum2 = 0
         for i in 0..BENCH_MAX_RECS:
             sum1 += i
-            sum2 += get LCL(i).int
+            sum2 += getvar LCL(i).int
         assert sum1 == sum2
     timed:
         echo "ydb_set LCL(i)"
@@ -154,17 +154,17 @@ proc benchTestLocals() =
 proc testDeleteNode() =
     setvar: ^GBL="hallo"
     killnode: ^GBL
-    doAssertRaises(YdbError): discard get ^GBL
+    doAssertRaises(YdbError): discard getvar ^GBL
 
     let gbl = "^GBL(1)"
     setvar: @gbl = "gbl(1)"
     killnode: @gbl
-    doAssertRaises(YdbError): discard get @gbl
+    doAssertRaises(YdbError): discard getvar @gbl
 
     setvar: ^GBL1="hallo"
-    assert "hallo" == get ^GBL1
+    assert "hallo" == getvar ^GBL1
     killnode: ^GBL1
-    doAssertRaises(YdbError): discard get ^GBL1
+    doAssertRaises(YdbError): discard getvar ^GBL1
 
     setvar:
         ^GBL1="gbl1"
@@ -174,9 +174,9 @@ proc testDeleteNode() =
         ^GBL1
         ^GBL2
         ^GBL3
-    doAssertRaises(YdbError): discard get ^GBL1
-    doAssertRaises(YdbError): discard get ^GBL2
-    doAssertRaises(YdbError): discard get ^GBL3
+    doAssertRaises(YdbError): discard getvar ^GBL1
+    doAssertRaises(YdbError): discard getvar ^GBL2
+    doAssertRaises(YdbError): discard getvar ^GBL3
 
     setvar:
         ^GBL(1)=1
@@ -186,9 +186,9 @@ proc testDeleteNode() =
         ^GBL(1)
         ^GBL(2)
         ^GBL(3)
-    doAssertRaises(YdbError): discard get ^GBL(1)
-    doAssertRaises(YdbError): discard get ^GBL(2)
-    doAssertRaises(YdbError): discard get ^GBL(3)
+    doAssertRaises(YdbError): discard getvar ^GBL(1)
+    doAssertRaises(YdbError): discard getvar ^GBL(2)
+    doAssertRaises(YdbError): discard getvar ^GBL(3)
 
 
 proc testDeleteTree() =
@@ -200,13 +200,13 @@ proc testDeleteTree() =
         ^GBL(2,2)="2,2"
         
     kill: ^GBL(1)
-    doAssertRaises(YdbError): discard get ^GBL(1,1)
-    doAssertRaises(YdbError): discard get ^GBL(1,2)
+    doAssertRaises(YdbError): discard getvar ^GBL(1,1)
+    doAssertRaises(YdbError): discard getvar ^GBL(1,2)
     kill: ^GBL(2)
-    doAssertRaises(YdbError): discard get ^GBL(2,1)
-    doAssertRaises(YdbError): discard get ^GBL(2,2)
+    doAssertRaises(YdbError): discard getvar ^GBL(2,1)
+    doAssertRaises(YdbError): discard getvar ^GBL(2,2)
     kill: ^GBL
-    doAssertRaises(YdbError): discard get ^GBL
+    doAssertRaises(YdbError): discard getvar ^GBL
 
     var
         rc = 0
@@ -253,8 +253,8 @@ proc testDelexcl() =
     DELTEST5="5"
 
   # Test if local variable is readable
-  discard get DELTEST0("deltest")
-  discard get DELTEST1
+  discard getvar DELTEST0("deltest")
+  discard getvar DELTEST1
   
   # Remove all except the following
   delexcl: 
@@ -263,17 +263,17 @@ proc testDelexcl() =
     }
 
   # 1,3 and 5 should be there
-  discard get DELTEST1
-  discard get DELTEST3
-  discard get DELTEST5
+  discard getvar DELTEST1
+  discard getvar DELTEST3
+  discard getvar DELTEST5
 
   # Removed vars should raise exception on access
-  doAssertRaises(YdbError): discard get DELTEST2
-  doAssertRaises(YdbError): discard get DELTEST4
+  doAssertRaises(YdbError): discard getvar DELTEST2
+  doAssertRaises(YdbError): discard getvar DELTEST4
 
   # delete all variables
   delexcl: {}
-  doAssertRaises(YdbError): discard get DELTEST1
+  doAssertRaises(YdbError): discard getvar DELTEST1
 
 
 proc testIncrement() =

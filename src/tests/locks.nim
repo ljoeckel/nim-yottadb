@@ -18,11 +18,11 @@ proc intSetLockUpdate() =
     let subs = @["4711", "Acc123"]
     setvar:
       ^hello(subs) = 1500  # Set initial amount
-    assert "1500" == get ^hello(subs)
-    var amount = get: ^hello(subs).int # get back as int
+    assert "1500" == getvar ^hello(subs)
+    var amount = getvar  ^hello(subs).int # get back as int
     amount += 1500
     setvar: ^hello(subs) = amount # update db
-    assert amount == get ^hello(subs).int
+    assert amount == getvar ^hello(subs).int
     assert isLocked(4711)
     
   assert not isLocked(4711)

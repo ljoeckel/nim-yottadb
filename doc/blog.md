@@ -32,7 +32,7 @@ Here are some of the highlights:
    - Example DSL syntax:
      ```nim
      setvar: ^Customer(4711,"Name") = "John Doe"
-     let name = get: ^Customer(4711,"Name")
+     let name = getvar  ^Customer(4711,"Name")
      ```
    Postfix extensions
    .int/float, binary, OrderedSet
@@ -53,8 +53,8 @@ import yottadb
 # Set a value
 let id = 4711
 setvar: ^Customer(id, "Name") = "John Doe"
-let name = get: ^Customer(id, "Name") # Get the value back
-let txCount = get: ^CNT("TXID").int # Get as a typed value
+let name = getvar  ^Customer(id, "Name") # Get the value back
+let txCount = getvar  ^CNT("TXID").int # Get as a typed value
 echo fmt"Customers Name: {name} txCount: {txCount}"
 ```
 ### Example 2: Traversal & Deletion

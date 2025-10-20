@@ -50,19 +50,19 @@ proc tryToCreateDeadlock() =
 
     # Test totals
     let iterations = maxCount * numOfThreads
-    var v = get: ^CNT(4711).int
+    var v = getvar  ^CNT(4711).int
     assert v == iterations
-    v = get: ^CNT("4711.1").int
+    v = getvar  ^CNT("4711.1").int
     assert v == iterations
-    v = get: ^CNT("TEMPLATE_TEST").int
+    v = getvar  ^CNT("TEMPLATE_TEST").int
     assert v == iterations
     echo "Number of Threads: ", numOfThreads, ", Total iterations:", iterations, ", Time per iteration: ", ms.float64 / v.float64, " ms."
 
     # Test numbers for each thread
     for tn in 0..<numOfThreads:
-        v = get: ^CNT(4711, tn).int
+        v = getvar  ^CNT(4711, tn).int
         assert v == maxCount
-        v = get: ^CNT(4711.1, tn).int
+        v = getvar  ^CNT(4711.1, tn).int
         assert v == maxCount
 
 

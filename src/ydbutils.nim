@@ -23,7 +23,7 @@ proc getYdbKeys(name: string): seq[string] =
 proc listVar*(name: string) =
   # List all globals with its value
   for varname in getYdbKeys(name):
-    echo fmt"{varname}={get @varname}"
+    echo fmt"{varname}={getvar @varname}"
 
 
 proc getGlobals*(): seq[string] =

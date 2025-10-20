@@ -44,7 +44,7 @@ proc count_data(): int =
   (rc, node) = nextnode: ^YDB(node).seq
   while rc == YDB_OK:
     inc(cnt)
-    let val = get: ^YDB(node)
+    let val = getvar  ^YDB(node)
     let tn = val[^1]
     thm.inc(tn)
     # read next

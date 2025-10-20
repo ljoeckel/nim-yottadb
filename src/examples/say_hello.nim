@@ -16,7 +16,7 @@ proc count() =
 
 proc getdata() =
     for id in 0..<10000000:
-        let val = get: ^hello(id)
+        let val = getvar  ^hello(id)
 
 proc delete() =
     for id in 0..<10000000:
@@ -32,7 +32,7 @@ proc collectGlobals(): seq[string] =
 
 proc getDataFromCollection() =
     for id in collectGlobals():
-        let val = get @id
+        let val = getvar @id
 
 when isMainModule:
     timed("sayHello"): create()

@@ -40,7 +40,7 @@ proc simpleSet(global: string, cnt: int) =
     discard subs.pop()
 
 # Read ^X(0..100000000) in 600ms. 
-proc simpleGet(global: string, cnt: int) =
+proc simplegetvar(global: string, cnt: int) =
   var subs:seq[string]
   for i in 0..cnt:
     subs.add($i)
@@ -83,7 +83,7 @@ proc testYdbVar() =
     var v = newYdbVar("^LJ", @["LAND", "ORT", $i])
     assert v.value == "New " & $i
 
-proc testYdbSetGet() =
+proc testYdbSetgetvar() =
   for i in 0..MAX:
     let value = fmt"Hello Lothar Jöckel {i} aus der Schweiz"
     ydb_set("^LJ", @["LAND", "ORT", $i], value)
@@ -329,7 +329,7 @@ proc testMaxSubscripts() =
 
     if i < 32:
       ydb_set("^SUBS", keys, $i)
-      assert $i == ydbget("^SUBS", keys)
+      assert $i == ydb_get("^SUBS", keys)
     else:
       doAssertRaises(YdbError): ydb_set("^SUBS", keys, $i)
 
@@ -375,7 +375,7 @@ proc test_ydb_ci() =
   let tm = getTime()
   setvar: VAR1=tm                      # set a YottaDB variable
   ydb_ci("method1")
-  let result = get: RESULT  # Read the YottaDB variable from the Callin
+  let result = getvar  RESULT  # Read the YottaDB variable from the Callin
   assert $tm == result
 
 # -------------------------------------------------------------------
@@ -385,12 +385,12 @@ setupLL()
 suite "YottaDB Tests":
   test "Basic functionality":
     test "simpleSet": simpleSet("^X", MAX)
-    test "simpleGet": simpleGet("^X", MAX)
+    test "simpleGet": simplegetvar("^X", MAX)
     test "simpleDelete": simpleDelete("^X", MAX)
     test "testYdbVar": testYdbVar()
     test "testWithError": setWithError()
   test "Write and Read Data":
-    test "testYdbSetGet": testYdbSetGet()
+    test "testYdbSetGet": testYdbSetgetvar()
     test "Check Data Structure":
       test "testData": testData()
   test "next/previous Node":

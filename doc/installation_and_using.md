@@ -114,15 +114,15 @@ proc main() =
   echo "Iterate over all customers"
   var (rc, subs) = nextsubscript: ^CUSTOMER()
   while rc == YDB_OK:
-    let name = get: ^CUSTOMER(subs, "Name")
-    let email = get: ^CUSTOMER(subs, "Email")
+    let name = getvar  ^CUSTOMER(subs, "Name")
+    let email = getvar  ^CUSTOMER(subs, "Email")
     echo fmt"Customer {subs[0]}: {name} <{email}>"
     (rc, subs) = nextsubscript: ^CUSTOMER(subs) # Read next
 
   echo "Iterate over all nodes"
   (rc, subs) = nextnode: ^CUSTOMER()
   while rc == YDB_OK:
-    let value = get: ^CUSTOMER(subs)
+    let value = getvar  ^CUSTOMER(subs)
     echo fmt"Node {subs} = {value}"
     (rc, subs) = nextnode: ^CUSTOMER(subs) # Read next
 

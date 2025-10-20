@@ -38,7 +38,7 @@ To create the M-program:
         set RESULT="MyResultFromWork"
         ; RESULT will be set as local variable
         ; and can be read in nim-yottadb with
-        ;    let result = get: RESULT()
+        ;    let result = getvar  RESULT()
         quit
 ```
 **test_ci.nim**
@@ -47,6 +47,6 @@ proc test_ydb_ci() =
     let tm = getTime()
     setvar: VAR1()=tm             # set a YottaDB variable
     ydb_ci("method1")           # call CI method
-    let result = get: RESULT() # Read variable
+    let result = getvar  RESULT() # Read variable
 ```
 

@@ -4,11 +4,11 @@ import yottadb
 proc incrementTest() =
   # INCR
   setvar: ^CNT("AUTO") = 1
-  var autocnt = parseInt(get ^CNT("AUTO"))
+  var autocnt = parseInt(getvar ^CNT("AUTO"))
   var c5 = increment: (^CNT("AUTO"), by=5)
   assert c5 == (autocnt + 5)
 
-  autocnt = get: ^CNT("AUTO").int
+  autocnt = getvar  ^CNT("AUTO").int
   c5 = increment: ^CNT("AUTO")
   assert c5 == (autocnt + 1)
 
@@ -24,15 +24,15 @@ proc testIncrementLocalsByOne() =
   for i in 1..10:
     let cnt = increment: CNT("1,1")
     assert cnt == 1000 + i
-    assert get(CNT("1,1").int) == 1000 + i
+    assert getvar(CNT("1,1").int) == 1000 + i
 
     let c = increment: CNT(2,2)
     assert c == 2000 + i
-    assert get(CNT(2,2).int) == 2000 + i
+    assert getvar(CNT(2,2).int) == 2000 + i
 
     let d = increment(CNT(keys))
     assert d == 3000 + i
-    assert get(CNT(keys).int) == 3000 + i
+    assert getvar(CNT(keys).int) == 3000 + i
 
     assert 1 == increment(CNT(i))
 
@@ -47,15 +47,15 @@ proc testIncrementLocalsByTen() =
   for i in 1..10:
     let cnt = increment: (CNT("1,1"), by=10)
     assert cnt == 1000 + i*10
-    assert get(CNT("1,1").int) == 1000 + i*10
+    assert getvar(CNT("1,1").int) == 1000 + i*10
 
     let c = increment: (CNT(2,2), by=10)
     assert c == 2000 + i*10
-    assert get(CNT(2,2).int) == 2000 + i*10
+    assert getvar(CNT(2,2).int) == 2000 + i*10
 
     let d = increment: (CNT(keys), by=10)
     assert d == 3000 + i*10
-    assert get(CNT(keys).int) == 3000 + i*10
+    assert getvar(CNT(keys).int) == 3000 + i*10
 
     let e = increment: (CNT(i), by=10)
     assert 11 == e

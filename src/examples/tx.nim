@@ -15,7 +15,7 @@ let maxFibonacci = calcFibonacciValueFor1000ms(1200)
 
 proc myTxn(p0: pointer): cint {.cdecl.} =
   let someParam = $cast[cstring](p0)
-  let restarted = get: $TRESTART().int
+  let restarted = getvar  $TRESTART().int
 
   try:
     let (ms, fibresult) = timed_rc:
@@ -39,8 +39,8 @@ for i in 1..MAX:
   let (ms, rc) = timed_rc:
     ydb_tp(myTxn, "SomeParam" & $i)
   
-  let txid = get: ^CNT(THS)
-  var data = get: ^TXS(txid)
+  let txid = getvar  ^CNT(THS)
+  var data = getvar  ^TXS(txid)
   data.add(" overall-time:" & $ms)
   setvar: ^TXS(txid)=data
   echo "i:", i, " rc=", rc, " ", ms, "ms. txid:", txid, " data:", data

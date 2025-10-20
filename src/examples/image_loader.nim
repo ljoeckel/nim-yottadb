@@ -27,7 +27,7 @@ proc saveImagesToDb(basedir: string): uint =
         inc(totalBytes, image_data.len)
     return totalBytes
 
-proc saveImageToFilesystem(target: string, path: string, img: string) =
+proc saveImageToFilesystem(target:  string, path: string, img: string) =
     if not dirExists(target):
         createDir(target)
 
@@ -39,8 +39,8 @@ proc readImagesFromDb(target: string): uint =
     var totalBytes: uint
     var (rc, subs) = nextsubscript: ^images(@[""]).seq # -> @["223"], @["224"], ...
     while rc == YDB_OK:
-        let img     = get ^images(subs).binary
-        let path    = get(^images(subs, "path"))
+        let img     = getvar ^images(subs).binary
+        let path    = getvar(^images(subs, "path"))
         saveImageToFilesystem(target, path, img)
         var cnt = 0
         for c in img:

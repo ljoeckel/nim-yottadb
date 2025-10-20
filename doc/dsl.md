@@ -14,10 +14,10 @@ Get already converted data (string/int/float)
 ```nim
 let subs = @["4711", "Acct123"]
 setvar: ^CUST(subs) = 1500.50
-var amount = get: ^CUST(subs).float
+var amount = getvar  ^CUST(subs).float
 amount += 1500.50
 setvar: ^CUST(subs) = amount
-let dbamount = get: ^CUST(subs).float  # read from db
+let dbamount = getvar  ^CUST(subs).float  # read from db
 assert dbamount == amount
 ```
 
@@ -25,13 +25,13 @@ Set with mixed variable and string subscripts
 ```nim
 let id = 1
 setvar: ^X(id, "s") = "pi"
-let s = get: ^X(id, "s")
+let s = getvar  ^X(id, "s")
 assert s == "pi"
 setvar: ^X(id, "i") = 3
-let i = get: ^X(id, "i").int
+let i = getvar  ^X(id, "i").int
 assert i == 3
 setvar: ^X(id, "f") = 3.1414
-let f = get: ^X(id, "f").float
+let f = getvar  ^X(id, "f").float
 assert f == 3.1414
 ```
 
@@ -40,7 +40,7 @@ setvar: in a loop
 for id in 0..<5:
   let tm = cpuTime()
   setvar: ^CUST(id, "Timestamp") = tm
-  let s = get: ^CUST(id, "Timestamp").float
+  let s = getvar  ^CUST(id, "Timestamp").float
   assert s == tm
 ```
 
@@ -172,7 +172,7 @@ Traverse on the globals on a given index level.
 ```nim
 var (rc, subs) = nextsubscript: ^images(@[""]) # -> @["223"]
 while rc == YDB_OK:
-   let path    = get(^images(subs, "path"))
+   let path    = getvar(^images(subs, "path"))
    # do something with path
    (rc, subs) = nextsubscript: ^images(subs)
 ```
@@ -210,9 +210,9 @@ In the future there will be a `stream-interface`to handle virtual unlimited reco
 # 'get' with postfix
 It is possible to enforce a type when getting data from YottaDB. By using a 'postfix' a expected type can be defined and tested.
 ```nim
-let i = get: ^global(1).int16
-let f = get: ^global(4711).float32
-let u = get: ^global(815).uint8
+let i = getvar  ^global(1).int16
+let f = getvar  ^global(4711).float32
+let u = getvar  ^global(815).uint8
 ```
 If the value from the db is greater or smaller than the range defined through the postfix, a `ValueError` exception is raised.
 
@@ -228,7 +228,7 @@ When the string form '$' is saved then the saved data looks normally like `{9, 5
   var os = toOrderedSet([9, 5, 1])
   # os: {9, 5, 1}
   setvar: ^tmp("set1") = $os
-  let osdb: OrderedSet[int] = get: ^tmp("set1").OrderedSet
+  let osdb: OrderedSet[int] = getvar  ^tmp("set1").OrderedSet
   assert osdb == os
 ```
 In the momemnt, only type 'int' is implemented for this postfix.
@@ -245,9 +245,9 @@ setvar:
   # and so on
 ```
 # Special Variables
-Getting a value, use get:
+Getting a value, use getvar 
 ```nim
-  let zversion = get: $ZVERSION
+  let zversion = getvar  $ZVERSION
   echo zversion
 ```
 

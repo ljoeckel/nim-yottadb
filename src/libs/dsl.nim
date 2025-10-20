@@ -125,7 +125,7 @@ func hasTypeConversion(typename: string, args: seq[NimNode]): bool =
 # Macros
 # ------------------
 
-macro get*(body: untyped): untyped =
+macro getvar*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
 

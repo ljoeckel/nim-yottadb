@@ -80,11 +80,11 @@ proc testKill3() =
   kill: ^X
 
   setvar: ^X(1)="hello"
-  let s = get: ^X(1)
+  let s = getvar  ^X(1)
   assert "hello" == s
   killnode: ^X(1) # delete node
   doAssertRaises(YdbError): # expect exception because node removed
-    discard get: ^X(1)
+    discard getvar  ^X(1)
   
   # create a tree
   setvar: ^X(1,1)="hello"
@@ -93,7 +93,7 @@ proc testKill3() =
   assert 10 == dta # Expect no data but subtree
   kill: ^X(1)
   doAssertRaises(YdbError): # expect exception because node removed
-    discard  get: ^X(1)
+    discard  getvar  ^X(1)
 
 if isMainModule:
   test "killNode": testKill1()

@@ -10,6 +10,7 @@ Simply rename all `deltree` to `kill` and `delnode` to `killnode`.
 
 - deletevar has been replaced through `kill` which does exactly that.
 
+- `get` has been renamed to `getvar` to be more consistent with setvar.
 
 # Changelog for version 0.2.0
 ## DSL rewrite

@@ -17,7 +17,7 @@ proc dataTest() =
 
   # DATA
   assert 1 == data ^dta("4710")
-  assert "4710" == get ^dta(4710)
+  assert "4710" == getvar ^dta(4710)
 
   assert 1 == data ^dta(@["4712"])
   assert 1 == data @"^dta(4712)"
@@ -92,9 +92,9 @@ proc testData() =
 
   let gbl = "^tmp2"
   setvar: gbl(1)=4711 # set the local variable 'gbl' to 4711
-  let ss = "gbl=" & get(gbl(1))
+  let ss = "gbl=" & getvar(gbl(1))
   assert ss == "gbl=4711"
-  doAssertRaises(YdbError): discard get(^tmp2(4711)) # ^tmp2(4711) not set because gbl(4711) is set TODO: global from variable
+  doAssertRaises(YdbError): discard getvar(^tmp2(4711)) # ^tmp2(4711) not set because gbl(4711) is set TODO: global from variable
 
 if isMainModule:
   test "data": dataTest()
