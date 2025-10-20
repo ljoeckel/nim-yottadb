@@ -1,6 +1,6 @@
 import std/[random, strformat, times]
 import yottadb
-import utils
+import ydbutils
 
 when compileOption("threads"):
   {.fatal: "Must be compiled with --threads:off".}

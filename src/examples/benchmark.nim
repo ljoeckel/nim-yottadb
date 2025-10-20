@@ -1,6 +1,6 @@
 import std/[times, unittest]
 import yottadb
-import utils
+import ydbutils
 
 const MAX = 10_000_000
 

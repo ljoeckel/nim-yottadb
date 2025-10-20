@@ -1,5 +1,5 @@
 import yottadb
-import utils
+import ydbutils
 import malebolgia
 
 proc demoUpdate1(cnt: int, tn: int) =

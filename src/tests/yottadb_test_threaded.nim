@@ -4,7 +4,7 @@ import malebolgia
 import std/sets
 
 import yottadb
-import utils
+import ydbutils
 
 # nim -c r --threads:on yottadb_test_threaded
 

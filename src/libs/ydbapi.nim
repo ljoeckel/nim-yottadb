@@ -251,15 +251,6 @@ proc subscriptsToValue*(global: string, subscript: Subscripts): string =
     result = keysToString(global, subscript) & "=" & value
 
 
-proc listGlobal*(global: string) =
-  # List all globals with its value
-  var (rc, sub) = ydb_node_next(global, @[])
-  while rc == YDB_OK:
-    #let value = ydb_get(global, sub)
-    echo subscriptsToValue(global, sub)
-    (rc, sub)= ydb_node_next(global, sub)
-
-
 proc deleteGlobal*(global: string) =
   ydb_delete_tree(global, @[])
   # test if really empty
@@ -267,61 +258,3 @@ proc deleteGlobal*(global: string) =
   if rc != YDB_ERR_NODEEND:
     raise newException(YdbError, "Data exists after deleteGlobal '" & global & "' but should not. data=" & $subs)
 
-
-
-proc getGlobals*(): seq[string] =
-  # Get the global variables from the ydb ^%GD utility
-    result = @[]
-    var lines: seq[string]
-
-    # Start a process with stdin/stdout redirection
-    let ydb = findExe("ydb")
-    let p = startProcess(
-        ydb,
-        args = @["-run ^%GD"],
-        options = {poUsePath, poStdErrToStdOut, poInteractive}
-    )
-
-    p.inputStream.write("\n") # Send "Enter" (newline) to the process
-    p.inputStream.flush()
-
-    var line = ""
-    while p.outputStream.readLine(line):
-        if line.startsWith("^"):
-            lines.add(line)
-    for line in lines:
-        let names = line.split('^')
-        for name in names:
-            let s = name.strip()
-            if not s.isEmptyOrWhitespace:
-                result.add("^" & s)
-
-    discard waitForExit(p)  # Wait until process finishes
-
-
-proc getLocksFromYottaDb*(all: bool = false): seq[string] =
-  # Show real locks on db with 'lke show'
-  let pid = ydb_get("$JOB")
-  result = @[]
-
-  let lke = findExe("lke")
-  let lines = execProcess(lke & " show")
-  for line in lines.split('\n'):
-    if all and line.contains("Owned by"):
-      result.add(line)    
-    elif line.contains("Owned by") and line.contains(pid):
-      result.add(line)    
-
-proc getLockCountFromYottaDb*(all: bool = false): int =
-  getLocksFromYottaDb(all).len
-
-
-proc isLocked*(lock: string): bool =
-  for line in getLocksFromYottaDb():
-    if line.contains("^LOCKS(") and line.contains(lock):
-      return true
-  false
-
-
-proc isLocked*(lock: int | float): bool =
-  isLocked($lock)

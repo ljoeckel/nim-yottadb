@@ -1,7 +1,7 @@
 import os
 import std/[times, strutils, strformat]
 import yottadb
-import utils
+import ydbutils
 
 proc walk(path: string): seq[string] =
     for kind, path in walkDir(path):

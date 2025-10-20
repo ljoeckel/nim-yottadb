@@ -1,5 +1,6 @@
 import std/[unittest]
 import yottadb
+import ydbutils
 
 
 proc setupLL() =

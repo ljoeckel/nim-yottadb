@@ -2,7 +2,8 @@ import std/strutils
 import std/sets
 import std/unittest
 import yottadb
-import utils
+import ydbutils
+
 
 const 
     BENCH_MAX_RECS = 1_000_000

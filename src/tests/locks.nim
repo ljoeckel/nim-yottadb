@@ -1,7 +1,7 @@
 import std/unittest
 import std/strutils
 import yottadb
-import utils
+import ydbutils
 
 proc findLocks(ids: varargs[string]): bool =
     result = true

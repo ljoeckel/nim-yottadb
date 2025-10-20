@@ -1,6 +1,6 @@
 import std/[random, strformat, strutils, times]
 import yottadb
-import utils
+import ydbutils
 import malebolgia
 
 # Demonstrates that the txid counter ^CNT("M") stays in a consitent state

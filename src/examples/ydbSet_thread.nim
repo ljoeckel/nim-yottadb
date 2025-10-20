@@ -1,7 +1,7 @@
 import std/[times]
 import tables
 import yottadb
-import utils
+import ydbutils
 import malebolgia
 
 when not compileOption("threads"):

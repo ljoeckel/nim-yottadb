@@ -1,5 +1,5 @@
 import yottadb
-import utils
+import ydbutils
 
 proc create() =
     deletevar: ^hello

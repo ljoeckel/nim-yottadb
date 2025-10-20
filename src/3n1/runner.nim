@@ -1,6 +1,6 @@
 import std/[strutils, os, osproc]
 import malebolgia
-import utils
+import ydbutils
 
 proc runSolver*(fromN: int, toN: int, clean: bool = false, verify: bool = false) =
     let solver = findExe("./solver")

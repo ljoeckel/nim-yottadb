@@ -1,5 +1,6 @@
 import std/[strformat, strutils, unittest, times, os]
-import ../yottadb
+import yottadb
+import ydbutils
 
 const
   MAX = 10

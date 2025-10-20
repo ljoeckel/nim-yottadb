@@ -2,7 +2,7 @@ import yottadb
 import std/sets 
 import std/strutils
 import std/cmdline
-import utils
+import ydbutils
 
 # First draft for the 3n+1 problem
 var 

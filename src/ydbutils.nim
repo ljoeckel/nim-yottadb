@@ -1,17 +1,92 @@
-import posix
-import std/[times, strformat]
+import std/[strutils, os, osproc, posix, streams, strformat, times]
+import yottadb
+
+# -----------------------
+# Yotta related functions 
+# -----------------------
 
 # withlock:
-
 template withlock*(lockid: untyped, body: untyped): untyped =
     ## Create a database lock named ^LOCKS(lockid) while executing the body
     lock: {+^LOCKS(lockid)}
     body
     lock: {-^LOCKS(lockid)}
 
+proc getYdbKeys(name: string): seq[string] =
+  var (rc, gbl) = nextnode @name
+  while rc == YDB_OK:
+    result.add(gbl)
+    (rc, gbl) = nextnode @gbl
+
+proc listVar*(name: string) =
+  # List all globals with its value
+  for varname in getYdbKeys(name):
+    echo fmt"{varname}={get @varname}"
+
+
+proc getGlobals*(): seq[string] =
+  # Get the global variables from the ydb ^%GD utility
+    result = @[]
+    var lines: seq[string]
+
+    # Start a process with stdin/stdout redirection
+    let ydb = findExe("ydb")
+    let p = startProcess(
+        ydb,
+        args = @["-run ^%GD"],
+        options = {poUsePath, poStdErrToStdOut, poInteractive}
+    )
+
+    p.inputStream.write("\n") # Send "Enter" (newline) to the process
+    p.inputStream.flush()
+
+    var line = ""
+    while p.outputStream.readLine(line):
+        if line.startsWith("^"):
+            lines.add(line)
+    for line in lines:
+        let names = line.split('^')
+        for name in names:
+            let s = name.strip()
+            if not s.isEmptyOrWhitespace:
+                result.add("^" & s)
+
+    discard waitForExit(p)  # Wait until process finishes
+
+
+proc getLocksFromYottaDb*(all: bool = false): seq[string] =
+  # Show real locks on db with 'lke show'
+  let pid = ydb_get("$JOB")
+  result = @[]
+
+  let lke = findExe("lke")
+  let lines = execProcess(lke & " show")
+  for line in lines.split('\n'):
+    if all and line.contains("Owned by"):
+      result.add(line)    
+    elif line.contains("Owned by") and line.contains(pid):
+      result.add(line)    
+
+proc getLockCountFromYottaDb*(all: bool = false): int =
+  getLocksFromYottaDb(all).len
+
+
+proc isLocked*(lock: string): bool =
+  for line in getLocksFromYottaDb():
+    if line.contains("^LOCKS(") and line.contains(lock):
+      return true
+  false
+
+
+proc isLocked*(lock: int | float): bool =
+  isLocked($lock)
+
+
+# -----------------------
+# Generic functions 
+# -----------------------
 
 # timed: templates
-
 template timed_execute(body: untyped): auto =
   let t1 = getTime()
   body
