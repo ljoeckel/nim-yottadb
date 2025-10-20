@@ -17,8 +17,7 @@ var
 
 func calc(n: int): int =
     # Calculate 3n+1
-    if n == 2: result = 1
-    elif n mod 2 == 0: result = n div 2
+    if n mod 2 == 0: result = n div 2
     else: result = 3*n + 1
 
 proc verify(n: int): seq[int] =
