@@ -1,7 +1,7 @@
 # Package Information
 version = "0.2.0"
 author = "Lothar Joeckel"
-description = "NIM language implementation for the YottaDB database"
+description = "Nim language implementation for the YottaDB database"
 license = "MIT"
 srcDir = "src"
 binDir = "bin"
