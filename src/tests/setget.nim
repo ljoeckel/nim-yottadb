@@ -39,6 +39,12 @@ proc setGetInfix() =
     let subs2: Subscripts = @[$(id + 10)]
     assert "20" == getvar ^tmp(subs2)
    
+    # With infix
+    setvar: ^X(id + 10) = 10
+    assert 10 == getvar ^X(id + 10).int
+    echo fmt("echo ^X(id + 10).float = {getvar ^X(id + 10).float}")
+  
+
 proc setWithSubscript() =
   var sub: Subscripts
   sub = @["A"]
@@ -274,7 +280,7 @@ proc echoTest() =
   echo fmt"echo fmt ^hello2(id0,id2,id3)={getvar ^test(id0,id2,id3)}"
   var subs:Subscripts = @["users", "42", "name"]
   echo fmt"echo fmt ^hello2(subs)={getvar ^test(subs)}"
-  
+
   if getvar(^test(id0,id2,id3)) == "Alice": assert true else: assert false
   if "Alice" == getvar ^test(id0,id2,id3): assert true else: assert false
   if getvar(^test("users", "43", "name")) == "Bob": assert true else: assert false
