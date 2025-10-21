@@ -475,14 +475,51 @@ proc setgetvar() =
   assert 5.0 == getvar ^tmp(ids).float
 
 proc testIndirection() =
-    let gbl = "^GBL"
+    var gbl = "^GBL"
     setvar: @gbl = "TheValue"
     assert "TheValue" == getvar @gbl
 
     let gbl123 = "^GBL(123, 4711)"
-    setvar: @gbl123 = "gbl(123)"
-    assert "gbl(123)" == getvar @gbl123
+    setvar: @gbl123 = "123-4711"
+    assert "123-4711" == getvar @gbl123
 
+
+proc testIndexExtension() =
+    var gbl = "^GBL"
+    setvar: @gbl(1) = 1
+    assert "1" == getvar ^GBL(1)
+    assert "1" == getvar @gbl(1)
+
+    setvar: @gbl(1,"A") = "1A"
+    assert "1A" == getvar ^GBL(1, "A")
+    assert "1A" == getvar @gbl(1, "A")
+    
+    gbl = "^GBL(1,A)"
+    assert "1A" == getvar @gbl
+
+
+    # ---- test with index in the variable ----
+    gbl = "^GBL(123815)"
+    setvar: @gbl = "TheValue123815"
+    assert "TheValue123815" == getvar @gbl
+
+    # Index extension
+    setvar: @gbl(1) = "TheValue123815,1" # ^GBL(123815,1)
+    assert "TheValue123815,1" == getvar @gbl(1)
+
+    setvar: @gbl("ABC") = "TheValueABC"
+    assert "TheValueABC" == getvar @gbl("ABC")
+
+    setvar: @gbl(123, "ABC") = "TheValue123ABC"
+    assert "TheValue123ABC" == getvar @gbl(123, "ABC")
+
+    let id = "4714"
+    setvar: @gbl(id, "ABC") = "TheValueidABC"
+    assert "TheValueidABC" == getvar @gbl(id, "ABC")
+
+    setvar: @gbl(@["XYZ", id, "ABC"]) = "TheValueXYZABC"
+    assert "TheValueXYZABC" == getvar @gbl("XYZ", id, "ABC")
+    assert "TheValueXYZABC" == getvar @gbl(@["XYZ", id, "ABC"])
 
 
 if isMainModule:
@@ -501,4 +538,5 @@ if isMainModule:
     test "ExtendSubscriptWithString": testExtendSubscriptWithString()
     test "NumbersRange": testNumbersRange()
     test "Indirection": testIndirection()
+    test "Indirection Index extension": testIndexExtension()
     test "setget": setgetvar()

@@ -1,3 +1,55 @@
+# Changelog for version 0.3.1
+## @ Indirection Index Extension
+It is now allowed to extend the index of a variable that is defined as @ indirection.
+```nim
+var gbl = "^GBL"
+setvar: @gbl(1) = 1
+assert "1" == getvar @gbl(1)
+
+setvar: @gbl(1,"A") = "1A"
+assert "1A" == getvar @gbl(1, "A")
+
+gbl = "^GBL(1,A)"
+assert "1A" == getvar @gbl
+
+# ---- test with index in the variable ----
+gbl = "^GBL(123815)"
+setvar: @gbl = "123815"
+assert "123815" == getvar @gbl
+
+# Index extended
+setvar: @gbl(1) = "123815,1" # -> ^GBL(123815,1)
+assert "123815,1" == getvar @gbl(1)
+setvar: @gbl("ABC") = "ABC" # -> ^GBL(123815, "ABC")
+assert "ABC" == getvar @gbl("ABC")
+setvar: @gbl(123, "ABC") = "123ABC" # -> ^GBL(123815, 123, "ABC")
+assert "123ABC" == getvar @gbl(123, "ABC")
+
+# With variable in the index
+let id = "4714"
+setvar: @gbl(id, "ABC") = "idABC"
+assert "idABC" == getvar @gbl(id, "ABC")
+setvar: @gbl(@["XYZ", id, "ABC"]) = "XYZABC"
+assert "XYZABC" == getvar @gbl("XYZ", id, "ABC")
+```
+A simple example to show customers data:
+```nim
+echo "Iterate over all customers Indirection"
+    var (rc, gbl) = nextsubscript @"^CUSTOMER"
+    while rc == YDB_OK:
+      let name = getvar  @gbl("Name")
+      let email = getvar @gbl("Email")
+      echo fmt"{gbl}: name: {name}, email:{email}"
+      (rc, gbl) = nextsubscript @gbl
+```
+Prints out:
+```bash
+Iterate over all customers Indirection
+^CUSTOMER(1): name: John Doe, email:john-doe.@gmail.com
+^CUSTOMER(2): name: Jane Smith, email:jane.smith.@yahoo.com
+```
+
+
 # Changelog for version 0.3.0
 
 ## Breaking Changes for version 0.3.0

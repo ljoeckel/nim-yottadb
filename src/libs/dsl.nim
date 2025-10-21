@@ -16,10 +16,17 @@ const
     DATAVAL = "|VAL|"
     FIELDMARK = "|"
 
-
 # ------------------
 # Macro procs
 # ------------------
+proc exploreNode(node: NimNode) =
+    echo "'", repr(node), "' (", node.kind,")"
+    for n in node:
+        echo "  ", repr(n), "' (", n.kind,")"
+        if n.len > 0:
+            for nn in n:
+                echo "     ", repr(nn), "' (", nn.kind,")"
+
 
 proc findAttributes(node: NimNode, kv: var Table[string, NimNode]) =
     case node.kind
@@ -56,7 +63,6 @@ proc transform(node: NimNode, args: var seq[NimNode]) =
             # special handling when sequence in call.  ^gbl(@["abc",4711])
             discard
         else:
-            #TODO: LJ richtig hier?
             args.add(newLit(node[0].strVal))
         transform(node[1], args)
     of nnkIdent, nnkInfix:
@@ -65,11 +71,15 @@ proc transform(node: NimNode, args: var seq[NimNode]) =
         else:
             args.add(newLit(node.strVal))
     of nnkCall:
-        args.add(newLit(node[0].strVal)) # the variable name
-        if node.len > 1 and node[1].kind == nnkPrefix and repr(node[1])[0] == '@': # seq[]
-            for i in 1..<node[1].len:
+        if node.len > 1 and node[0].kind == nnkPrefix and repr(node[0])[0] == '@': # getvar @gbl("field") extend index
+            for idx, n in node:
+                transform(n, args)
+        elif node.len > 1 and node[1].kind == nnkPrefix and repr(node[1])[0] == '@': # seq[]
+            args.add(newLit(node[0].strVal)) # the variable name
+            for i in 1..<node.len:
                 transform(node[i], args)
         else:
+            args.add(newLit(node[0].strVal)) # the variable name
             for i in 1..<node.len:
                 transformCallNode(node[i], args)
     of nnkAsgn:
@@ -95,8 +105,6 @@ proc transform(node: NimNode, args: var seq[NimNode]) =
                 args.add(newCall(ident"$", node[i]))
             else:
                 transform(node[i], args)
-    #of nnkCommand:
-    #    raise newException(Exception, "You may not mix YottaDB DSL commands with Nim commands" & repr(node))
     else:
         raise newException(Exception, "Unsupported node.kind:" & $node.kind)
 
@@ -268,18 +276,22 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
       # End of value-based YdbVar
       ydbvar.value = lastArg
       subs.delete(subs.len - 1)
-      if ydbvar.subscripts.len == 0: ydbvar.subscripts = subs
+      if subs.len > 0:
+        for arg in subs:
+            ydbvar.subscripts.add(arg)
+      else:
+        if ydbvar.subscripts.len == 0: ydbvar.subscripts = subs
       resultVars.add(ydbvar)
       ydbvar = YdbVar()
       subs = @[]
       continue
 
-    # Handle prefix at the start
-    if ydbvar.name.len == 0 and ydbvar.prefix.len == 0:
+    # Set the prefix field (1..2 bytes)
+    if ydbvar.name.len == 0 and ydbvar.prefix.len == 0: # single @,$,.
       if arg.len == 1 and arg[0] in PREFIX_CHARS:
         ydbvar.prefix = arg
         continue
-      elif arg.len == 2 and arg[0] in PREFIX_CHARS and arg[1] in PREFIX_CHARS:
+      elif arg.len == 2 and arg[0] in PREFIX_CHARS and arg[1] in PREFIX_CHARS: # +@
         ydbvar.prefix = arg
         continue
 
@@ -316,6 +328,16 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
 
 
 proc seqToYdbVar(args: varargs[string]): YdbVar =
+    if args.len >= 2 and args[0] == "@" and args[1][^1] == ')':
+        var subs: Subscripts
+        let open = args[1].find("(")
+        if open > 0:
+            subs.add(args[0])
+            subs.add(args[1][0..open-1]) # the varname 
+            subs.add(args[1][open+1..^2]) # the idx part(s)
+            for arg in args[2..^1]: # the restly key parts
+                subs.add(arg)
+
     if args[0].len > 0 and args[0][0] in PREFIX_CHARS:
         result.prefix = args[0]
         let arg = args[1]
@@ -331,6 +353,9 @@ proc seqToYdbVar(args: varargs[string]): YdbVar =
                         if s[0] == '\"' and s[^1] == '\"': # remove \" (let gbl = "^GBL(\"os\")"
                             s = s[1..^2]
                     result.subscripts.add(s)
+                    # add the restly keyparts if any (getvar @gbl(1,2,3))
+                    for sub in args[2..^1]:
+                        result.subscripts.add(sub)
                 result.name = arg[0..<openPar]
             else:
                 result.name = arg
@@ -344,7 +369,10 @@ proc seqToYdbVar(args: varargs[string]): YdbVar =
         # handle attribute values (by=20, timeout=1111,)
         elif args.len > 2 and args[^2] == DATAVAL:
             result.value = args[^1]
-            if result.subscripts.len == 0: result.subscripts = args[2..^3]
+            if result.subscripts.len == 0:
+                result.subscripts = args[2..^3]
+            else:
+                result.subscripts = result.subscripts[0..^3]
         else:
             if result.subscripts.len == 0: result.subscripts = args[2..^1]
 
@@ -410,13 +438,11 @@ proc getxxxbinary*(args: varargs[string]): string =
 
 proc getxxxfloat*(args: varargs[string]): float =
     parseFloat(getxxx(args))
-
 proc getxxxfloat32*(args: varargs[string]): float32 =
   parseFloat(getxxx(args)).float32
 
 proc getxxxint*(args: varargs[string]): int =
     parseInt(getxxx(args)).int
-
 proc getxxxint8*(args: varargs[string]): int8 =
     parseInt(getxxx(args)).int8
 proc getxxxint16*(args: varargs[string]): int16 =
@@ -439,7 +465,6 @@ proc getxxxuint64*(args: varargs[string]): uint64 =
 
 proc getxxxOrderedSet*(args: varargs[string]): OrderedSet[int] =
     let str = getxxx(args)
-
     result = initOrderedSet[int]()
     if str[0] == '{' and str[^1] == '}':
         for s in split(str[1 .. ^2], ","):
