@@ -43,22 +43,18 @@ proc readImagesFromDb(target: string): uint =
     while rc == YDB_OK:
         let img     = getvar @gbl.binary
         let path    = getvar @gbl("path")
+        echo "Read image ", path, " (", img.len, " bytes)"
         saveImageToFilesystem(target, path, img)
-        var cnt = 0
-        for c in img:
-            inc cnt
         inc(totalBytes, img.len)
         (rc, gbl) = nextsubscript: @gbl
     return totalBytes
 
 if isMainModule:
-    var totalBytesWritten, totalBytesRead: uint
     timed:
         echo "Loading images to db"
-        totalBytesWritten = saveImagesToDb("./images") # read from the folder and save in db
-
+        var totalBytesWritten = saveImagesToDb("./images") # read from the folder and save in db
     timed:
         echo "Saving images to filesystem"
-        totalBytesRead = readImagesFromDb("./images_fromdb") # read from db and save under this folder
+        var totalBytesRead = readImagesFromDb("./images_fromdb") # read from db and save under this folder
     echo "written=", totalBytesWritten, " read=", totalBytesRead
-    #TODO: why different results? assert totalBytesWritten == totalBytesRead
+    assert totalBytesRead == totalBytesWritten

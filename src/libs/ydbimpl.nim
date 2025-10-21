@@ -418,8 +418,9 @@ proc ydb_getblob_db*(name: string, keys: Subscripts = @[], tptoken: uint64): str
       var sb = newStringStream()
       rc = YDB_OK
       while rc == YDB_OK:
-        let val = ydb_get_small(name, subs, true, tptoken)
-        sb.write(val)
+        if subs[^1].startsWith("___$0"):
+          let val = ydb_get_small(name, subs, true, tptoken)
+          sb.write(val)
         (rc, subs) = ydb_subscript_next_db(name, subs, tptoken)
       sb.setPosition(0)
       return sb.readAll()
