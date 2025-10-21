@@ -29,12 +29,22 @@ The nim-yottadb implementation delievers the following features:
 - Support for binary data > 1MB
 - Iterator for next/previous node
 - Iterator for next/previous subscript
+- Indirection with @
 - YdbVar with $ and [] operator
 ```nim
+# Indirection
+let global = "^Geo"
+var (rc, global) = nextnode @global
+while rc == YDB_OK:
+    echo global # -> "^GEO("CH", "63010", 1)
+    (rc, global) = nextnode @global
+    
+# YdbVar
 for i in 0..MAX:
-    var v = newYdbVar("^Geo", @["LAND", "ORT", i])
+    var v = newYdbVar("^Geo", @["Country", "zip", i])
     # update db with new value
     v[] = "New " & v.value
+    let val = $v # -> "New 0"
 ```
 ### DSL
 The DSL allows to write programs with globals in very natural way.
