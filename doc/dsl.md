@@ -172,7 +172,7 @@ Traverse on the globals on a given index level.
 ```nim
 var (rc, subs) = nextsubscript: ^images(@[""]) # -> @["223"]
 while rc == YDB_OK:
-   let path    = getvar(^images(subs, "path"))
+   let path    = getvar ^images(subs, "path")
    # do something with path
    (rc, subs) = nextsubscript: ^images(subs)
 ```

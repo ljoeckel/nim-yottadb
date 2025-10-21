@@ -92,9 +92,9 @@ proc testData() =
 
   let gbl = "^tmp2"
   setvar: gbl(1)=4711 # set the local variable 'gbl' to 4711
-  let ss = "gbl=" & getvar(gbl(1))
+  let ss = "gbl=" & getvar gbl(1)
   assert ss == "gbl=4711"
-  doAssertRaises(YdbError): discard getvar(^tmp2(4711)) # ^tmp2(4711) not set because gbl(4711) is set TODO: global from variable
+  doAssertRaises(YdbError): discard getvar ^tmp2(4711) # ^tmp2(4711) not set because gbl(4711) is set TODO: global from variable
 
 if isMainModule:
   test "data": dataTest()

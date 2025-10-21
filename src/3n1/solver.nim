@@ -63,7 +63,7 @@ proc generate(fromN: int, toN: int) =
 proc reconstruct(n: int): seq[int] =
     # Reconstruct the sequence from the db to the full sequence
     inc verifyread
-    for num in getvar(^solver(n).OrderedSet):
+    for num in getvar ^solver(n).OrderedSet:
         result.add(num)
     let lastnum = result[^1]
     if lastnum > 1:

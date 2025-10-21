@@ -95,11 +95,11 @@ proc testGetFast(iterations: int) =
 proc testGetWithException() =
   var maxlen = 1024*1024 - 1
   setvar: ^tmp(4711) = repeat(".", maxlen)
-  var val = getvar(^tmp(4711))
+  var val = getvar ^tmp(4711)
   assert val.len == maxlen
 
   setvar: ^tmp(4712) = repeat(".", maxlen+1)
-  doAssertRaises(YdbError): val = getvar(^tmp(4712))
+  doAssertRaises(YdbError): val = getvar ^tmp(4712)
 
 if isMainModule:
   test "binary": testBinaryPostfix()

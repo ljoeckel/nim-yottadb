@@ -181,8 +181,8 @@ proc saveImage(targetvar  string, path: string, img: string) =
 proc readImagesFromDb(targetvar  string) =
     var (rc, subs) = nextsubscript: ^images(@[""]) # -> @["223"], @["224"], ...
     while rc == YDB_OK:
-        let img     = getblob(^images(subs))
-        let path    = getvar(^images(subs, "path"))
+        let img     = getvar ^images(subs).binary
+        let path    = getvar ^images(subs, "path")
         saveImage(target, path, img)
         (rc, subs) = nextsubscript: ^images(subs)
 

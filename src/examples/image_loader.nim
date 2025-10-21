@@ -40,7 +40,7 @@ proc readImagesFromDb(target: string): uint =
     var (rc, subs) = nextsubscript: ^images(@[""]).seq # -> @["223"], @["224"], ...
     while rc == YDB_OK:
         let img     = getvar ^images(subs).binary
-        let path    = getvar(^images(subs, "path"))
+        let path    = getvar ^images(subs, "path")
         saveImageToFilesystem(target, path, img)
         var cnt = 0
         for c in img:

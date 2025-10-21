@@ -195,13 +195,13 @@ you can write
 setvar: ^building("Room", 1, "Window")=22.5
 ```
 
-#### setvar / get / getblob
+#### setvar / get / .binary
 ```nim
 setvar:
     ^XX(1,2,3)=123
     ^XX("B",1)="AB"
-let var1 = getvar(^XX(1,2,3))
-let image = getblob(^images(4711))
+let var1 = getvar ^XX(1,2,3)
+let image = getvar ^images(4711).binary
 ```
 #### Support for mixed type subscripts
 ```nim

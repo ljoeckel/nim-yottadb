@@ -218,7 +218,7 @@ proc testSetMixed() =
     ^hello("a",1,"b")="a1b"
 
   assert 1 == getvar ^hello(1).int
-  assert 1 == getvar(^hello(1).int)
+  assert 1 == getvar ^hello(1).int
   assert "1" == getvar ^hello(1)
   assert "1.5" == getvar ^hello("1.5")
   assert 2.0 == getvar ^hello(2.0).float
@@ -228,18 +228,18 @@ proc testSetMixed() =
   assert "ab" == getvar ^hello("a", "b")
   assert "a1b" == getvar ^hello("a", 1, "b")
   var sub:Subscripts = @["a", "1", "b"]
-  assert "a1b" == getvar(^hello(sub))
+  assert "a1b" == getvar ^hello(sub)
 
   var (id1,id2,id3) = ("users", "46", "name")
   setvar: ^hello(id1, id2, id3) = "Martina"
   sub = @["users", "46", "name"]
-  assert "Martina" == getvar(^hello(sub))
-  assert "Martina" == getvar(^hello(id1, id2, id3))
-  assert "Martina" == getvar(^hello("users", "46", "name"))
-  doAssertRaises(YdbError): discard getvar(^hello("users", "47", "name"))
-  doAssertRaises(YdbError): discard getvar(^hello(id1, id2, id2))
+  assert "Martina" == getvar ^hello(sub)
+  assert "Martina" == getvar ^hello(id1, id2, id3)
+  assert "Martina" == getvar ^hello("users", "46", "name")
+  doAssertRaises(YdbError): discard getvar ^hello("users", "47", "name")
+  doAssertRaises(YdbError): discard getvar ^hello(id1, id2, id2)
   sub = @["users", "47", "name"]
-  doAssertRaises(YdbError): discard getvar(^hello(sub))
+  doAssertRaises(YdbError): discard getvar ^hello(sub)
 
 
 proc ifVariants() =
@@ -269,19 +269,19 @@ proc echoTest() =
   # Expression-context macros
   # ----------------------
   # GET directly in echo
-  echo "echo , ^hello2(\"users\", \"42\", \"name\")=", getvar(^test("users", "42", "name"))
+  echo "echo , ^hello2(\"users\", \"42\", \"name\")=", getvar ^test("users", "42", "name")
   let (id0, id2, id3) = ("users", "42", "name")
-  echo fmt"echo fmt ^hello2(id0,id2,id3)={getvar(^test(id0,id2,id3))}"
+  echo fmt"echo fmt ^hello2(id0,id2,id3)={getvar ^test(id0,id2,id3)}"
   var subs:Subscripts = @["users", "42", "name"]
-  echo fmt"echo fmt ^hello2(subs)={getvar(^test(subs))}"
+  echo fmt"echo fmt ^hello2(subs)={getvar ^test(subs)}"
   
   if getvar(^test(id0,id2,id3)) == "Alice": assert true else: assert false
-  if "Alice" == getvar(^test(id0,id2,id3)): assert true else: assert false
+  if "Alice" == getvar ^test(id0,id2,id3): assert true else: assert false
   if getvar(^test("users", "43", "name")) == "Bob": assert true else: assert false
-  if "Bob" == getvar(^test("users", "43", "name")): assert true else: assert false
+  if "Bob" == getvar ^test("users", "43", "name"): assert true else: assert false
   subs = @["users", "43", "name"]
   if getvar(^test(subs)) == "Bob": assert true else: assert false
-  if "Bob" == getvar(^test(subs)): assert true else: assert false
+  if "Bob" == getvar ^test(subs): assert true else: assert false
 
 proc intUpdate() =
   let subs = @["4711", "Acc123"]

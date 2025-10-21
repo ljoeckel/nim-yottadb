@@ -103,22 +103,22 @@ proc testSetGetLocal() =
 
 proc setlocals() =
   setvar: local(1) = 1
-  assert "1" == getvar(local(1))
-  assert 1 == getvar(local(1).int)
-  assert 1.0 == getvar(local(1).float)
+  assert "1" == getvar local(1)
+  assert 1 == getvar local(1).int
+  assert 1.0 == getvar local(1).float
 
   setvar: local(1.1) = "1.1"
-  assert "1.1" == getvar(local(1.1))
+  assert "1.1" == getvar local(1.1)
 
   var id = 2
   setvar:  
     local(id) = id
     local(id, id) = id
     local(id,"X") = $id
-  assert $id == getvar(local(id))
-  assert $id == getvar(local(id, id))
-  assert $id == getvar(local(id, "X"))
-  doAssertRaises(YdbError): discard getvar(local(id, "Y"))
+  assert $id == getvar local(id)
+  assert $id == getvar local(id, id)
+  assert $id == getvar local(id, "X")
+  doAssertRaises(YdbError): discard getvar local(id, "Y")
 
 proc testLocals2() =
   setvar: gbl(1)=1
