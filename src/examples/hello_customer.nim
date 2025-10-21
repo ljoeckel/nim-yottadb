@@ -28,7 +28,7 @@ proc main() =
 
   block:
     echo "Iterate over all customers Indirection"
-    var (rc, gbl) = nextsubscript @"^CUSTOMER"
+    var (rc, gbl) = nextsubscript ^CUSTOMER
     while rc == YDB_OK:
       let name = getvar  @gbl("Name")
       let email = getvar @gbl("Email")

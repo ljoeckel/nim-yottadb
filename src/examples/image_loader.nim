@@ -12,18 +12,20 @@ proc walk(path: string): seq[string] =
             result.add(walk(path))
 
 proc saveImagesToDb(basedir: string): uint =
-    killnode: ^CNT("image_number")
+    let cnt = "^CNT(image_number)"
+    kill: @cnt
     kill: ^images 
 
     var totalBytes: uint
     for image in walk(basedir):
-        let image_number = increment(^CNT("image_number"))
+        let image_number = increment @cnt
         let image_data = readFile(image)
         echo fmt"Save image {image} ({image_data.len} bytes) to db"
+        let gbl = fmt"^images({image_number})"
         setvar:
-            ^images($image_number) = image_data
-            ^images($image_number, "path") = image
-            ^images($image_number, "created") = now()
+            @gbl = image_data
+            @gbl("path") = image
+            @gbl("created") = now()
         inc(totalBytes, image_data.len)
     return totalBytes
 
@@ -37,16 +39,16 @@ proc saveImageToFilesystem(target:  string, path: string, img: string) =
 
 proc readImagesFromDb(target: string): uint =
     var totalBytes: uint
-    var (rc, subs) = nextsubscript: ^images(@[""]).seq # -> @["223"], @["224"], ...
+    var (rc, gbl) = nextsubscript: ^images # -> @["223"], @["224"], ...
     while rc == YDB_OK:
-        let img     = getvar ^images(subs).binary
-        let path    = getvar ^images(subs, "path")
+        let img     = getvar @gbl.binary
+        let path    = getvar @gbl("path")
         saveImageToFilesystem(target, path, img)
         var cnt = 0
         for c in img:
             inc cnt
         inc(totalBytes, img.len)
-        (rc, subs) = nextsubscript: ^images(subs).seq
+        (rc, gbl) = nextsubscript: @gbl
     return totalBytes
 
 if isMainModule:

@@ -59,3 +59,4 @@ src/tests/zwr
 src/tests/delete
 src/tests/increment
 src/tests/special_vars
+doc/trigger.md
