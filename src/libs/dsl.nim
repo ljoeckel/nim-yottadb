@@ -35,7 +35,7 @@ proc transformCallNode(node: NimNode, args: var seq[NimNode]) =
     case node.kind
     of nnkIdent, nnkInfix:
         args.add(newCall(ident"$", node))
-    of nnkStrLit, nnkPrefix:  # "abc" / let id=4711; get ^gbl($id)
+    of nnkStrLit, nnkPrefix:  # "abc" / let id=4711; getvar ^gbl($id)
         args.add(node)
     of nnkIntLit, nnkFloatLit, nnkCharLit:
         args.add(newCall(ident"$", node))

@@ -407,7 +407,7 @@ proc ydb_get_small(name: string, keys: Subscripts = @[], binary: bool = false, t
 proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
   result = ydb_get_small(name, keys, false, tptoken)
   if result.len >= BUFFER_DATABUF_SIZE:
-    raise newException(YdbError, "Record too long. Use \'getblob\'" & " name:" & name & " keys:" & $keys)
+    raise newException(YdbError, "Record too long. Use \'.binary\' postfix" & " name:" & name & " keys:" & $keys)
 
 
 proc ydb_getblob_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =

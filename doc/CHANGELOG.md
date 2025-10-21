@@ -22,7 +22,7 @@ Instead of calling `deleteGlobal("^solver")`you can now use the DSL `kill: ^solv
 ## Indirektion with @
 With the `@` (indirection) parameter you get now the full variablename with the key components `^global(1,A)`.
 With that you can access all DSL methods:
-killnode @gbl, get @gbl, setvar: @gbl, ...
+killnode @gbl, getvar @gbl, setvar: @gbl, ...
 
 The following examples show a typical usage:
 ```nim
@@ -33,7 +33,7 @@ proc getVars(): seq[string] =
         (rc, gbl) = nextnode: @gbl
 
 for id in getVars():
-    let val = get @id
+    let val = getvar @id
 ```
  ## Tests
  Tests are now partially factored out to seperate files. Not yet complete.
@@ -48,14 +48,14 @@ If you need the old `seq[string]` form, you have to add `.seq`to the variable.
 ```nim
 var (rc: int, gbl: string) = nextnode: ^BENCHMARK2
 ```
-Returns `^BENCHMARK(1,A)`.  With that, you can now call any further DSL command, like `get @gbl``
+Returns `^BENCHMARK(1,A)`.  With that, you can now call any further DSL command, like `getvar @gbl``
 ```nim
 var (rc: int, subs: seq[string]) = nextnode: ^BENCHMARK2().seq
 ```
 returns `@["1", "A"]`.
 
 ### getblob
-The `getblob` DSL no longer exists. Instead you can use `get` and add `.binary` at the end of the variable. This can read data > 1MB.
+The `getblob` DSL no longer exists. Instead you can use `getvar` and add `.binary` at the end of the variable. This can read data > 1MB.
 ```nim
-let img = get ^images(subs).binary
+let img = getvar ^images(subs).binary
 ```

@@ -80,11 +80,11 @@ setvar: ^Customer(4711,"Name")="John Doe"
 let: int txid = increment ^CNT("TXID") # +1
 let: int csid = increment ^CNT("CSID", by=5) # +5
 ```
-- ### get / getblob
+- ### getvar / .binary
 ```nim
 let name = getvar  ^Customer(4711,"Name")
 let f: float = getvar  ^Customer(4711, accountId, transactionId, "amount").float
-let image = getblob(^images("folderA", 815))
+let image = getvar ^images("folderA", 815).binary
 ```
 - ### nextnode:
 ```nim 
@@ -145,7 +145,7 @@ Records larger than 1 MB are split into subrecords. To do this, an additional ke
 ```nim
 "___$00000000$___"
 ```
-When reading back with `getblob`, nim-yottadb automatically checks whether such index keys exist and loads the data accordingly.
+When reading back with getvar and the `.binary` postfix, nim-yottadb automatically checks whether such index keys exist and loads the data accordingly.
 The processing of strings and binary data is also automatic.
 
 ### Sample to load / restore images into YottaDb

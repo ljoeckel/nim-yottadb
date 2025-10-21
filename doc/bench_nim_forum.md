@@ -21,7 +21,7 @@ timed:
         #setvar: ^GBL(i) = i 
         #ydb_set("^GBL", @[$i], $i)
         #discard ydb_get("^GBL", @[$i])
-        #discard get ^GBL(i)
+        #discard getvar ^GBL(i)
 ```
 
 Empty database for each run created
