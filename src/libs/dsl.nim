@@ -72,8 +72,16 @@ proc transform(node: NimNode, args: var seq[NimNode]) =
             args.add(newLit(node.strVal))
     of nnkCall:
         if node.len > 1 and node[0].kind == nnkPrefix and repr(node[0])[0] == '@': # getvar @gbl("field") extend index
-            for idx, n in node:
-                transform(n, args)
+            for i in 0..<node.len:
+                if node[i].kind == nnkPrefix:
+                    let lhs = node[i][0]
+                    let rhs = node[i][1]
+                    if lhs.strVal == "$":
+                        args.add(newCall(ident"$", rhs)) # add variable ($id)
+                    else:
+                        transform(node[i], args)    
+                else:
+                    transformCallNode(node[i], args)
         elif node.len > 1 and node[1].kind == nnkPrefix and repr(node[1])[0] == '@': # seq[]
             args.add(newLit(node[0].strVal)) # the variable name
             for i in 1..<node.len:

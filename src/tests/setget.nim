@@ -521,6 +521,38 @@ proc testIndexExtension() =
     assert "TheValueXYZABC" == getvar @gbl("XYZ", id, "ABC")
     assert "TheValueXYZABC" == getvar @gbl(@["XYZ", id, "ABC"])
 
+proc testCallMixIntStringInfix() =
+    const MAX = 2
+    kill: ^BENCHMARK3
+
+    let gbl = "^BENCHMARK3"
+    for id in 0..<MAX:
+        setvar:
+            @gbl(id) = id
+            @gbl("X", id) = id
+            @gbl(id + 1000) = id + 1000
+            @gbl($id, id) = id
+            @gbl($(id + 2000), id) = id + 2000
+
+    block:
+        let gblexpct = @["^BENCHMARK3(0)","^BENCHMARK3(1)","^BENCHMARK3(1000)","^BENCHMARK3(1001)","^BENCHMARK3(2000)","^BENCHMARK3(2001)","^BENCHMARK3(X)"]
+        var gbldb: seq[string]
+        var (rc, gbl) = nextsubscript ^BENCHMARK3
+        while rc == YDB_OK:
+          gbldb.add(gbl)
+          (rc, gbl) = nextsubscript @gbl
+        assert gblexpct == gbldb
+
+    block:
+        var gblexpct = @["^BENCHMARK3(0)=0","^BENCHMARK3(0,0)=0","^BENCHMARK3(1)=1","^BENCHMARK3(1,1)=1","^BENCHMARK3(1000)=1000","^BENCHMARK3(1001)=1001","^BENCHMARK3(2000,0)=2000","^BENCHMARK3(2001,1)=2001","^BENCHMARK3(X,0)=0","^BENCHMARK3(X,1)=1"]
+        var gbldb: seq[string]
+        var (rc, gbl) = nextnode ^BENCHMARK3
+        while rc == YDB_OK:
+            let s = gbl & "=" & getvar @gbl
+            gbldb.add(s)
+            (rc, gbl) = nextnode @gbl
+        assert gblexpct == gbldb
+
 
 if isMainModule:
     test "setGetSingleMulti": setGetSingleMulti()
@@ -537,6 +569,7 @@ if isMainModule:
     test "SetGetTuple": testSetGetTuple()
     test "ExtendSubscriptWithString": testExtendSubscriptWithString()
     test "NumbersRange": testNumbersRange()
+    test "setget": setgetvar()
     test "Indirection": testIndirection()
     test "Indirection Index extension": testIndexExtension()
-    test "setget": setgetvar()
+    test "Indirection MixIntStringInfix": testCallMixIntStringInfix()

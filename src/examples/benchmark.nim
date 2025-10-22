@@ -1,4 +1,4 @@
-import std/[times, unittest, strformat]
+import std/[times, unittest, strutils]
 import yottadb
 import ydbutils
 
@@ -10,7 +10,7 @@ kill:
     ^BENCHMARK3
 
 proc isEmpty(name: string): bool =
-    var (rc, s) = nextnode: name
+    var (rc, _) = nextnode: name
     result = (rc == YDB_ERR_NODEEND)
 
 proc upcount() =
@@ -18,6 +18,7 @@ proc upcount() =
     kill: ("^CNT", @["upcount"])
     for cnt in 0..<MAX:
         discard ydb_increment("^CNT", @["upcount"])
+    assert MAX == parseInt(ydb_get("^CNT", @["upcount"]))
 
 proc setSimple() =
     for id in 0..<MAX:
@@ -34,7 +35,6 @@ proc nextnode() =
 proc killnode() =
     for id in 0..<MAX:
         ydb_delete_node("^BENCHMARK1", @[$id])
-    var (rc, s) = nextnode: ^BENCHMARK1
     assert isEmpty("^BENCHMARK1")
 
 
@@ -43,6 +43,7 @@ proc upcount_dsl() =
     kill: ^CNT("upcount")
     for cnt in 0..<MAX:
         discard increment: ^CNT("upcount")
+    assert MAX == getvar ^CNT("upcount").int
 
 proc setSimple_dsl() =
     for id in 0..<MAX:
@@ -67,11 +68,12 @@ proc upcount_indirect() =
     kill: @gblcnt
     for cnt in 0..<MAX:
         discard increment: @gblcnt
+    assert MAX == getvar @gblcnt.int
 
 proc setSimple_indirect() =
+    let gbl = "^BENCHMARK3"
     for id in 0..<MAX:
-        let gbl = fmt"^BENCHMARK3({id})"
-        setvar: @gbl = id
+        setvar: @gbl(id) = id
 
 proc nextnode_indirect() =
     var cnt = 0
@@ -82,13 +84,15 @@ proc nextnode_indirect() =
     assert cnt == MAX
 
 proc killnode_indirect() =
+    let gbl = "^BENCHMARK3"
     for id in 0..<MAX:
-        let gbl = fmt"^BENCHMARK3({id})"
-        kill: @gbl
+        kill: @gbl(id)
     assert isEmpty("^BENCHMARK3")
 
 
 when isMainModule:
+    echo "MAX=", MAX
+
     timed:
         suite "API":
             test "upcount": timed: upcount()
