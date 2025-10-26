@@ -1,3 +1,33 @@
+# Changelog for version 0.3.3
+- All Simple-API calls to YottaDB now handle YDB_TP_RESTART and YDB_TP_ROLLBACK.
+This can happen when the client calls an API function (g.e. ydb_increment_db) and an external process has commited on the same resource. In this case, YottaDB returns a YDB_TP_RESTART and calls the transaction logic again. The client code may decide to rollback the transaction by returning YDB_TP_ROLLBACK.
+To handle this in the correct way the client transaction code needs to check for an exception. Getting the value of the YottaDB special var `$TRESTART` shows how many times a restart was requested from the DB. A maximum of 4 restarts are possible. There is a new example `bidwars` in the `m` folder that implements that.
+
+```nim
+proc bizzTX(p0: pointer): cint {.cdecl.} =
+  try:
+    let cnt = increment ^CNT("up")
+    ...
+  except:
+      echo getCurrentExceptionMsg(), " # of restarts:", $(getvar $TRESTART)
+      return YDB_TP_RESTART
+  YDB_OK
+```
+
+- getvar now returns an empty string/int/float if no data in the database found.
+- getvar allows now to set a default value.
+```nim
+  let valdefault = getvar (^GBL(4711), default=4711)
+  let valint = getvar (^GBL(4711), default=4711).int
+  let gbl = "^GBL(4711)"
+  valindirekt = getvar (@gbl, default="test")
+  valindirekt = getvar (@gbl("Test"), default="test")
+```
+## Breaking Changes for version 0.3.0
+- getvar now returns always an empty string if no data found in the database. This follows the semantic of M $get function. 
+Before, an exception was thrown.
+
+
 # Changelog for version 0.3.1
 ## @ Indirection Index Extension
 It is now allowed to extend the index of a variable that is defined as @ indirection.

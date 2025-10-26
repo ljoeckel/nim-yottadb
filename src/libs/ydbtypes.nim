@@ -7,11 +7,15 @@ const
     YDB_MAX_SUBS* = 31
 
     YDB_ERR_NODEEND* = -151027922
+    YDB_ERR_NUMOFLOW* = -150373506
+    YDB_ERR_GVUNDEF* = -150372994
 
     YDB_INT_MAX =  0x7fffffff
     YDB_TP_RESTART* = (YDB_INT_MAX - 1)
     YDB_TP_ROLLBACK* = (YDB_INT_MAX - 2)
+    YDB_NOTOK* = (YDB_INT_MAX - 3)
     YDB_LOCK_TIMEOUT* = (YDB_INT_MAX - 4) 
+
 
     YDB_DATA_UNDEF* = 0 # Node is undefined
     YDB_DATA_VALUE_NODESC* = 1 # Node has a value but no descendants
@@ -27,6 +31,8 @@ type
     Previous
 
   YdbError* = object of CatchableError
+  TpRestart* = object of CatchableError
+  TpRollback* = object of CatchableError
 
   Subscripts* = seq[string]
 

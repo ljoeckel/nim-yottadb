@@ -60,3 +60,5 @@ src/tests/delete
 src/tests/increment
 src/tests/special_vars
 doc/trigger.md
+src/examples/tx_upcount
+m/bidwars

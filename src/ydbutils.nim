@@ -1,4 +1,4 @@
-import std/[strutils, os, osproc, posix, streams, strformat, times]
+import std/[strutils, os, osproc, posix, streams, strformat, tables, times]
 import yottadb
 
 # -----------------------
@@ -146,7 +146,7 @@ proc nimSleep*(ms: int) =
       rem.tv_sec = cast[posix.Time](0)
       rem.tv_nsec = 0.clong
     else:
-      echo "Other error occured rc=": rc
+      if rc != -1: echo "nanosleep rc=": rc
       break
 
 
@@ -170,3 +170,43 @@ proc calcFibonacciValueFor1000ms*(durationMs: int): int =
       return i
   
   0
+
+# -------------------------------
+# Process handling 'startProcess'
+# -------------------------------
+var processKV: Table[int, Process]
+
+proc job*(name: string, params: seq[string], timeout: int = 30000): int =
+  let prog = findExe(name)
+  if prog == "": raise newException(Exception, "Executeable " & name & " not found")
+  let process = startProcess(prog, args=params)
+  processKV[process.processID] = process
+  return process.processID
+
+proc closeJob*(pid: int) =
+  if processKV.contains(pid):
+    let process = processKV[pid]
+    processKV[pid].close()
+    echo "Process ", pid, " closed"
+  else:
+    echo "Process ", pid, " NOT found"
+
+proc closeAllProcesses*() =
+    for pid in processKV.keys():
+        closeJob(pid)
+
+# -------------------------------
+# Logfile handling
+# -------------------------------
+proc getLogs*(path: string): seq[string] =
+  for kind, path in walkDir(path):
+      if kind == pcFile and path.endsWith(".log"):
+          result.add(path)
+
+proc printLogs*() =
+  for log in getLogs("."):
+    let logFile = open(log, fmRead)
+    let s = logFile.readAll()
+    if not s.isEmptyOrWhitespace():
+      echo "log: ", log, " ", s
+    logFile.close()

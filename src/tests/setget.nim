@@ -242,10 +242,10 @@ proc testSetMixed() =
   assert "Martina" == getvar ^hello(sub)
   assert "Martina" == getvar ^hello(id1, id2, id3)
   assert "Martina" == getvar ^hello("users", "46", "name")
-  doAssertRaises(YdbError): discard getvar ^hello("users", "47", "name")
-  doAssertRaises(YdbError): discard getvar ^hello(id1, id2, id2)
+  assert "" == getvar ^hello("users", "47", "name") # empty string if global does not exists
+  assert "" == getvar ^hello(id1, id2, id2)
   sub = @["users", "47", "name"]
-  doAssertRaises(YdbError): discard getvar ^hello(sub)
+  assert "" ==  getvar ^hello(sub)
 
 
 proc ifVariants() =
@@ -281,13 +281,6 @@ proc echoTest() =
   var subs:Subscripts = @["users", "42", "name"]
   echo fmt"echo fmt ^hello2(subs)={getvar ^test(subs)}"
 
-  if getvar(^test(id0,id2,id3)) == "Alice": assert true else: assert false
-  if "Alice" == getvar ^test(id0,id2,id3): assert true else: assert false
-  if getvar(^test("users", "43", "name")) == "Bob": assert true else: assert false
-  if "Bob" == getvar ^test("users", "43", "name"): assert true else: assert false
-  subs = @["users", "43", "name"]
-  if getvar(^test(subs)) == "Bob": assert true else: assert false
-  if "Bob" == getvar ^test(subs): assert true else: assert false
 
 proc intUpdate() =
   let subs = @["4711", "Acc123"]
@@ -553,6 +546,26 @@ proc testCallMixIntStringInfix() =
             (rc, gbl) = nextnode @gbl
         assert gblexpct == gbldb
 
+proc testDefaults() =
+  kill: ^GBL 
+  let val = getvar ^GBL(4711)
+  assert val == ""
+  let valdefault = getvar (^GBL(4711), default=4711)
+  assert valdefault == "4711"
+  let valint = getvar (^GBL(4711), default=4711).int
+  assert valint == 4711
+
+  let gbl = "^GBL(4711)"
+  var valindirekt = getvar @gbl
+  assert valindirekt == ""
+  valindirekt = getvar (@gbl, default="test")
+  assert valindirekt == "test"
+
+  valindirekt = getvar @gbl("Test")
+  assert valindirekt == ""
+  valindirekt = getvar (@gbl("Test"), default="test")
+  assert valindirekt == "test"
+
 
 if isMainModule:
     test "setGetSingleMulti": setGetSingleMulti()
@@ -573,3 +586,4 @@ if isMainModule:
     test "Indirection": testIndirection()
     test "Indirection Index extension": testIndexExtension()
     test "Indirection MixIntStringInfix": testCallMixIntStringInfix()
+    test "Defaults": testDefaults()

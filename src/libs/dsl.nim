@@ -15,6 +15,8 @@ const
     TYPEDESC = "|TD|"
     DATAVAL = "|VAL|"
     FIELDMARK = "|"
+    DEFAULT="default"
+    BY = "by"
 
 # ------------------
 # Macro procs
@@ -30,7 +32,7 @@ proc exploreNode(node: NimNode) =
 
 proc findAttributes(node: NimNode, kv: var Table[string, NimNode]) =
     case node.kind
-    of nnkStmtList, nnkCall, nnkCurly, nnkTupleConstr:
+    of nnkStmtList, nnkCall, nnkCurly, nnkTupleConstr, nnkDotExpr:
         for i in 0..<node.len:
             findAttributes(node[i], kv)
     of nnkExprEqExpr:   # by=, timeout=,...
@@ -143,17 +145,26 @@ func hasTypeConversion(typename: string, args: seq[NimNode]): bool =
 
 macro getvar*(body: untyped): untyped =
     var args: seq[NimNode]
+    var kv: Table[string, NimNode]
+    findAttributes(body, kv)
     transform(body, args)
 
     # check for type conversion
+    var typename = "getxxx"
     if args.len > 2 and repr(args[^2]).contains(TYPEDESC):
         let s = repr(args[^1])
         let openPar = s.find('(') # any subscripts 
         if openPar != -1:
             let closePar = s.find(')', openPar)
-            let typename = s[openPar + 1 ..< closePar]
-            return newCall(ident("getxxx" & typename), args[0..^3])
-    return newCall(ident"getxxx", args)    
+            typename.add(s[openPar + 1 ..< closePar])
+            args = args[0..^3] # remove TD,int
+
+    if kv.hasKey(DEFAULT):
+        args.add(newLit(DATAVAL))
+        args.add(newCall(ident"$", kv[DEFAULT]))
+
+    return newCall(ident(typename), args)
+
 
 macro data*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -177,9 +188,9 @@ macro increment*(body: untyped): untyped =
     var kv: Table[string, NimNode]
     findAttributes(body, kv)
     transform(body, args)
-    if kv.hasKey("by"):
+    if kv.hasKey(BY):
         args.add(newLit(DATAVAL))
-        args.add(newCall(ident"$", kv["by"]))
+        args.add(newCall(ident"$", kv[BY]))
     return newCall(ident"incrementxxx", args)
 
 macro lock*(body: untyped): untyped =
@@ -336,15 +347,16 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
 
 
 proc seqToYdbVar(args: varargs[string]): YdbVar =
-    if args.len >= 2 and args[0] == "@" and args[1][^1] == ')':
-        var subs: Subscripts
-        let open = args[1].find("(")
-        if open > 0:
-            subs.add(args[0])
-            subs.add(args[1][0..open-1]) # the varname 
-            subs.add(args[1][open+1..^2]) # the idx part(s)
-            for arg in args[2..^1]: # the restly key parts
-                subs.add(arg)
+    if args.len >= 2 and args[0] == "@":
+        if not args[1].isEmptyOrWhitespace() and args[1][^1] == ')':
+            var subs: Subscripts
+            let open = args[1].find("(")
+            if open > 0:
+                subs.add(args[0])
+                subs.add(args[1][0..open-1]) # the varname 
+                subs.add(args[1][open+1..^2]) # the idx part(s)
+                for arg in args[2..^1]: # the restly key parts
+                    subs.add(arg)
 
     if args[0].len > 0 and args[0][0] in PREFIX_CHARS:
         result.prefix = args[0]
@@ -438,7 +450,11 @@ proc killxxx*(args: varargs[string]) =
 
 proc getxxx*(args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)
-    ydb_get(ydbvar.name, ydbvar.subscripts)
+    var value = ydb_get(ydbvar.name, ydbvar.subscripts)
+    if ydbvar.value != "" and value == "":
+        return ydbvar.value
+    else:
+        return value
 
 proc getxxxbinary*(args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)

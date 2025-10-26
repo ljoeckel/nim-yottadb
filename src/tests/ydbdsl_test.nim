@@ -154,17 +154,17 @@ proc benchTestLocals() =
 proc testDeleteNode() =
     setvar: ^GBL="hallo"
     killnode: ^GBL
-    doAssertRaises(YdbError): discard getvar ^GBL
+    assert "" == getvar ^GBL
 
     let gbl = "^GBL(1)"
     setvar: @gbl = "gbl(1)"
     killnode: @gbl
-    doAssertRaises(YdbError): discard getvar @gbl
+    assert "" == getvar @gbl
 
     setvar: ^GBL1="hallo"
     assert "hallo" == getvar ^GBL1
     killnode: ^GBL1
-    doAssertRaises(YdbError): discard getvar ^GBL1
+    assert "" == getvar ^GBL1
 
     setvar:
         ^GBL1="gbl1"
@@ -174,9 +174,9 @@ proc testDeleteNode() =
         ^GBL1
         ^GBL2
         ^GBL3
-    doAssertRaises(YdbError): discard getvar ^GBL1
-    doAssertRaises(YdbError): discard getvar ^GBL2
-    doAssertRaises(YdbError): discard getvar ^GBL3
+    assert "" == getvar ^GBL1
+    assert "" == getvar ^GBL2
+    assert "" == getvar ^GBL3
 
     setvar:
         ^GBL(1)=1
@@ -186,9 +186,9 @@ proc testDeleteNode() =
         ^GBL(1)
         ^GBL(2)
         ^GBL(3)
-    doAssertRaises(YdbError): discard getvar ^GBL(1)
-    doAssertRaises(YdbError): discard getvar ^GBL(2)
-    doAssertRaises(YdbError): discard getvar ^GBL(3)
+    assert "" == getvar ^GBL(1)
+    assert "" == getvar ^GBL(2)
+    assert "" == getvar ^GBL(3)
 
 
 proc testDeleteTree() =
@@ -200,13 +200,13 @@ proc testDeleteTree() =
         ^GBL(2,2)="2,2"
         
     kill: ^GBL(1)
-    doAssertRaises(YdbError): discard getvar ^GBL(1,1)
-    doAssertRaises(YdbError): discard getvar ^GBL(1,2)
+    assert "" == getvar ^GBL(1,1)
+    assert "" == getvar ^GBL(1,2)
     kill: ^GBL(2)
-    doAssertRaises(YdbError): discard getvar ^GBL(2,1)
-    doAssertRaises(YdbError): discard getvar ^GBL(2,2)
+    assert "" == getvar ^GBL(2,1)
+    assert "" == getvar ^GBL(2,2)
     kill: ^GBL
-    doAssertRaises(YdbError): discard getvar ^GBL
+    assert "" == getvar ^GBL
 
     var
         rc = 0

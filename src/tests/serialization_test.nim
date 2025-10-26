@@ -71,7 +71,9 @@ proc testCompositionSerialization() =
 
   # Remvoe attribute in db to simulation class change
   killnode: ^Customer("4711", "name")
-  doAssertRaises(YdbError): load(@["4711"], customer2)
+  load(@["4711"], customer2)
+  assert customer2.name == ""
+  assert customer.id == 4711
 
 
 proc testBinarySerialization() =
