@@ -401,7 +401,7 @@ proc ydb_subscript_previous_db*(name: string, keys: Subscripts, tptoken: uint64)
   subscript_traverse(Direction.Previous, name, keys, tptoken)
 
 
-proc ydb_get_small(name: string, keys: Subscripts = @[], binary: bool = false, tptoken: uint64): string =
+proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64, binary: bool = false): string =
   ## Retrieve a value from a local or global node
   check()
   setYdbBuffer(GLOBAL, name)
@@ -422,19 +422,14 @@ proc ydb_get_small(name: string, keys: Subscripts = @[], binary: bool = false, t
       for idx in 0..<DATABUF.len_used:
         result[idx] = DATABUF.buf_addr[idx].char
     else:
+      if DATABUF.len_used >= BUFFER_DATABUF_SIZE:
+        raise newException(YdbError, "Record too long. Use \'.binary\' postfix" & " name:" & name & " keys:" & $keys)  
       DATABUF.buf_addr[DATABUF.len_used] = '\0'
       return $DATABUF.buf_addr
   elif rc == YDB_ERR_GVUNDEF:
     return ""
   else:
     raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys)
-
-
-proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
-  result = ydb_get_small(name, keys, false, tptoken)
-  if result.len >= BUFFER_DATABUF_SIZE:
-    raise newException(YdbError, "Record too long. Use \'.binary\' postfix" & " name:" & name & " keys:" & $keys)
-
 
 proc ydb_getblob_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
   var subs = keys
@@ -445,15 +440,15 @@ proc ydb_getblob_db*(name: string, keys: Subscripts = @[], tptoken: uint64): str
       rc = YDB_OK
       while rc == YDB_OK:
         if subs[^1].startsWith("___$0"):
-          let val = ydb_get_small(name, subs, true, tptoken)
+          let val = ydb_get_db(name, subs, tptoken, true)
           sb.write(val)
         (rc, subs) = ydb_subscript_next_db(name, subs, tptoken)
       sb.setPosition(0)
       return sb.readAll()
     else:
-      return ydb_get_small(name, keys, true, tptoken)  
+      return ydb_get_db(name, keys, tptoken, true)  
   else:
-    return ydb_get_small(name, keys, true, tptoken)
+    return ydb_get_db(name, keys, tptoken, true)
 
 
 # --- Locks ---

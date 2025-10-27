@@ -24,6 +24,11 @@ proc setSimple() =
     for id in 0..<MAX:
         ydb_set("^BENCHMARK1",@[$id], $id)
 
+proc getSimple() =
+    for id in 0..<MAX:
+        let val = ydb_get("^BENCHMARK1",@[$id])
+        assert $id == val
+
 proc nextnode() =
     var cnt = 0
     var (rc, subs) = ydb_node_next("^BENCHMARK1")
@@ -49,6 +54,11 @@ proc setSimple_dsl() =
     for id in 0..<MAX:
         setvar: ^BENCHMARK2(id)=id
 
+proc getSimple_dsl() =
+    for id in 0..<MAX:
+        let val = getvar ^BENCHMARK2(id)
+        assert $id == val
+
 proc nextnode_dsl() =
     var cnt = 0
     var (rc, subs) = nextnode: ^BENCHMARK2.seq
@@ -62,7 +72,6 @@ proc killnode_dsl() =
         killnode: ^BENCHMARK2(id)
     assert isEmpty("^BENCHMARK2")
 
-
 proc upcount_indirect() =
     var gblcnt = "^CNT(upcount)"
     kill: @gblcnt
@@ -75,6 +84,12 @@ proc setSimple_indirect() =
     for id in 0..<MAX:
         setvar: @gbl(id) = id
 
+proc getSimple_indirect() =
+    let gbl = "^BENCHMARK3"
+    for id in 0..<MAX:
+        let val = getvar @gbl(id)
+        assert $id == val
+        
 proc nextnode_indirect() =
     var cnt = 0
     var (rc, gbl) = nextnode: ^BENCHMARK3
@@ -97,6 +112,7 @@ when isMainModule:
         suite "API":
             test "upcount": timed: upcount()
             test "set simple": timed: setSimple()
+            test "get simple": timed: getSimple()
             test "nextnode": timed: nextnode()
             test "killnode": timed: killnode()
         echo ""
@@ -105,6 +121,7 @@ when isMainModule:
         suite "DSL":
             test "upcount dsl": timed: upcount_dsl()
             test "set simple dsl": timed: setSimple_dsl()
+            test "get simple dsl": timed: getSimple_dsl()            
             test "nextnode dsl": timed: nextnode_dsl()
             test "killnode dsl": timed: killnode_dsl()
         echo ""
@@ -113,5 +130,6 @@ when isMainModule:
         suite "Indirection":
             test "upcount @": timed: upcount_indirect()
             test "set simple @": timed: setSimple_indirect()
+            test "get simple @": timed: getSimple_indirect()
             test "nextnode @": timed: nextnode_indirect()
             test "killnode @": timed: killnode_indirect()

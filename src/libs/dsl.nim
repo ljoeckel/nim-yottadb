@@ -61,7 +61,7 @@ proc transform(node: NimNode, args: var seq[NimNode]) =
             transform(node[i], args)
             args.add(newLit(FIELDMARK))
     of nnkPrefix:
-        if node[0].strVal == "@" and node.len > 1 and node[1].kind == nnkBracket:
+        if node[0].strVal == INDIRECTION and node.len > 1 and node[1].kind == nnkBracket:
             # special handling when sequence in call.  ^gbl(@["abc",4711])
             discard
         else:
@@ -347,7 +347,7 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
 
 
 proc seqToYdbVar(args: varargs[string]): YdbVar =
-    if args.len >= 2 and args[0] == "@":
+    if args[0] == INDIRECTION and args.len >= 2:
         if not args[1].isEmptyOrWhitespace() and args[1][^1] == ')':
             var subs: Subscripts
             let open = args[1].find("(")
@@ -432,7 +432,7 @@ proc getTimeout(arg: string): int =
 
 proc dataxxx*(args: varargs[string]): int =
     let ydbvar = seqToYdbVar(args)
-    return ydb_data(ydbvar.name, ydbvar.subscripts)
+    ydb_data(ydbvar.name, ydbvar.subscripts)
 
 proc killnodexxx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
@@ -450,11 +450,9 @@ proc killxxx*(args: varargs[string]) =
 
 proc getxxx*(args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)
-    var value = ydb_get(ydbvar.name, ydbvar.subscripts)
-    if ydbvar.value != "" and value == "":
+    result = ydb_get(ydbvar.name, ydbvar.subscripts)
+    if ydbvar.value.len > 0 and result.len == 0:
         return ydbvar.value
-    else:
-        return value
 
 proc getxxxbinary*(args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)
@@ -463,7 +461,7 @@ proc getxxxbinary*(args: varargs[string]): string =
 proc getxxxfloat*(args: varargs[string]): float =
     parseFloat(getxxx(args))
 proc getxxxfloat32*(args: varargs[string]): float32 =
-  parseFloat(getxxx(args)).float32
+    parseFloat(getxxx(args)).float32
 
 proc getxxxint*(args: varargs[string]): int =
     parseInt(getxxx(args)).int
@@ -485,7 +483,7 @@ proc getxxxuint16*(args: varargs[string]): uint16 =
 proc getxxxuint32*(args: varargs[string]): uint32 =
     parseUInt(getxxx(args)).uint32
 proc getxxxuint64*(args: varargs[string]): uint64 =
-  parseUInt(getxxx(args)).uint64
+    parseUInt(getxxx(args)).uint64
 
 proc getxxxOrderedSet*(args: varargs[string]): OrderedSet[int] =
     let str = getxxx(args)
@@ -499,13 +497,15 @@ proc getxxxOrderedSet*(args: varargs[string]): OrderedSet[int] =
 
 proc incrementxxx*(args: varargs[string]): int =
     var ydbvar = seqToYdbVar(args)
-    if ydbvar.value == "": ydbvar.value = "1"
-    ydb_increment(ydbvar.name, ydbvar.subscripts, parseInt(ydbvar.value))
+    if ydbvar.value.len == 0:
+        ydb_increment(ydbvar.name, ydbvar.subscripts, 1)
+    else:
+        ydb_increment(ydbvar.name, ydbvar.subscripts, parseInt(ydbvar.value))
 
 proc lockdecrxxx(timeout: int, ydbvars: seq[YdbVar]) =
-  # Decrement lock count for variable
-  for ydbvar in ydbvars:
-    ydb_lock_decr(ydbvar.name, ydbvar.subscripts)
+    # Decrement lock count for variable
+    for ydbvar in ydbvars:
+        ydb_lock_decr(ydbvar.name, ydbvar.subscripts)
 
 proc lockincrxxx(timeout: int, ydbvars: seq[YdbVar]) =
     # Increment lock count for variable(s)
