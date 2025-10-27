@@ -1,43 +1,40 @@
 import yottadb
-import std/[cmdline, strutils, strformat, math, times, random, terminal]
+import std/[cmdline, strformat, math, times, random, terminal]
 import ydbutils
+when compileOption("profiler"):  # --profiler:on
+    import std/nimprof
+
+#      bids per second /Journal disabled     enabled
+# Bidders  BidWars M       bidwars   Nim      M   Nim            -d:danger   %
+# 1             1_270_656        630_707   8742  9195       643_648   101  
+# 2             1_090_261        585_681   7876  7795                  86
+# 3               877_282        470_950   7514  7383                  86
+# 4               715_913        412_281   7861  7599       437_914    73
+# 5               570_259        314_969   8299  8049                  81
+# 6               448_086        251_005   8742  8548                  78
+# 7               347_133        200_871                               73
+# 8               276_849        161_364                    187_017    71
+# 9               230_721        133_468                               72
+# 10              199_629        120_095                               65
+# 11              170_037        104_188                               63
+# 12              147_451         84_809                     91_256    75
+# 13              129_125         76_935                               69
+# 14              122_269         75_298                               62
+# 15              118_260         66_446                     69_305    78
+# 16              103_106         63_957                     68_780    63
+# 20               88_032         54_323                               62
+# 30               77_879         46_762                     47_359    67
 
 const
-    bidders = 2   # Contention (26 optimum on macmini m4)
+    bidders = 4   # Contention (26 optimum on macmini m4)
     duration = 5  # Seconds
 
 let pid = getvar: $JOB
 let auction = "^Auction(1)"
 
-proc bidTx(p0: pointer): cint {.cdecl.} =
-    try:
-        let first = (pid == getvar @auction("Leader"))
-        if not first:
-            let price = getvar @auction("Price").int
-            let raisedBy = rand(1..10)
-            let newprice = price + raisedBy
-            setvar:
-                @auction("Leader") = pid
-                @auction("Price") = newprice
-        discard increment @auction("Total")
-    except:
-        return YDB_TP_RESTART
-    YDB_OK
-
-proc incrementBidderTx(p0: pointer): cint {.cdecl.} =
-    try:
-        setvar: BIDDER = increment @auction("Bidders")
-    except:
-        return YDB_TP_RESTART
-    YDB_OK
-
-proc decrementBidderTx(p0: pointer): cint {.cdecl.} =
-    try:
-        discard increment (@auction("Bidders"), by=(-1))
-    except:
-        return YDB_TP_RESTART
-    YDB_OK
-
+# -----------------
+# The Auctionator
+# -----------------
 
 proc Auction() =
     kill: ^Auction
@@ -57,13 +54,13 @@ proc Auction() =
     
     echo "Waiting for bidder registration"
     while (getvar @auction("Bidders").int) != bidders: nimSleep(50)
+    
     echo "Start Auction"
     let start = getTime()
     setvar: @auction("Active") = "Yes"
 
     for i in 0..duration*10: 
         var sum, avgcnt = 0
-
         setCursorPos(0,3)
         echo "Bid:       ", getvar @auction("Total")
         echo "Price:     ", getvar @auction("Price")
@@ -97,35 +94,44 @@ proc Auction() =
     echo fmt"That's an epic {bidsps.int} bids per second"
 
 
+# ---------------
+# The Bidder
+# ---------------
+
 proc Bidder() =
-    let start = getTime()
-    var avg, count = 0
-    let rc = ydb_tp(incrementBidderTx, "") # sets the BIDDER variable
-    #let bidder = getvar BIDDER
-    setvar: @auction("Bidders", pid) = getvar BIDDER # Register linux process id
+    var rc = Transaction:
+        # Register linux process id
+        setvar: @auction("Bidders", pid) = increment @auction("Bidders")
 
     # Wait until auction is started
     while ("Yes" != getvar @auction("Active")): nimSleep(50)
 
+    var count, avg = 0
     var then = getTime()
     while (getvar @auction("Active")) == "Yes":
-        var rc = ydb_tp(bidTx, "") # check / place Bid
+        let rc = Transaction2: # place bid
+            let first = (pid == getvar @auction("Leader"))
+            if not first:
+                let price = getvar @auction("Price").int
+                let raisedBy = rand(1..10)
+                let newprice = price + raisedBy
+                setvar:
+                    @auction("Leader") = pid
+                    @auction("Price") = newprice
+            discard increment @auction("Total")
+
+        inc(count)
         let now = getTime()
-        if (now - start).inSeconds > 10: # end process after 10 seconds
-            echo "Auction > 10 seconds. Quit Bidder process"
-            break
-
         let duration = (now - then).inMicroseconds()
-        inc count
         avg = avg + ((duration - avg) div count)
+        setvar: @auction("Bidders", "Average", pid) = avg    
         then = now
-        setvar: @auction("Bidders", "Average", pid) = avg
 
-    discard ydb_tp(decrementBidderTx, "")
+    rc = Transaction3:
+        discard increment (@auction("Bidders"), by=(-1))
 
 if isMainModule:
     if commandLineParams().len == 0:
         Auction()
-        stdout.resetAttributes()
     else:
         Bidder()

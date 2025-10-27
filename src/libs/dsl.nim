@@ -646,3 +646,80 @@ proc prevsubscriptxxxseq*(args: varargs[string]): (int, seq[string]) =
 proc setxxx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
+
+
+# Transaction Macros / Templates
+macro tximpl*(name: string, body: untyped): untyped =
+  let nameStr =
+    if name.kind == nnkStrLit: name.strVal else: $name
+  let procName = newIdentNode("" & nameStr)
+
+  # Build the procedure definition
+  result = nnkStmtList.newTree(
+    nnkProcDef.newTree(
+      procName,
+      newEmptyNode(),
+      newEmptyNode(),
+      nnkFormalParams.newTree(
+        newIdentNode("cint"),
+        nnkIdentDefs.newTree(
+          newIdentNode("param"),
+          newIdentNode("pointer"),
+          newEmptyNode()
+        )
+      ),
+      nnkPragma.newTree(newIdentNode("cdecl")),
+      newEmptyNode(),
+      nnkStmtList.newTree(
+        quote do:
+          try:
+            `body`
+          except:
+            return YDB_TP_RESTART
+          return YDB_OK
+      )
+    ),
+  )
+
+template Transaction*(body: untyped): untyped =
+  tximpl("TX1"):
+    body
+  ydb_tp(TX1, "")
+template Transaction*(param: string = "", body: untyped): untyped =
+  tximpl("TX1P"):
+    body
+  ydb_tp(TX1P, param)
+template Transaction2*(body: untyped): untyped =
+  tximpl("TX2"):
+    body
+  ydb_tp(TX2, "")
+template Transaction2*(param: string = "", body: untyped): untyped =
+  tximpl("TX2P"):
+    body
+  ydb_tp(TX2P, param)
+template Transaction3*(body: untyped): untyped =
+  tximpl("TX3"):
+    body
+  ydb_tp(TX3, "")
+template Transaction3*(param: string = "", body: untyped): untyped =
+  tximpl("TX3P"):
+    body
+  ydb_tp(TX3P, param)
+template Transaction4*(body: untyped): untyped =
+  tximpl("TX4"):
+    body
+  ydb_tp(TX4, "")
+template Transaction4*(param: string = "", body: untyped): untyped =
+  tximpl("TX4P"):
+    body
+  ydb_tp(TX4P, param)
+template Transaction5*(body: untyped): untyped =
+  tximpl("TX5"):
+    body
+  ydb_tp(TX5, "")
+template Transaction5*(param: string = "", body: untyped): untyped =
+  tximpl("TX5P"):
+    body
+  ydb_tp(TX5P, param)
+
+

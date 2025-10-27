@@ -6,17 +6,14 @@ let pid = getvar $JOB
 const STEPS = 100
 const CLIENTS = 10
 
-proc businessTransaction(p0: pointer): cint {.cdecl.} =
-  try:
-    var value = increment ^CNT("up").int
-  except:
-      echo getCurrentExceptionMsg(), " # of restarts:", $(getvar $TRESTART)
-      return YDB_TP_RESTART
-  YDB_OK
 
 proc runClient() =
   for i in 1..STEPS:
-    var rc = ydb_tp(businessTransaction, $pid & $i)
+    var rc = Transaction($i):
+      var value = increment ^CNT("up").int
+      let p = cast[cstring](param)
+      let restart = getvar $TRESTART.int
+
   setvar: ^Pids(pid) = pid # mark complete
 
 

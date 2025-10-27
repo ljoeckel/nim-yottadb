@@ -1,4 +1,53 @@
 # Changelog for version 0.3.3
+- A `Transaction` macro simplifies the execution of transactions.
+Before `Transaction` you have to write the code like:
+```nim
+proc bidTx(p0: pointer): cint {.cdecl.} =
+    try:
+        let first = (pid == getvar @auction("Leader"))
+        if not first:
+            let price = getvar @auction("Price").int
+            let raisedBy = rand(1..10)
+            let newprice = price + raisedBy
+            setvar:
+                @auction("Leader") = pid
+                @auction("Price") = newprice
+    except:
+        return YDB_TP_RESTART
+    YDB_OK
+
+
+while (getvar @auction("Active")) == "Yes":
+  var rc = ydb_tp(bidTx, "") # place bid
+```
+With the new `Transaction` macro you can now write:
+```nim
+while (getvar @auction("Active")) == "Yes":
+  let rc = Transaction:
+    let first = (pid == getvar @auction("Leader"))
+    if not first:
+      let price = getvar @auction("Price").int
+      let raisedBy = rand(1..10)
+      let newprice = price + raisedBy
+      setvar:
+        @auction("Leader") = pid
+        @auction("Price") = newprice
+```
+There is no need anymore to check for YDB_TP_RESTART. This will be done inside the macro.
+You can have up to 5 Transaction per compilation unit. (Transaction, Transaction2, Transaction3, Transaction4, Transaction5)
+
+You cannot reuse the Transaction. If you need more than 5 transactions you can append them in `dsl.nim`.
+```nim
+template Transaction6*(body: untyped): untyped =
+  tximpl("TX6"):
+    body
+  ydb_tp(TX6, "")
+template Transaction6*(param: string = "", body: untyped): untyped =
+  tximpl("TX6P"):
+    body
+  ydb_tp(TX6P, param)
+```
+
 - All Simple-API calls to YottaDB now handle YDB_TP_RESTART and YDB_TP_ROLLBACK.
 This can happen when the client calls an API function (g.e. ydb_increment_db) and an external process has commited on the same resource. In this case, YottaDB returns a YDB_TP_RESTART and calls the transaction logic again. The client code may decide to rollback the transaction by returning YDB_TP_ROLLBACK.
 To handle this in the correct way the client transaction code needs to check for an exception. Getting the value of the YottaDB special var `$TRESTART` shows how many times a restart was requested from the DB. A maximum of 4 restarts are possible. There is a new example `bidwars` in the `m` folder that implements that.
