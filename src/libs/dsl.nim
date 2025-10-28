@@ -11,6 +11,7 @@ when compileOption("profiler"):
 const 
     PREFIX_CHARS = {'^', '+', '-', '$', '@'}
     INDIRECTION = "@"
+    INDIRECTION_SEQ = "@["
     VALUEMARK = "!"
     TYPEDESC = "|TD|"
     DATAVAL = "|VAL|"
@@ -250,7 +251,7 @@ macro setvar*(body: untyped): untyped =
 # ----------------------------
 proc stringToSeq(s: string): Subscripts =
     var str: string = newString(s.len)
-    var idx: Natural = 0
+    var idx = 0
     for c in s:
         if c == ',':
             str[idx] = c
@@ -259,10 +260,11 @@ proc stringToSeq(s: string): Subscripts =
             str.setLen(str.capacity)
             idx = 0
             continue
-        if c in {'@', '[', ']', '\\', ' ', '"'} :            
+        elif c in {'@', '[', ']', '\\', ' ', '"'} :            
             continue
-        str[idx] = c
-        inc idx
+        else:
+            str[idx] = c
+            inc idx
 
     if idx > 0:
         str.setLen(idx)
@@ -280,7 +282,8 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
 
   var lastArg: string
   for arg in args:
-    if arg == FIELDMARK:
+    case arg 
+    of FIELDMARK:
       # End of one YdbVar group
       if ydbvar.name.len > 0:
         if ydbvar.subscripts.len == 0:
@@ -290,16 +293,10 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
       ydbvar = YdbVar()
       subs = @[]
       continue
-
-    if arg == VALUEMARK:
+    of VALUEMARK:
       # End of value-based YdbVar
       ydbvar.value = lastArg
-      subs.delete(subs.len - 1)
-      if subs.len > 0:
-        for arg in subs:
-            ydbvar.subscripts.add(arg)
-      else:
-        if ydbvar.subscripts.len == 0: ydbvar.subscripts = subs
+      ydbvar.subscripts.add(subs[0..^2])
       resultVars.add(ydbvar)
       ydbvar = YdbVar()
       subs = @[]
@@ -331,7 +328,7 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
         else:
           ydbvar.name = ydbvar.prefix & arg
     else:
-      if arg.startsWith("@["):
+      if arg.startsWith(INDIRECTION_SEQ):
           subs.add(stringToSeq(arg))
       else:
         subs.add(arg)
@@ -347,16 +344,15 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
 
 
 proc seqToYdbVar(args: varargs[string]): YdbVar =
-    if args[0] == INDIRECTION and args.len >= 2:
-        if not args[1].isEmptyOrWhitespace() and args[1][^1] == ')':
+    if args.len >= 2 and args[0] == INDIRECTION:
+        if args[1].len > 0 and args[1][^1] == ')':            
             var subs: Subscripts
             let open = args[1].find("(")
             if open > 0:
                 subs.add(args[0])
                 subs.add(args[1][0..open-1]) # the varname 
                 subs.add(args[1][open+1..^2]) # the idx part(s)
-                for arg in args[2..^1]: # the restly key parts
-                    subs.add(arg)
+                subs.add(args[2..^1]) # the restly key parts
 
     if args[0].len > 0 and args[0][0] in PREFIX_CHARS:
         result.prefix = args[0]
@@ -373,9 +369,7 @@ proc seqToYdbVar(args: varargs[string]): YdbVar =
                         if s[0] == '\"' and s[^1] == '\"': # remove \" (let gbl = "^GBL(\"os\")"
                             s = s[1..^2]
                     result.subscripts.add(s)
-                    # add the restly keyparts if any (getvar @gbl(1,2,3))
-                    for sub in args[2..^1]:
-                        result.subscripts.add(sub)
+                    result.subscripts.add(args[2..^1]) # add the restly keyparts if any (getvar @gbl(1,2,3))
                 result.name = arg[0..<openPar]
             else:
                 result.name = arg
@@ -404,7 +398,7 @@ proc seqToYdbVar(args: varargs[string]): YdbVar =
         else:
             result.subscripts = args[1..^1]
 
-    if result.subscripts.len > 0 and result.subscripts[0].startsWith("@["):
+    if result.subscripts.len > 0 and result.subscripts[0].startsWith(INDIRECTION_SEQ):
         result.subscripts = stringToSeq(result.subscripts)
 
 
@@ -648,7 +642,9 @@ proc setxxx*(args: varargs[string]) =
         ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
 
 
+# --------------------------------
 # Transaction Macros / Templates
+# --------------------------------
 macro tximpl*(name: string, body: untyped): untyped =
   let nameStr =
     if name.kind == nnkStrLit: name.strVal else: $name
@@ -682,10 +678,18 @@ macro tximpl*(name: string, body: untyped): untyped =
   )
 
 template Transaction*(body: untyped): untyped =
+  tximpl("TX"):
+    body
+  ydb_tp(TX, "")
+template Transaction*(param: string = "", body: untyped): untyped =
+  tximpl("TXP"):
+    body
+  ydb_tp(TXP, param)
+template Transaction1*(body: untyped): untyped =
   tximpl("TX1"):
     body
   ydb_tp(TX1, "")
-template Transaction*(param: string = "", body: untyped): untyped =
+template Transaction1*(param: string = "", body: untyped): untyped =
   tximpl("TX1P"):
     body
   ydb_tp(TX1P, param)
