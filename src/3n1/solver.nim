@@ -71,7 +71,7 @@ proc reconstruct(n: int): seq[int] =
 
 proc check(fromN: int, toN: int) =
     # Compute 3n+1 again and verify the calculated with the truncated results on the db.
-    for subs in ydb_node_next_iter("^solver"):
+    for subs in nextKeys("^solver"):
         inc dbnext
         let n = parseInt(subs[0])
         if n < fromN or n > toN: continue

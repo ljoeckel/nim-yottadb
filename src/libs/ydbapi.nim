@@ -11,6 +11,83 @@ type ValueType = enum
   INTEGER,
   FLOAT
 
+# ------- Helpers --------
+func classify(input: string): ValueType =
+  var numeric: bool
+  var numeric_float: bool
+  for c in input:
+    numeric = numeric and (c in {'0','1','2','3','4','5','6','7','8','9','.'})
+    if c == '.': numeric_float = true
+  if numeric_float and numeric: return ValueType.FLOAT
+  elif numeric: return ValueType.INTEGER
+  else: return ValueType.ALPHA
+
+
+proc keysToString*(subscript: Subscripts): string =
+  for i, s in subscript:
+    let valueType = classify(s)
+    case valueType
+    of INTEGER:
+      let nmbr = parseInt(s)
+      result.add($nmbr)
+    of FLOAT:
+      let nmbr = parseFloat(s)
+      result.add($nmbr)
+    else:
+      result.add(s)
+
+    if i < subscript.len - 1:
+      result.add(",")
+
+
+proc keysToString*(global: string, subscript: Subscripts): string =
+  result = global & "("
+  result.add(keysToString(subscript))
+  result.add(")")
+
+
+proc keysToString*(global: string, subscript: Subscripts, value:string): string =
+  result = global & "("
+  result.add(keysToString(subscript))
+  result.add(")")
+  if not value.isEmptyOrWhitespace:
+    result.add("=" & value)
+
+proc stringToSeq*(s: string): Subscripts =
+    # Convert ^Global(1,2,3) -> @["1", "2", "3"]
+    var str: string = newString(s.len)
+    var idx = 0
+    for c in s:
+        if c == ',':
+            str[idx] = c
+            str.setLen(idx)
+            result.add(str)
+            str.setLen(str.capacity)
+            idx = 0
+            continue
+        elif c in {'@', '[', ']', '\\', ' ', '"'} :            
+            continue
+        else:
+            str[idx] = c
+            inc idx
+
+    if idx > 0:
+        str.setLen(idx)
+        result.add(str)
+
+proc stringToSeq*(subs: Subscripts): Subscripts =
+    # seq @["@[\"4712\"]"] -> @["4712"]
+    for sub in subs:
+        result.add(stringToSeq(sub))
+
+proc keyToSeq*(s: string): seq[string] =
+  # return the keys for a given global ^xy(1,2,3) -> @["1", "2", "3"]
+  let pos = s.find("(")
+  if pos > 0:
+    let pos2 = s.find(")")
+    if pos > 0:
+      result = stringToSeq(s[pos+1..pos2-1])
+
 proc ydbMessage*(status: cint): string =
   ydbMessage_db(status)
 
@@ -71,29 +148,42 @@ proc ydb_subscript_next*(name: string, subs: Subscripts = @[], tptoken: uint64 =
 proc ydb_subscript_previous*(name: string, subs: Subscripts = @[], tptoken: uint64 = 0): (int, Subscripts) =
   ydb_subscript_previous_db(name, subs, tptoken)
 
-# ------------------ Iterators for Next/Previous Node -----------------
 
-iterator ydb_node_next_iter*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
+# ------------------ Iterators for Next/Previous Keys -----------------
+
+iterator nextKeys*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): seq[string] =
   var (rc, subs) = ydb_node_next_db(global, start, tptoken)
   while rc == YDB_OK:
     yield subs
     (rc, subs) = ydb_node_next_db(global, subs, tptoken)
 
-iterator ydb_node_previous_iter*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
+iterator prevKeys*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
   var (rc, subs) = ydb_node_previous_db(global, start, tptoken)
   while rc == YDB_OK:
     yield subs
     (rc, subs) = ydb_node_previous_db(global, subs, tptoken)
 
+iterator nextValues*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): string =
+  var (rc, subs) = ydb_node_next_db(global, start, tptoken)
+  while rc == YDB_OK:
+    yield ydb_get(global, subs)
+    (rc, subs) = ydb_node_next_db(global, subs, tptoken)
+
+iterator prevValues*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): string =
+  var (rc, subs) = ydb_node_previous_db(global, start, tptoken)
+  while rc == YDB_OK:
+    yield ydb_get(global, subs)
+    (rc, subs) = ydb_node_previous_db(global, subs, tptoken)
+
 # ------------------ Iterators for Next/Previous Subscript-------------
 
-iterator ydb_subscript_next_iter*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
+iterator nextSubscript*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
   var (rc, subs) = ydb_subscript_next(global, start, tptoken)
   while rc == YDB_OK:
     yield subs
     (rc, subs) = ydb_subscript_next(global, subs, tptoken)
 
-iterator ydb_subscript_previous_iter*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
+iterator prevSubscript*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
   var (rc, subs) = ydb_subscript_previous(global, start, tptoken)
   while rc == YDB_OK:
     yield subs
@@ -123,6 +213,11 @@ proc str2zwr*(name: string, tptoken: uint64 = 0): string =
 proc zwr2str*(name: string, tptoken: uint64 = 0): string =
   ydb_zwr2str_db(name, tptoken)
 
+
+# Call-In Interface
+proc ydb_ci*(name: string, tptoken: uint64 = 0) =
+  ydb_ci_db(name, tptoken)
+
 # ------------------ YdbVar ----------------
 
 proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = ""): YdbVar =
@@ -137,19 +232,12 @@ proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = ""): 
   else:
     ydb_set(result.name, result.subscripts, result.value)    
 
-
 proc `$`*(v: YdbVar): string =
   ydb_get(v.name, v.subscripts)
-
 
 proc `[]=`*(v: var YdbVar; val: string) =
   ydb_set(v.name, v.subscripts, val)
   v.value = val
-
-
-# Call-In Interface
-proc ydb_ci*(name: string, tptoken: uint64 = 0) =
-  ydb_ci_db(name, tptoken)
 
 
 # ------- Binary Object Stream ----------------
@@ -162,6 +250,20 @@ proc serialize[T](obj: T): string =
   fs.setPosition(0)
   return fs.readAll()
 
+proc deserializeFromDb*[T](idargs: varargs[string], tptoken: uint64 = 0): T =
+  # Deserialize a object T from the database
+  # let responder = deserializeFromDb[Responder]($id)
+
+  let global = "^" & $typeof(T)
+  var subs: Subscripts
+  for arg in idargs:
+    subs.add(arg)
+
+  let bindata = ydb_getblob_db(global, subs, tptoken)
+  let fs = newStringStream(bindata)
+  defer:
+      fs.close()
+  loadBin(fs, result)
 
 proc serializeToDb*[T](obj: T, idargs: varargs[string], tptoken: uint64 = 0) =
   # Serialize a Object to the Database in binary form
@@ -179,64 +281,12 @@ proc serializeToDb*[T](obj: T, idargs: varargs[string], tptoken: uint64 = 0) =
   ydb_set(global, subs, dta, tptoken)
 
 
-proc deserializeFromDb*[T](idargs: varargs[string], tptoken: uint64 = 0): T =
-  # Deserialize a object T from the database
-  # let responder = deserializeFromDb[Responder]($id)
-
-  let global = "^" & $typeof(T)
-  var subs: Subscripts
-  for arg in idargs:
-    subs.add(arg)
-
-  let bindata = ydb_getblob_db(global, subs, tptoken)
-  let fs = newStringStream(bindata)
-  defer:
-      fs.close()
-  loadBin(fs, result)
-
-
-
-# ------- Helpers --------
-func classify(input: string): ValueType =
-  var numeric: bool
-  var numeric_float: bool
-  for c in input:
-    numeric = numeric and (c in {'0','1','2','3','4','5','6','7','8','9','.'})
-    if c == '.': numeric_float = true
-  if numeric_float and numeric: return ValueType.FLOAT
-  elif numeric: return ValueType.INTEGER
-  else: return ValueType.ALPHA
-
-
-proc keysToString*(subscript: Subscripts): string =
-  for i, s in subscript:
-    let valueType = classify(s)
-    case valueType
-    of INTEGER:
-      let nmbr = parseInt(s)
-      result.add($nmbr)
-    of FLOAT:
-      let nmbr = parseFloat(s)
-      result.add($nmbr)
-    else:
-      result.add(s)
-
-    if i < subscript.len - 1:
-      result.add(",")
-
-
-proc keysToString*(global: string, subscript: Subscripts): string =
-  result = global & "("
-  result.add(keysToString(subscript))
-  result.add(")")
-
-
-proc keysToString*(global: string, subscript: Subscripts, value:string): string =
-  result = global & "("
-  result.add(keysToString(subscript))
-  result.add(")")
-  if not value.isEmptyOrWhitespace:
-    result.add("=" & value)
+proc deleteGlobal*(global: string) =
+  ydb_delete_tree(global, @[])
+  # test if really empty
+  var (rc, subs) = ydb_node_next(global, @[])
+  if rc != YDB_ERR_NODEEND:
+    raise newException(YdbError, "Data exists after deleteGlobal '" & global & "' but should not. data=" & $subs)
 
 
 proc subscriptsToValue*(global: string, subscript: Subscripts): string =
@@ -249,12 +299,3 @@ proc subscriptsToValue*(global: string, subscript: Subscripts): string =
     result = keysToString(global, subscript)
   else:
     result = keysToString(global, subscript) & "=" & value
-
-
-proc deleteGlobal*(global: string) =
-  ydb_delete_tree(global, @[])
-  # test if really empty
-  var (rc, subs) = ydb_node_next(global, @[])
-  if rc != YDB_ERR_NODEEND:
-    raise newException(YdbError, "Data exists after deleteGlobal '" & global & "' but should not. data=" & $subs)
-

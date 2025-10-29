@@ -1,5 +1,21 @@
 # Changelog for version 0.3.3
-- A `Transaction` macro simplifies the execution of transactions.
+## Breaking Changes
+#### getvar semantic changed
+'getvar' now returns always an empty string if no data found in the database. This follows the semantic of M $get function. 
+Before, an exception was thrown.
+
+#### Iterator naming
+The naming for the iterators has changed:
+  - 'ydb_node_next_iter' -> 'nextKeys'
+  - 'ydb_node_previous_iter' -> 'prevKeys'
+  - 'ydb_subscript_next_iter' -> 'nextSubscript'
+  - 'ydb_subscript_previous_iter' -> 'prevSubscript'
+  - 'nextValues'
+  - 'prevValues'
+
+## New functionality
+#### Transaction Macro
+A `Transaction` macro simplifies the execution of transactions.
 Before `Transaction` you have to write the code like:
 ```nim
 proc bidTx(p0: pointer): cint {.cdecl.} =
@@ -15,7 +31,6 @@ proc bidTx(p0: pointer): cint {.cdecl.} =
     except:
         return YDB_TP_RESTART
     YDB_OK
-
 
 while (getvar @auction("Active")) == "Yes":
   var rc = ydb_tp(bidTx, "") # place bid
@@ -47,9 +62,11 @@ template Transaction6*(param: string = "", body: untyped): untyped =
     body
   ydb_tp(TX6P, param)
 ```
+#### Improved Transaction handling on restarts
+All Simple-API calls to YottaDB now handle YDB_TP_RESTART and YDB_TP_ROLLBACK.
 
-- All Simple-API calls to YottaDB now handle YDB_TP_RESTART and YDB_TP_ROLLBACK.
 This can happen when the client calls an API function (g.e. ydb_increment_db) and an external process has commited on the same resource. In this case, YottaDB returns a YDB_TP_RESTART and calls the transaction logic again. The client code may decide to rollback the transaction by returning YDB_TP_ROLLBACK.
+
 To handle this in the correct way the client transaction code needs to check for an exception. Getting the value of the YottaDB special var `$TRESTART` shows how many times a restart was requested from the DB. A maximum of 4 restarts are possible. There is a new example `bidwars` in the `m` folder that implements that.
 
 ```nim
@@ -62,7 +79,7 @@ proc bizzTX(p0: pointer): cint {.cdecl.} =
       return YDB_TP_RESTART
   YDB_OK
 ```
-
+#### getvar
 - getvar now returns an empty string/int/float if no data in the database found.
 - getvar allows now to set a default value.
 ```nim
@@ -72,10 +89,6 @@ proc bizzTX(p0: pointer): cint {.cdecl.} =
   valindirekt = getvar (@gbl, default="test")
   valindirekt = getvar (@gbl("Test"), default="test")
 ```
-## Breaking Changes for version 0.3.0
-- getvar now returns always an empty string if no data found in the database. This follows the semantic of M $get function. 
-Before, an exception was thrown.
-
 
 # Changelog for version 0.3.1
 ## @ Indirection Index Extension

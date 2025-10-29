@@ -219,7 +219,7 @@ macro nextsubscript*(body: untyped): untyped =
     if hasTypeConversion("seq", args):
         return newCall(ident("nextsubscriptxxxseq"), args[0..^3])
     else:
-        return newCall(ident"nextsubscriptxxx", args)        
+        return newCall(ident"nextsubscriptxxx", args)
 
 macro prevnode*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -249,30 +249,6 @@ macro setvar*(body: untyped): untyped =
 # ----------------------------
 # proc related helper proc's
 # ----------------------------
-proc stringToSeq(s: string): Subscripts =
-    var str: string = newString(s.len)
-    var idx = 0
-    for c in s:
-        if c == ',':
-            str[idx] = c
-            str.setLen(idx)
-            result.add(str)
-            str.setLen(str.capacity)
-            idx = 0
-            continue
-        elif c in {'@', '[', ']', '\\', ' ', '"'} :            
-            continue
-        else:
-            str[idx] = c
-            inc idx
-
-    if idx > 0:
-        str.setLen(idx)
-        result.add(str)
-
-proc stringToSeq(subs: Subscripts): Subscripts =
-    for sub in subs:
-        result.add(stringToSeq(sub))
 
 proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
   var

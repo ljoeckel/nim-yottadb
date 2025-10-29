@@ -63,3 +63,5 @@ doc/trigger.md
 src/examples/tx_upcount
 m/bidwars
 src/lj
+src/tests/iterator
+src/bench

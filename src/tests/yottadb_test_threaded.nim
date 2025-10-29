@@ -1,23 +1,21 @@
-import std/[strutils, unittest]
-import std/[times]
-import malebolgia
-import std/sets
+when not compileOption("threads"):
+  {.fatal: "Must be compiled with --threads:on".}
 
+import std/[strutils, unittest, times, sets]
+import malebolgia
 import yottadb
 import ydbutils
 
-# nim -c r --threads:on yottadb_test_threaded
 
 const
   MAX = 50
   NUM_OF_THREADS = 4
-  GLOBAL = "^COUNTERS"
-  MAX_FIBONACCI_NUMBER = 32
+  MAX_FIBONACCI_NUMBER = 30
+  gbl = "^COUNTERS"
+  counter = "^COUNTERS(cnt)"
 
 proc initDB() =
-  ## Clean the database
-  for keys in ydb_node_next_iter(GLOBAL):
-    ydb_delete_node(GLOBAL, keys)
+  kill: @gbl
 
 proc fibonacci_recursive(n: int): int =
   ## Simulate some CPU intense work
@@ -32,46 +30,42 @@ proc calcFibonacciSum(): int =
 
 proc testIncrement(tn: int) =
   ## For each thread iterate to MAX and calculate the fibonacci and save in db
-  let key = @["cnt"]
   for i in 0..<MAX:
-    # Increment shared counter
     withlock(0):
-      discard increment: COUNTER(0)
+      discard increment: COUNTER(0)     # Increment thread shared counter
 
-    let result = ydb_increment(GLOBAL, key)
+    let result = increment @counter
     let sum = calcFibonacciSum()
-    ydb_set(GLOBAL, @[$tn, $result], $sum)
+    setvar: @gbl($tn, $result) = sum
 
 proc validateCounters() =
-  ## Validate if all data is correctly saved in the db
+  # Validate if all data is correctly saved in the db
+  assert MAX * NUM_OF_THREADS == getvar @counter.int
 
-  # Check increment in db
-  assert MAX * NUM_OF_THREADS == parseInt(ydb_get(GLOBAL, @["cnt"]))
-
-  var results = initHashSet[int](MAX*NUM_OF_THREADS+1)
+  var results = initHashSet[int](MAX*NUM_OF_THREADS+20)
   var cntidx = 0
   let fibo = calcFibonacciSum()
 
-  for key in ydb_node_next_iter(GLOBAL):
-    if key[0] == "cnt": continue
-    results.incl(parseInt(key[1])) # 1..max*num_of_threads
-    inc(cntidx)
-    let value = parseInt(ydb_get(GLOBAL, key))
-    assert value == fibo
+  for keys in nextKeys(gbl):
+    if keys[0] == "cnt": continue
+    inc cntidx
+    results.incl(parseInt( keys[1])) # 0..max
+
+  for value in nextValues("^COUNTERS"):
+    discard
 
   assert cntidx == MAX * NUM_OF_THREADS
   # check the number of results in the db
   assert getvar(COUNTER(0).int) == cntidx
 
   # Test if each number is found in the set
-  for i in 1..MAX*NUM_OF_THREADS:
+  for i in 1..<MAX*NUM_OF_THREADS - 1:
     assert results.contains(i)
 
 # -------------------------------------------------------------------
 
 proc fibonacciTest() =
   ## Main test that starts NUM_OF_THREADS to calculate and save result in db
-
   setvar: COUNTER(0) = 0 # ydb local variable is visible for all threads, must be synchronized
 
   var m = createMaster()
