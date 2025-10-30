@@ -16,6 +16,8 @@ let maxFibonacci = calcFibonacciValueFor1000ms(1200)
 proc myTxn(p0: pointer): cint {.cdecl.} =
   let someParam = $cast[cstring](p0)
   let restarted = getvar  $TRESTART().int
+  if restarted > 0:
+    discard increment: ^TXS("restarted")
 
   try:
     let (ms, fibresult) = timed_rc:
@@ -33,7 +35,6 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
   YDB_OK # commit the transaction
 
 
-
 setvar: $ZMAXTPTIME()="1"
 for i in 1..MAX:
   let (ms, rc) = timed_rc:
@@ -44,3 +45,5 @@ for i in 1..MAX:
   data.add(" overall-time:" & $ms)
   setvar: ^TXS(txid)=data
   echo "i:", i, " rc=", rc, " ", ms, "ms. txid:", txid, " data:", data
+
+assert (getvar ^TXS("restarted").int) > 2

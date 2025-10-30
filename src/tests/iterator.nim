@@ -1,4 +1,4 @@
-import std/[unittest, strformat]
+import std/[unittest]
 import yottadb
 
 let gbl = "^gbl"
@@ -17,8 +17,6 @@ proc testKeys() =
   var subs: seq[seq[string]]
   for sub in nextKeys("^gbl"):
     subs.add(sub)
-  echo "subs=", subs
-  echo "refd=", refdata
   assert subs == refdata
 
 proc testValues() =
@@ -26,8 +24,6 @@ proc testValues() =
   var subs: seq[string]
   for sub in nextValues("^gbl"):
     subs.add(sub)
-  echo "subs=", subs
-  echo "refd=", refdata
   assert subs == refdata
 
 setup()

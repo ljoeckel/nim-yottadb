@@ -9,6 +9,10 @@ const
   BUFFER_IDX_SIZE = 64
   INCRBUF_SIZE = 32
   EMPTY_STRING = ""
+  YDB_ERR_TIMEOUT_MSG ="YDB_ERR_TPTIMEOUT raised by db engine"
+  YDB_TP_RESTART_MSG = "YDB_TP_RESTART requested by db engine"
+  YDB_TP_ROLLBACK_MSG = "YDB_TP_ROLLBACK requested by db engine"
+
 
 # create a seq that hold the highest possible key
 var LAST_INDEX:seq[string]
@@ -99,14 +103,6 @@ proc setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string] = @[]) =
   for idx in keys.len..<arr.len:
     arr[idx].len_used = 0.uint32
 
-
-proc checkForRestartOrRollback() =
-  if rc == YDB_TP_RESTART:
-    raise newException(TpRestart, "YDB_TP_RESTART requested by db engine")
-  elif rc == YDB_TP_ROLLBACK:
-    raise newException(TpRollback, "YDB_TP_ROLLBACK requested by db engine")
-
-
 # ------------------------------------------------------------------------
 # Buffer initialization & cleanup
 # ------------------------------------------------------------------------
@@ -138,18 +134,6 @@ atexit(cleanupBuffers)
 # ------------------------------------------------------------------------
 # YottaDB API Wrappers (safe Nim procs around C functions)
 # ------------------------------------------------------------------------
-
-proc ydb_tp_start*(myTxn: ydb_tpfnptr_t, param:string, transid:string): int =
-  ## Start a single-threaded transaction
-  check()
-  result = ydb_tp_s(myTxn, cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
-
-proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:string, transid:string): int =
-  ## Start a multi-threaded transaction
-  check()
-  result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
-
-
 proc ydbMessage_db*(status: int, tptoken: uint64 = 0): string =
   ## Return error message text for given status code
   if status == YDB_OK: return
@@ -162,6 +146,27 @@ proc ydbMessage_db*(status: int, tptoken: uint64 = 0): string =
     return fmt"{status}, " & strip($ERRMSG.buf_addr)
   else:
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
+
+proc checkForRestartOrRollback() =
+  case rc
+  of YDB_ERR_TPTIMEOUT:
+    raise newException(TpRestart, YDB_ERR_TIMEOUT_MSG)
+  of YDB_TP_RESTART:
+    raise newException(TpRestart, YDB_TP_RESTART_MSG)
+  of YDB_TP_ROLLBACK:
+    raise newException(TpRollback, YDB_TP_ROLLBACK_MSG)
+  else:
+    discard
+
+proc ydb_tp_start*(myTxn: ydb_tpfnptr_t, param:string, transid:string): int =
+  ## Start a single-threaded transaction
+  check()
+  result = ydb_tp_s(myTxn, cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
+
+proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:string, transid:string): int =
+  ## Start a multi-threaded transaction
+  check()
+  result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
 
 
 proc ydb_set_small(name: string, keys: Subscripts, value: string, tptoken: uint64) =
