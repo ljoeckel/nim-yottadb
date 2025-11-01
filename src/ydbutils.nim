@@ -6,6 +6,12 @@ import yottadb
 # -----------------------
 
 # withlock:
+template withlock*(body: untyped): untyped =
+    ## Create a database lock named ^LOCKS(lockid) while executing the body
+    lock: {+^LOCKS(int.high)}
+    body
+    lock: {-^LOCKS(int.high)}
+
 template withlock*(lockid: untyped, body: untyped): untyped =
     ## Create a database lock named ^LOCKS(lockid) while executing the body
     lock: {+^LOCKS(lockid)}

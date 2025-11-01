@@ -31,6 +31,7 @@ var
   NAMES {.threadvar.}: array[0..YDB_MAX_NAMES-1, ydb_buffer_t] # for delete_excl
   rc {.threadvar.}: int
 
+
 # Register buffer cleanup at process exit (atexit hook).
 # Ensures allocated memory is released properly.
 {.push header: "<stdlib.h>".}
@@ -38,10 +39,9 @@ proc atexit(f: proc() {.noconv.}) {.importc.}
 {.pop.}
 
 
-# ------------------------------------------------------------------------
-# Utility functions for buffer allocation and management
-# ------------------------------------------------------------------------
-
+# -----------------------------------
+# Buffer allocation and management
+# -----------------------------------
 proc allocCString*(s: string): cstring =
   ## Allocate a new C-string (null-terminated) from a Nim string.
   let buf = cast[ptr UncheckedArray[char]](alloc(s.len + 1))
@@ -72,6 +72,9 @@ proc zeroBuffer(size: int): string =
   '\0'.repeat(size) 
 
 
+# ------------
+# YdbBuffer 
+# ------------
 proc stringToYdbBuffer(name: string): ydb_buffer_t =
   ## Create a new ydb_buffer_t initialized from a Nim string
   result = ydb_buffer_t()
@@ -79,13 +82,11 @@ proc stringToYdbBuffer(name: string): ydb_buffer_t =
   result.len_used = name.len.uint32
   result.buf_addr = allocCString(name)
 
-
 proc setYdbBuffer(buffer: var ydb_buffer_t, name: string) =
   ## Assign a string value to an existing ydb_buffer_t
   buffer.len_used = name.len.uint32
   for i in 0..<name.len:
     buffer.buf_addr[i] = name[i]
-
 
 proc setYdbBuffer(buffer: var openArray[ydb_buffer_t], names: seq[string]) =
   ## Assign multiple string values to an array of ydb_buffer_t
@@ -93,7 +94,6 @@ proc setYdbBuffer(buffer: var openArray[ydb_buffer_t], names: seq[string]) =
     setYdbBuffer(buffer[idx], names[idx])
   for idx in names.len..<buffer.len:
     setYdbBuffer(buffer[idx], EMPTY_STRING)
-
 
 proc setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string] = @[]) =
   # Populate a fixed-size buffer array with keys (subscripts)
@@ -103,9 +103,9 @@ proc setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string] = @[]) =
   for idx in keys.len..<arr.len:
     arr[idx].len_used = 0.uint32
 
-# ------------------------------------------------------------------------
+# ----------------------------------
 # Buffer initialization & cleanup
-# ------------------------------------------------------------------------
+# ----------------------------------
 proc check() =
   ## Ensure buffers are allocated before first use.
   if not buf_initialized:
@@ -131,9 +131,9 @@ proc cleanupBuffers() {.noconv} =
 # Register cleanup to run automatically at process exit
 atexit(cleanupBuffers)
 
-# ------------------------------------------------------------------------
+# ----------------------------------------------------------
 # YottaDB API Wrappers (safe Nim procs around C functions)
-# ------------------------------------------------------------------------
+# ----------------------------------------------------------
 proc ydbMessage_db*(status: int, tptoken: uint64 = 0): string =
   ## Return error message text for given status code
   if status == YDB_OK: return
@@ -142,31 +142,41 @@ proc ydbMessage_db*(status: int, tptoken: uint64 = 0): string =
     rc = ydb_message_t(tptoken, ERRMSG.addr, status.cint, ERRMSG.addr)
   else:
     rc = ydb_message(status.cint, ERRMSG.addr)
+
   if rc == YDB_OK:
     return fmt"{status}, " & strip($ERRMSG.buf_addr)
   else:
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
 
-proc checkForRestartOrRollback() =
-  case rc
-  of YDB_ERR_TPTIMEOUT:
-    raise newException(TpRestart, YDB_ERR_TIMEOUT_MSG)
-  of YDB_TP_RESTART:
+
+template checkRC() =
+  if rc == YDB_OK:
+    discard
+  elif rc == YDB_ERR_NODEEND or rc == YDB_ERR_GVUNDEF:
+    discard
+  elif rc == YDB_TP_RESTART:
     raise newException(TpRestart, YDB_TP_RESTART_MSG)
-  of YDB_TP_ROLLBACK:
+  elif rc == YDB_ERR_TPTIMEOUT:
+    raise newException(TpRestart, YDB_ERR_TIMEOUT_MSG)
+  elif rc == YDB_TP_ROLLBACK:
     raise newException(TpRollback, YDB_TP_ROLLBACK_MSG)
+  elif rc < YDB_OK:
+    raise newException(YdbError, fmt"{ydbMessage_db(rc)}")
   else:
     discard
 
-proc ydb_tp_start*(myTxn: ydb_tpfnptr_t, param:string, transid:string): int =
+
+proc ydb_tp_start*(myTxn: ydb_tpfnptr_t, param: string, transid:string): int =
   ## Start a single-threaded transaction
   check()
   result = ydb_tp_s(myTxn, cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
+  checkRC()
 
 proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:string, transid:string): int =
   ## Start a multi-threaded transaction
   check()
   result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
+  checkRC()
 
 
 proc ydb_set_small(name: string, keys: Subscripts, value: string, tptoken: uint64) =
@@ -180,11 +190,7 @@ proc ydb_set_small(name: string, keys: Subscripts, value: string, tptoken: uint6
   else:
     rc = ydb_set_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
   
-  checkForRestartOrRollback()
-
-  if rc < YDB_OK:
-    raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys & " value.len:" & $value.len)
-
+  checkRC()
 
 proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken: uint64) =
   if value.len <= BUFFER_DATABUF_SIZE:
@@ -216,12 +222,8 @@ proc ydb_data_db*(name: string, keys: Subscripts, tptoken: uint64): int =
   else:
     rc = ydb_data_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, value.addr)
 
-  checkForRestartOrRollback()
-
-  if rc < YDB_OK:
-    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Name: {name}({keys})")
-  else:
-    return value.int # 0,1,10,11
+  checkRC()
+  return value.int # 0,1,10,11
 
 
 # --- Delete node/tree ---
@@ -236,10 +238,7 @@ proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64) 
   else:
     rc = ydb_delete_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, deltype.cint)
   
-  checkForRestartOrRollback()
-
-  if rc < YDB_OK:
-    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Name: {name}({keys})")
+  checkRC()
 
 proc ydb_delete_node_db*(name: string, keys: Subscripts, tptoken: uint64) =
   ## Delete a single node
@@ -260,10 +259,7 @@ proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64) =
   else:
     rc = ydb_delete_excl_s(names.len.cint, NAMES[0].addr)
 
-  checkForRestartOrRollback()
-
-  if rc < YDB_OK:
-    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{names}")
+  checkRC()
 
 
 proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken: uint64): int =
@@ -278,14 +274,12 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken: 
   else:
     rc = ydb_incr_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr, INCRBUF.addr)
 
-  checkForRestartOrRollback()
+  checkRC()
 
-  var intVal = 0
   INCRBUF.buf_addr[INCRBUF.len_used] = '\0' # null terminate
   let buf = $INCRBUF.buf_addr
   try:
-    intVal = parseInt(buf)
-    return intVal
+    result = parseInt(buf)
   except:
     raise newException(YdbError, "Illegal Number. Tried to parseInt(" & buf & ")")
 
@@ -315,7 +309,6 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken
     else:
       rc = ydb_node_previous_s(GLOBAL.addr, subs.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
 
-  checkForRestartOrRollback()
 
   # construct the return key sequence
   if rc == YDB_OK:
@@ -327,8 +320,10 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken
         sbscr.add($IDXARR[i].buf_addr)
     if sbscr.len == 0: rc = YDB_ERR_NODEEND
     return (rc, sbscr)
+  elif rc == YDB_ERR_NODEEND:
+    return (rc.int, @[])
   else:
-    return (rc, @[])
+    checkRC()
 
 proc ydb_node_next_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
   ## Traverse to next node  
@@ -363,8 +358,6 @@ proc subscript_traverse(direction: Direction, name: string, keys: Subscripts, tp
     else:
       rc = ydb_subscript_previous_s(GLOBAL.addr, subs.len.cint, IDXARR[0].addr,  DATABUF.addr)    
 
-  checkForRestartOrRollback()
-
   if rc == YDB_OK:
     # update the key sequence as return value
     DATABUF.buf_addr[DATABUF.len_used] = '\0' # null terminate
@@ -376,7 +369,7 @@ proc subscript_traverse(direction: Direction, name: string, keys: Subscripts, tp
   elif rc == YDB_ERR_NODEEND:
     return (rc.int, @[])
   else:
-    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, Name: {name}({keys})")
+    checkRC()
 
 
 proc ydb_subscript_next_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
@@ -399,8 +392,6 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64, binary: 
   else:
     rc = ydb_get_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
 
-  checkForRestartOrRollback()
-
   if rc == YDB_OK:
     if binary:
       result = newString(DATABUF.len_used)
@@ -414,7 +405,7 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64, binary: 
   elif rc == YDB_ERR_GVUNDEF:
     return EMPTY_STRING
   else:
-    raise newException(YdbError, ydbMessage_db(rc, tptoken) & " name:" & name & " keys:" & $keys)
+    checkRC()
 
 proc ydb_getblob_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
   var subs = keys
@@ -454,12 +445,10 @@ proc ydb_lock_incr_db*(timeout_nsec: int, name: string, keys: Subscripts, tptoke
   else:
     rc = ydb_lock_incr_s(timeout_nsec.culonglong, GLOBAL.addr, subslen, IDXARR[0].addr)
 
-  checkForRestartOrRollback()
-
-  if rc < YDB_OK:
-    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{keys}")
-  elif rc == YDB_LOCK_TIMEOUT:
+  if rc == YDB_LOCK_TIMEOUT:
     raise newException(YdbError, fmt"YDB_LOCK_TIMEOUT while setting: {keys}")
+  else:
+    checkRC()
 
 
 proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken: uint64) =
@@ -479,10 +468,7 @@ proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken: uint64) =
   else:
     rc = ydb_lock_decr_s(GLOBAL.addr, subslen, IDXARR[0].addr)
 
-  checkForRestartOrRollback()
-
-  if rc < YDB_OK:
-    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, names:{keys}")
+  checkRC()
 
 
 proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]], tptoken: uint64): cint =
@@ -632,10 +618,7 @@ proc ydb_ci_db*(name: string, tptoken: uint64) =
   else:
     rc = ydb_ci(c_call_name)
 
-  checkForRestartOrRollback()
-
-  if rc < YDB_OK:
-    raise newException(YdbError, fmt"{ydbMessage_db(rc)}") 
+  checkRC()
 
 
 proc ydb_str2zwr_db*(name: string, tptoken: uint64): string =
@@ -651,14 +634,12 @@ proc ydb_str2zwr_db*(name: string, tptoken: uint64): string =
   else:
     rc = ydb_str2zwr_s(DATABUF.addr, ZWRBUF.addr)
 
-  checkForRestartOrRollback()
-
   if rc == YDB_OK:
     ZWRBUF.buf_addr[ZWRBUF.len_used] = '\0'
     result = $ZWRBUF.buf_addr
     deallocBuffer(ZWRBUF)
   else:
-    raise newException(YdbError, ydbMessage_db(rc, tptoken))
+    checkRC()
 
 
 proc ydb_zwr2str_db*(name: string, tptoken: uint64): string =
@@ -670,13 +651,10 @@ proc ydb_zwr2str_db*(name: string, tptoken: uint64): string =
   else:
     rc = ydb_zwr2str_s(DATABUF.addr, DATABUF.addr)
 
-  checkForRestartOrRollback()
-
   if rc == YDB_OK:
     DATABUF.buf_addr[DATABUF.len_used] = '\0'
-
     result = newString(DATABUF.len_used)
     for idx in 0..<DATABUF.len_used:
       result[idx] = DATABUF.buf_addr[idx].char
   else:
-    raise newException(YdbError, ydbMessage_db(rc, tptoken))
+    checkRC()

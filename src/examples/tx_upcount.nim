@@ -1,27 +1,39 @@
-import std/[os, cmdline]
+when compileOption("threads"):
+  {.fatal: "Must be compiled with --threads:off".}
+
+import std/[os, cmdline, strutils]
 import yottadb
 import ydbutils
 
-let pid = getvar $JOB
-const STEPS = 100
-const CLIENTS = 10
 
+let pid = getvar $JOB
+const 
+  STEPS = 1000
+  CLIENTS = 10
+  cntUp = "^CNT(UPCOUNT)"
+  cntRestart = "^CNT(RESTART)"
+  cntData = "^CNTDATA"
 
 proc runClient() =
   for i in 1..STEPS:
-    var rc = Transaction($i):
-      var value = increment ^CNT("up").int
-      let p = cast[cstring](param)
+    let rc = Transaction(pid):
+      var value = increment @cntUp
+      setvar: @cntData(value, pid) = value
+      let pid = cast[cstring](param)
       let restart = getvar $TRESTART.int
-
+      if restart > 0:
+        discard increment @cntRestart
+      
   setvar: ^Pids(pid) = pid # mark complete
 
 
 if isMainModule:
     let params = commandLineParams()
     if params.len == 0:
-      kill: ^CNT
-      kill: ^Pids 
+      kill: 
+        ^CNT
+        ^CNTDATA
+        ^Pids 
 
       var clients = CLIENTS
       for i in 1..clients:
@@ -41,12 +53,22 @@ if isMainModule:
       echo "All clients have stoped"
 
       # Read Result
-      echo "^CNT(up)=", getvar ^CNT("up")
-      assert CLIENTS * STEPS == getvar ^CNT("up").int
+      echo "^CNT(up)=", getvar @cntUp
+      assert (CLIENTS * STEPS) == getvar @cntUp.int
+      echo "^CNT(restart)=", getvar @cntRestart
+
+      var cnt = 0
+      for keys in nextKeys(cntData):
+        let txid = parseInt(keys[0])
+        if txid - cnt == 1:
+          cnt = txid
+        else:
+          raise newException(YdbError, "Numbers are not in sequence")
+
 
     else:
       # init the client here
-      let logFile = open("log" & params[0] & ".log", fmWrite)
-      stdout = logFile
-      stderr = logFile
+      # let logFile = open("log" & params[0] & ".log", fmWrite)
+      # stdout = logFile
+      # stderr = logFile
       runClient()

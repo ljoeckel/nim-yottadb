@@ -1,3 +1,10 @@
+# Changelog for version 0.3.4
+- Upgrade YottaDB to version 2.03
+- Added TransactionMT templates for use in multi-threaded applications
+- Reworked / extended transaction examples
+- YdbVar now usable in multi-threaded applications
+- Reworked YottaDB error handling (Restart/Rollback/Timeout,.)
+
 # Changelog for version 0.3.3
 ## Breaking Changes
 #### getvar semantic changed

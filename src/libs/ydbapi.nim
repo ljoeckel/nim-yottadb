@@ -124,11 +124,11 @@ proc ydb_increment*(name: string, keys: Subscripts, increment: int = 1, tptoken:
   ydb_increment_db(name, keys, increment, tptoken)
 
 
-proc ydb_tp_mt*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string, transid: string = ""): int =
+proc ydb_tp_mt*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string = "", transid: string = ""): int =
   result = ydb_tp2_start(myTxnProc, param, transid)
 
 
-proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: string, transid:string = ""): int =
+proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: string = "", transid: string = ""): int =
   result = ydb_tp_start(myTxnProc, param, transid)
 
 
@@ -256,23 +256,24 @@ proc ydb_ci*(name: string, tptoken: uint64 = 0) =
 
 # ------------------ YdbVar ----------------
 
-proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = ""): YdbVar =
+proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = "", tptoken: uint64 = 0): YdbVar =
   if global.isEmptyOrWhitespace: raise newException(YdbError, "Empty 'global' param")
 
   result.name = global
   result.subscripts = subscripts
   result.value = value
+  result.tptoken = tptoken
   # Read from / or write to DB
   if value.isEmptyOrWhitespace:
-    result.value = ydb_get(result.name, result.subscripts)
+    result.value = ydb_get(result.name, result.subscripts, result.tptoken)
   else:
-    ydb_set(result.name, result.subscripts, result.value)    
+    ydb_set(result.name, result.subscripts, result.value, result.tptoken)
 
 proc `$`*(v: YdbVar): string =
-  ydb_get(v.name, v.subscripts)
+  ydb_get(v.name, v.subscripts, v.tptoken)
 
 proc `[]=`*(v: var YdbVar; val: string) =
-  ydb_set(v.name, v.subscripts, val)
+  ydb_set(v.name, v.subscripts, val, v.tptoken)
   v.value = val
 
 

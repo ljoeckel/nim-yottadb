@@ -1,11 +1,12 @@
+when not compileOption("threads"):
+  {.fatal: "Must be compiled with --threads:on".}
+
 import std/[times]
 import tables
 import yottadb
 import ydbutils
 import malebolgia
 
-when not compileOption("threads"):
-  {.fatal: "Must be compiled with --threads:on".}
 
 const
   NUM_OF_THREADS = 2

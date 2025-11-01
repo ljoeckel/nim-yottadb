@@ -1,9 +1,10 @@
+when compileOption("threads"):
+  {.fatal: "Must be compiled with --threads:off".}
+
 import std/[random, strformat, times]
 import yottadb
 import ydbutils
 
-when compileOption("threads"):
-  {.fatal: "Must be compiled with --threads:off".}
 
 const
   MAX = 20

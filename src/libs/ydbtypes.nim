@@ -43,3 +43,4 @@ type
     subscripts*: Subscripts
     value*: string
     typdesc*: string
+    tptoken*: uint64
