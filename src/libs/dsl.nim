@@ -426,7 +426,7 @@ proc getxxx*(args: varargs[string]): string =
 
 proc getxxxbinary*(args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)
-    ydb_getblob(ydbvar.name, ydbvar.subscripts)
+    ydb_getbinary(ydbvar.name, ydbvar.subscripts)
 
 proc getxxxfloat*(args: varargs[string]): float =
     parseFloat(getxxx(args))

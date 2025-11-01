@@ -99,8 +99,8 @@ proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "", tptoken:
 proc ydb_get*(name: string, keys: Subscripts = @[], tptoken: uint64 = 0): string =
   ydb_get_db(name, keys, tptoken)
 
-proc ydb_getblob*(name: string, keys: Subscripts = @[], tptoken: uint64 = 0): string =
-  ydb_getblob_db(name, keys, tptoken)
+proc ydb_getbinary*(name: string, keys: Subscripts = @[], tptoken: uint64 = 0): string =
+  ydb_getbinary_db(name, keys, tptoken)
 
 
 proc ydb_data*(name: string, keys: Subscripts, tptoken: uint64 = 0): int =
@@ -296,7 +296,7 @@ proc deserializeFromDb*[T](idargs: varargs[string], tptoken: uint64 = 0): T =
   for arg in idargs:
     subs.add(arg)
 
-  let bindata = ydb_getblob_db(global, subs, tptoken)
+  let bindata = ydb_getbinary_db(global, subs, tptoken)
   let fs = newStringStream(bindata)
   defer:
       fs.close()

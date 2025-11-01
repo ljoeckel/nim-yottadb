@@ -407,7 +407,7 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64, binary: 
   else:
     checkRC()
 
-proc ydb_getblob_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
+proc ydb_getbinary_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
   var subs = keys
   if keys.len > 0 and keys.len < 30: # willkürlich festgelegt TODO: Need length calculation of subs
     subs.add("___$00000000$___") # marker for first huge block
