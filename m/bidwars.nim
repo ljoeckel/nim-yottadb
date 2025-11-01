@@ -33,7 +33,7 @@ when compileOption("profiler"):  # --profiler:on
 # 30        491_321          489_991        19288  19117
 
 const
-    bidders = 40   # Contention (26 optimum on macmini m4)
+    bidders = 30   # Contention (26 optimum on macmini m4)
     duration = 5  # Seconds
 
 let pid = getvar: $JOB

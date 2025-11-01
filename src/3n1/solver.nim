@@ -6,7 +6,6 @@ import ydbutils
 
 # First draft for the 3n+1 problem
 var 
-    numbers_saved = 0
     numbers_found = 0
     numbers_solved = 0
     dbreads = 0
@@ -58,7 +57,6 @@ proc generate(fromN: int, toN: int) =
             var str = ($result)[2..^2] # remove {}
             inc dbwrites
             setvar: ^solver(n) = str.replace(" ","") # trim spaces
-            inc numbers_saved
 
 proc reconstruct(n: int): seq[int] =
     # Reconstruct the sequence from the db to the full sequence
@@ -83,7 +81,7 @@ proc cleanDb() =
 
 proc statistics(fromN: int, toN: int) =
     echo "solver from: ", fromN, " to: ", toN
-    echo "Found : ", numbers_found, " Solved: ", numbers_solved, " Saved : ", numbers_saved
+    echo "Found : ", numbers_found, " Solved: ", numbers_solved
     echo "dbwrites: ", dbwrites, ", dbdata: ", dbdata, ", dbnext: ", dbnext, " verifyread: ", verifyread
 
 

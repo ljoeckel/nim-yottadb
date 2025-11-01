@@ -121,6 +121,9 @@ proc transform(node: NimNode, args: var seq[NimNode]) =
 
 proc processStmtList(body: NimNode): seq[NimNode] =
     if body.kind == nnkStmtList:
+      if body.len == 1:
+        transform(body, result)
+      else:
         for i in 0..<body.len:
             transform(body[i], result)
             result.add(newLit(FIELDMARK))
