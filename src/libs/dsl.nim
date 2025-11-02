@@ -418,7 +418,7 @@ proc getxOrderedSet*(args: varargs[string]): OrderedSet[int] =
             result.incl(parseInt(strip(s)))
 
 proc incrementx*(args: varargs[string]): int =
-    var ydbvar = seqToYdbVar(args)
+    let ydbvar = seqToYdbVar(args)
     if ydbvar.value.len == 0:
         ydb_increment(ydbvar.name, ydbvar.subscripts, 1)
     else:
@@ -478,7 +478,7 @@ proc lockx*(args: varargs[string]) =
         lockdecrx(timeout, decvars)
 
 proc nextnodex*(args: varargs[string]): (int, string) =
-    var ydbvar = seqToYdbVar(args)
+    let ydbvar = seqToYdbVar(args)
     let (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
       return (rc, keysToString(ydbvar.name, subs))
@@ -486,15 +486,11 @@ proc nextnodex*(args: varargs[string]): (int, string) =
       return (rc, "")
 
 proc nextnodexseq*(args: varargs[string]): (int, seq[string]) =
-    var ydbvar = seqToYdbVar(args)
-    let (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
-    if rc == YDB_OK:
-        return (rc, subs)
-    else:
-        return (rc, EMPTY_SEQ)
+    let ydbvar = seqToYdbVar(args)
+    ydb_node_next(ydbvar.name, ydbvar.subscripts)
 
 proc nextsubscriptx*(args: varargs[string]): (int, string) =
-    var ydbvar = seqToYdbVar(args)
+    let ydbvar = seqToYdbVar(args)
     let (rc, subs) = ydb_subscript_next(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
         return (rc, keysToString(ydbvar.name, subs))
@@ -502,15 +498,11 @@ proc nextsubscriptx*(args: varargs[string]): (int, string) =
         return (rc, "")
 
 proc nextsubscriptxseq*(args: varargs[string]): (int, seq[string]) =
-    var ydbvar = seqToYdbVar(args)
-    let (rc, subs) = ydb_subscript_next(ydbvar.name, ydbvar.subscripts)
-    if rc == YDB_OK:
-        return (rc, subs)
-    else:
-        return (rc, EMPTY_SEQ)
+    let ydbvar = seqToYdbVar(args)
+    ydb_subscript_next(ydbvar.name, ydbvar.subscripts)
 
 proc prevnodex*(args: varargs[string]): (int, string) =
-    var ydbvar = seqToYdbVar(args)
+    let ydbvar = seqToYdbVar(args)
     let (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
         return (rc, keysToString(ydbvar.name, subs))
@@ -518,15 +510,11 @@ proc prevnodex*(args: varargs[string]): (int, string) =
         return (rc, "")
 
 proc prevnodexseq*(args: varargs[string]): (int, seq[string]) =
-    var ydbvar = seqToYdbVar(args)
-    let (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
-    if rc == YDB_OK:
-        return (rc, subs)
-    else:
-        return (rc, EMPTY_SEQ)
+    let ydbvar = seqToYdbVar(args)
+    ydb_node_previous(ydbvar.name, ydbvar.subscripts)
 
 proc prevsubscriptx*(args: varargs[string]): (int, string) =
-    var ydbvar = seqToYdbVar(args)
+    let ydbvar = seqToYdbVar(args)
     let (rc, subs) = ydb_subscript_previous(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
         return (rc, keysToString(ydbvar.name, subs))
@@ -534,12 +522,8 @@ proc prevsubscriptx*(args: varargs[string]): (int, string) =
         return (rc, "")
 
 proc prevsubscriptxseq*(args: varargs[string]): (int, seq[string]) =
-    var ydbvar = seqToYdbVar(args)
-    let (rc, subs) = ydb_subscript_previous(ydbvar.name, ydbvar.subscripts)
-    if rc == YDB_OK:
-        return (rc, subs)
-    else:
-        return (rc, EMPTY_SEQ)
+    let ydbvar = seqToYdbVar(args)
+    ydb_subscript_previous(ydbvar.name, ydbvar.subscripts)
 
 proc setx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
