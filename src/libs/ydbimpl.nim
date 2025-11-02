@@ -67,7 +67,7 @@ proc deallocBuffer(bufferSeq: seq[seq[ydb_buffer_t]]) =
   for buf in bufferSeq:
     deallocBuffer(buf)
 
-proc zeroBuffer(size: int): string =
+func zeroBuffer(size: int): string =
   ## Returns a string of `size` filled with NUL ('\0')
   '\0'.repeat(size) 
 

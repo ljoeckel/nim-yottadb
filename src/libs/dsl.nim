@@ -13,8 +13,8 @@ const
     INDIRECTION = "@"
     INDIRECTION_SEQ = "@["
     VALUEMARK = "!"
-    TYPEDESC = "|TD|"
-    DATAVAL = "|VAL|"
+    TYPEDESC = "†"
+    DATAVAL = "∂"
     FIELDMARK = "|"
     DEFAULT="default"
     BY = "by"
@@ -22,16 +22,7 @@ const
 # ------------------
 # Macro procs
 # ------------------
-proc exploreNode(node: NimNode) =
-    echo "'", repr(node), "' (", node.kind,")"
-    for n in node:
-        echo "  ", repr(n), "' (", n.kind,")"
-        if n.len > 0:
-            for nn in n:
-                echo "     ", repr(nn), "' (", nn.kind,")"
-
-
-proc findAttributes(node: NimNode, kv: var Table[string, NimNode]) =
+func findAttributes(node: NimNode, kv: var Table[string, NimNode]) =
     case node.kind
     of nnkStmtList, nnkCall, nnkCurly, nnkTupleConstr, nnkDotExpr:
         for i in 0..<node.len:
@@ -41,7 +32,7 @@ proc findAttributes(node: NimNode, kv: var Table[string, NimNode]) =
     else:
         discard
 
-proc transformCallNode(node: NimNode, args: var seq[NimNode]) =
+func transformCallNode(node: NimNode, args: var seq[NimNode]) =
     case node.kind
     of nnkIdent, nnkInfix:
         args.add(newCall(ident"$", node))
@@ -52,7 +43,7 @@ proc transformCallNode(node: NimNode, args: var seq[NimNode]) =
     else:
         raise newException(Exception, "transformCallNode: node.kind:" & $node.kind & " not supported! node=" & repr(node))
 
-proc transform(node: NimNode, args: var seq[NimNode]) =
+func transform(node: NimNode, args: var seq[NimNode]) =
     case node.kind
     of nnkStmtList, nnkTupleConstr:
         for i in 0..<node.len:
@@ -74,18 +65,16 @@ proc transform(node: NimNode, args: var seq[NimNode]) =
         else:
             args.add(newLit(node.strVal))
     of nnkCall:
-        if node.len > 1 and node[0].kind == nnkPrefix and repr(node[0])[0] == '@': # getvar @gbl("field") extend index
+        if node.len > 1 and node[0].kind == nnkPrefix and node[0][0].strVal == INDIRECTION: # getvar @gbl("field") extend index
             for i in 0..<node.len:
                 if node[i].kind == nnkPrefix:
-                    let lhs = node[i][0]
-                    let rhs = node[i][1]
-                    if lhs.strVal == "$":
-                        args.add(newCall(ident"$", rhs)) # add variable ($id)
+                    if node[i][0].strVal == "$":
+                        args.add(newCall(ident"$", node[i][1])) # add variable ($id)
                     else:
                         transform(node[i], args)    
                 else:
                     transformCallNode(node[i], args)
-        elif node.len > 1 and node[1].kind == nnkPrefix and repr(node[1])[0] == '@': # seq[]
+        elif node.len > 1 and node[1].kind == nnkPrefix and node[1][0].strVal == INDIRECTION: # seq[]
             args.add(newLit(node[0].strVal)) # the variable name
             for i in 1..<node.len:
                 transform(node[i], args)
@@ -119,7 +108,7 @@ proc transform(node: NimNode, args: var seq[NimNode]) =
     else:
         raise newException(Exception, "Unsupported node.kind:" & $node.kind)
 
-proc processStmtList(body: NimNode): seq[NimNode] =
+func processStmtList(body: NimNode): seq[NimNode] =
     if body.kind == nnkStmtList:
       if body.len == 1:
         transform(body, result)
@@ -128,19 +117,14 @@ proc processStmtList(body: NimNode): seq[NimNode] =
             transform(body[i], result)
             result.add(newLit(FIELDMARK))
     else:
-        raise newException(Exception, "Statement list needs ':' g.e. killnode: ^xxx(...) body.kind=" & $body.kind)
+        raise newException(Exception, "Statement list needs ':' g.e. killnode: ^x(...) body.kind=" & $body.kind)
 
 func hasTypeConversion(typename: string, args: seq[NimNode]): bool =
-    if args.len > 2 and repr(args[^2]).contains(TYPEDESC):    
-        let s = repr(args[^1])
-        let openPar = s.find('(') # any subscripts 
-        if openPar != -1:
-            let closePar = s.find(')', openPar)
-            let tname = s[openPar + 1 ..< closePar]
-            if typename == tname:
-                return true
-            else:
-                raise newException(Exception, "Only '" & typename & "' is supported. error=" & typename)
+    if args.len > 2 and args[^2].strVal == TYPEDESC:
+        if typename == args[^1][1].strVal:
+          return true
+        else:
+          raise newException(Exception, "Only '" & typename & "' is supported. error=" & typename)
     false
 
 # ------------------
@@ -154,14 +138,10 @@ macro getvar*(body: untyped): untyped =
     transform(body, args)
 
     # check for type conversion
-    var typename = "getxxx"
-    if args.len > 2 and repr(args[^2]).contains(TYPEDESC):
-        let s = repr(args[^1])
-        let openPar = s.find('(') # any subscripts 
-        if openPar != -1:
-            let closePar = s.find(')', openPar)
-            typename.add(s[openPar + 1 ..< closePar])
-            args = args[0..^3] # remove TD,int
+    var typename = "getx"
+    if args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
+        typename.add(args[^1][1].strVal)
+        args = args[0..^3] # remove TD,int
 
     if kv.hasKey(DEFAULT):
         args.add(newLit(DATAVAL))
@@ -173,19 +153,19 @@ macro getvar*(body: untyped): untyped =
 macro data*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
-    newCall(ident"dataxxx", args)    
+    newCall(ident"datax", args)    
 
 macro killnode*(body: untyped): untyped =
     let args = processStmtList(body)
-    return newCall(ident"killnodexxx", args)
+    return newCall(ident"killnodex", args)
 
 macro kill*(body: untyped): untyped =
     let args = processStmtList(body)
-    return newCall(ident"killxxx", args)
+    return newCall(ident"killx", args)
 
 macro delexcl*(body: untyped): untyped =
     let args = processStmtList(body)
-    return newCall(ident"delexclxxx", args)
+    return newCall(ident"delexclx", args)
 
 macro increment*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -195,7 +175,7 @@ macro increment*(body: untyped): untyped =
     if kv.hasKey(BY):
         args.add(newLit(DATAVAL))
         args.add(newCall(ident"$", kv[BY]))
-    return newCall(ident"incrementxxx", args)
+    return newCall(ident"incrementx", args)
 
 macro lock*(body: untyped): untyped =
     var args = processStmtList(body)
@@ -204,15 +184,15 @@ macro lock*(body: untyped): untyped =
     if kv.hasKey("timeout"):
         args.add(newLit(DATAVAL))
         args.add(newCall(ident"$", kv["timeout"]))
-    return newCall(ident"lockxxx", args)
+    return newCall(ident"lockx", args)
 
 macro nextnode*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
     if hasTypeConversion("seq", args):
-        return newCall(ident("nextnodexxxseq"), args[0..^3])        
+        return newCall(ident("nextnodexseq"), args[0..^3])        
     else:
-        return newCall(ident"nextnodexxx", args)
+        return newCall(ident"nextnodex", args)
 
 macro nextsubscript*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -220,9 +200,9 @@ macro nextsubscript*(body: untyped): untyped =
 
     # check for type conversion
     if hasTypeConversion("seq", args):
-        return newCall(ident("nextsubscriptxxxseq"), args[0..^3])
+        return newCall(ident("nextsubscriptxseq"), args[0..^3])
     else:
-        return newCall(ident"nextsubscriptxxx", args)
+        return newCall(ident"nextsubscriptx", args)
 
 macro prevnode*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -230,9 +210,9 @@ macro prevnode*(body: untyped): untyped =
 
     # check for type conversion
     if hasTypeConversion("seq", args):
-        return newCall(ident("prevnodexxxseq"), args[0..^3])
+        return newCall(ident("prevnodexseq"), args[0..^3])
     else:
-        return newCall(ident"prevnodexxx", args)
+        return newCall(ident"prevnodex", args)
 
 macro prevsubscript*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -240,22 +220,25 @@ macro prevsubscript*(body: untyped): untyped =
 
     # check for type conversion
     if hasTypeConversion("seq", args):
-        return newCall(ident("prevsubscriptxxxseq"), args[0..^3])        
+        return newCall(ident("prevsubscriptxseq"), args[0..^3])        
     else:
-        return newCall(ident"prevsubscriptxxx", args)
+        return newCall(ident"prevsubscriptx", args)
 
 macro setvar*(body: untyped): untyped =
-    let args = processStmtList(body)
-    return newCall(ident"setxxx", args)
+    if body.len == 1:
+        var args: seq[NimNode]
+        transform(body, args)
+        return newCall(ident"setx", args)
+    else:
+      return newCall(ident"setx", processStmtList(body))
 
 
 # ----------------------------
 # proc related helper proc's
 # ----------------------------
 
-proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
+func seqToYdbVars(args: varargs[string]): seq[YdbVar] =
   var
-    resultVars: seq[YdbVar]
     ydbvar: YdbVar
     subs: Subscripts
 
@@ -267,7 +250,7 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
       if ydbvar.name.len > 0:
         if ydbvar.subscripts.len == 0:
           ydbvar.subscripts = subs
-        resultVars.add(ydbvar)
+        result.add(ydbvar)
       # Reset for next
       ydbvar = YdbVar()
       subs = @[]
@@ -276,7 +259,7 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
       # End of value-based YdbVar
       ydbvar.value = lastArg
       ydbvar.subscripts.add(subs[0..^2])
-      resultVars.add(ydbvar)
+      result.add(ydbvar)
       ydbvar = YdbVar()
       subs = @[]
       continue
@@ -317,12 +300,10 @@ proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
   if ydbvar.name.len > 0:
     if ydbvar.subscripts.len == 0:
       ydbvar.subscripts = subs
-    resultVars.add(ydbvar)
-
-  return resultVars
+    result.add(ydbvar)
 
 
-proc seqToYdbVar(args: varargs[string]): YdbVar =
+func seqToYdbVar(args: varargs[string]): YdbVar =
     if args.len >= 2 and args[0] == INDIRECTION:
         if args[1].len > 0 and args[1][^1] == ')':            
             var subs: Subscripts
@@ -377,11 +358,11 @@ proc seqToYdbVar(args: varargs[string]): YdbVar =
         else:
             result.subscripts = args[1..^1]
 
-    if result.subscripts.len > 0 and result.subscripts[0].startsWith(INDIRECTION_SEQ):
+    if result.subscripts.len > 0 and result.subscripts[0].len > 1 and result.subscripts[0][0..1] == INDIRECTION_SEQ:
         result.subscripts = stringToSeq(result.subscripts)
 
 
-proc getTimeout(arg: string): int =
+func getTimeout(arg: string): int =
     result = YDB_LOCK_TIMEOUT
     if arg.contains('.'):
       try: # float numeric timeout value?
@@ -403,63 +384,63 @@ proc getTimeout(arg: string): int =
 # macros call's one of this for each macro
 # ----------------------------------------
 
-proc dataxxx*(args: varargs[string]): int =
+proc datax*(args: varargs[string]): int =
     let ydbvar = seqToYdbVar(args)
     ydb_data(ydbvar.name, ydbvar.subscripts)
 
-proc killnodexxx*(args: varargs[string]) =
+proc killnodex*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_delete_node(ydbvar.name, ydbvar.subscripts)
 
-proc delexclxxx*(args: varargs[string]) =
+proc delexclx*(args: varargs[string]) =
     var names: seq[string]
     for ydbvar in seqToYdbVars(args):
         names.add(ydbvar.name)
     ydb_delete_excl(names)
 
-proc killxxx*(args: varargs[string]) =
+proc killx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_delete_tree(ydbvar.name, ydbvar.subscripts)
 
-proc getxxx*(args: varargs[string]): string =
+proc getx*(args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)
     result = ydb_get(ydbvar.name, ydbvar.subscripts)
-    if ydbvar.value.len > 0 and result.len == 0:
+    if result.len == 0 and ydbvar.value.len > 0:
         return ydbvar.value
 
-proc getxxxbinary*(args: varargs[string]): string =
+proc getxbinary*(args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)
     ydb_getbinary(ydbvar.name, ydbvar.subscripts)
 
-proc getxxxfloat*(args: varargs[string]): float =
-    parseFloat(getxxx(args))
-proc getxxxfloat32*(args: varargs[string]): float32 =
-    parseFloat(getxxx(args)).float32
+proc getxfloat*(args: varargs[string]): float =
+    parseFloat(getx(args))
+proc getxfloat32*(args: varargs[string]): float32 =
+    parseFloat(getx(args)).float32
 
-proc getxxxint*(args: varargs[string]): int =
-    parseInt(getxxx(args)).int
-proc getxxxint8*(args: varargs[string]): int8 =
-    parseInt(getxxx(args)).int8
-proc getxxxint16*(args: varargs[string]): int16 =
-    parseInt(getxxx(args)).int16
-proc getxxxint32*(args: varargs[string]): int32 =
-    parseInt(getxxx(args)).int32
-proc getxxxint64*(args: varargs[string]): int64 =
-    parseInt(getxxx(args)).int64
-proc getxxxuint*(args: varargs[string]): uint =
-    parseUInt(getxxx(args)).uint
+proc getxint*(args: varargs[string]): int =
+    parseInt(getx(args)).int
+proc getxint8*(args: varargs[string]): int8 =
+    parseInt(getx(args)).int8
+proc getxint16*(args: varargs[string]): int16 =
+    parseInt(getx(args)).int16
+proc getxint32*(args: varargs[string]): int32 =
+    parseInt(getx(args)).int32
+proc getxint64*(args: varargs[string]): int64 =
+    parseInt(getx(args)).int64
+proc getxuint*(args: varargs[string]): uint =
+    parseUInt(getx(args)).uint
 
-proc getxxxuint8*(args: varargs[string]): uint8 =
-    parseUInt(getxxx(args)).uint8
-proc getxxxuint16*(args: varargs[string]): uint16 =
-    parseUInt(getxxx(args)).uint16
-proc getxxxuint32*(args: varargs[string]): uint32 =
-    parseUInt(getxxx(args)).uint32
-proc getxxxuint64*(args: varargs[string]): uint64 =
-    parseUInt(getxxx(args)).uint64
+proc getxuint8*(args: varargs[string]): uint8 =
+    parseUInt(getx(args)).uint8
+proc getxuint16*(args: varargs[string]): uint16 =
+    parseUInt(getx(args)).uint16
+proc getxuint32*(args: varargs[string]): uint32 =
+    parseUInt(getx(args)).uint32
+proc getxuint64*(args: varargs[string]): uint64 =
+    parseUInt(getx(args)).uint64
 
-proc getxxxOrderedSet*(args: varargs[string]): OrderedSet[int] =
-    let str = getxxx(args)
+proc getxOrderedSet*(args: varargs[string]): OrderedSet[int] =
+    let str = getx(args)
     result = initOrderedSet[int]()
     if str[0] == '{' and str[^1] == '}':
         for s in split(str[1 .. ^2], ","):
@@ -468,24 +449,24 @@ proc getxxxOrderedSet*(args: varargs[string]): OrderedSet[int] =
         for s in split(str, ","):
             result.incl(parseInt(strip(s)))
 
-proc incrementxxx*(args: varargs[string]): int =
+proc incrementx*(args: varargs[string]): int =
     var ydbvar = seqToYdbVar(args)
     if ydbvar.value.len == 0:
         ydb_increment(ydbvar.name, ydbvar.subscripts, 1)
     else:
         ydb_increment(ydbvar.name, ydbvar.subscripts, parseInt(ydbvar.value))
 
-proc lockdecrxxx(timeout: int, ydbvars: seq[YdbVar]) =
+proc lockdecrx(timeout: int, ydbvars: seq[YdbVar]) =
     # Decrement lock count for variable
     for ydbvar in ydbvars:
         ydb_lock_decr(ydbvar.name, ydbvar.subscripts)
 
-proc lockincrxxx(timeout: int, ydbvars: seq[YdbVar]) =
+proc lockincrx(timeout: int, ydbvars: seq[YdbVar]) =
     # Increment lock count for variable(s)
     for ydbvar in ydbvars:
         ydb_lock_incr(timeout, ydbvar.name, ydbvar.subscripts)
 
-proc lockxxx*(args: varargs[string]) =
+proc lockx*(args: varargs[string]) =
     # timeout from lock: { ^GBL, timeout=12345 }
     var timeout = YDB_LOCK_TIMEOUT
     if args.len > 2 and args[^2] == DATAVAL:
@@ -524,11 +505,11 @@ proc lockxxx*(args: varargs[string]) =
 
     # Increment / Decrement locks?
     if incvars.len > 0:
-        lockincrxxx(timeout, incvars)
+        lockincrx(timeout, incvars)
     if decvars.len > 0:
-        lockdecrxxx(timeout, decvars)
+        lockdecrx(timeout, decvars)
 
-proc nextnodexxx*(args: varargs[string]): (int, string) =
+proc nextnodex*(args: varargs[string]): (int, string) =
     var ydbvar = seqToYdbVar(args)
     let (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
@@ -539,7 +520,7 @@ proc nextnodexxx*(args: varargs[string]): (int, string) =
         let message = ydbMessage(rc.cint)
         raise newException(YdbError, fmt"{message}, Names: {ydbvar.name}({ydbvar.subscripts})")
 
-proc nextnodexxxseq*(args: varargs[string]): (int, seq[string]) =
+proc nextnodexseq*(args: varargs[string]): (int, seq[string]) =
     var ydbvar = seqToYdbVar(args)
     let (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
@@ -550,7 +531,7 @@ proc nextnodexxxseq*(args: varargs[string]): (int, seq[string]) =
         let message = ydbMessage(rc.cint)
         raise newException(YdbError, fmt"{message}, Names: {ydbvar.name}({ydbvar.subscripts})")
 
-proc nextsubscriptxxx*(args: varargs[string]): (int, string) =
+proc nextsubscriptx*(args: varargs[string]): (int, string) =
     var ydbvar = seqToYdbVar(args)
     let (rc, subs) = ydb_subscript_next(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
@@ -561,7 +542,7 @@ proc nextsubscriptxxx*(args: varargs[string]): (int, string) =
         let message = ydbMessage(rc.cint)
         raise newException(YdbError, fmt"{message}, Names: {ydbvar.name}({ydbvar.subscripts})")
 
-proc nextsubscriptxxxseq*(args: varargs[string]): (int, seq[string]) =
+proc nextsubscriptxseq*(args: varargs[string]): (int, seq[string]) =
     var ydbvar = seqToYdbVar(args)
     let (rc, subs) = ydb_subscript_next(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
@@ -572,7 +553,7 @@ proc nextsubscriptxxxseq*(args: varargs[string]): (int, seq[string]) =
         let message = ydbMessage(rc.cint)
         raise newException(YdbError, fmt"{message}, Names: {ydbvar.name}({ydbvar.subscripts})")
 
-proc prevnodexxx*(args: varargs[string]): (int, string) =
+proc prevnodex*(args: varargs[string]): (int, string) =
     var ydbvar = seqToYdbVar(args)
     let (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
@@ -583,7 +564,7 @@ proc prevnodexxx*(args: varargs[string]): (int, string) =
         let message = ydbMessage(rc.cint)
         raise newException(YdbError, fmt"{message}, Names: {ydbvar.name}({ydbvar.subscripts})")
 
-proc prevnodexxxseq*(args: varargs[string]): (int, seq[string]) =
+proc prevnodexseq*(args: varargs[string]): (int, seq[string]) =
     var ydbvar = seqToYdbVar(args)
     let (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
@@ -594,7 +575,7 @@ proc prevnodexxxseq*(args: varargs[string]): (int, seq[string]) =
         let message = ydbMessage(rc.cint)
         raise newException(YdbError, fmt"{message}, Names: {ydbvar.name}({ydbvar.subscripts})")
 
-proc prevsubscriptxxx*(args: varargs[string]): (int, string) =
+proc prevsubscriptx*(args: varargs[string]): (int, string) =
     var ydbvar = seqToYdbVar(args)
     let (rc, subs) = ydb_subscript_previous(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
@@ -605,7 +586,7 @@ proc prevsubscriptxxx*(args: varargs[string]): (int, string) =
         let message = ydbMessage(rc.cint)
         raise newException(YdbError, fmt"{message}, Names: {ydbvar.name}({ydbvar.subscripts})")
 
-proc prevsubscriptxxxseq*(args: varargs[string]): (int, seq[string]) =
+proc prevsubscriptxseq*(args: varargs[string]): (int, seq[string]) =
     var ydbvar = seqToYdbVar(args)
     let (rc, subs) = ydb_subscript_previous(ydbvar.name, ydbvar.subscripts)
     if rc == YDB_OK:
@@ -616,7 +597,7 @@ proc prevsubscriptxxxseq*(args: varargs[string]): (int, seq[string]) =
         let message = ydbMessage(rc.cint)
         raise newException(YdbError, fmt"{message}, Names: {ydbvar.name}({ydbvar.subscripts})")
 
-proc setxxx*(args: varargs[string]) =
+proc setx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
 

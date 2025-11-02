@@ -23,7 +23,7 @@ func classify(input: string): ValueType =
   else: return ValueType.ALPHA
 
 
-proc keysToString*(subscript: Subscripts): string =
+func keysToString*(subscript: Subscripts): string =
   for i, s in subscript:
     let valueType = classify(s)
     case valueType
@@ -40,20 +40,20 @@ proc keysToString*(subscript: Subscripts): string =
       result.add(",")
 
 
-proc keysToString*(global: string, subscript: Subscripts): string =
+func keysToString*(global: string, subscript: Subscripts): string =
   result = global & "("
   result.add(keysToString(subscript))
   result.add(")")
 
 
-proc keysToString*(global: string, subscript: Subscripts, value:string): string =
+func keysToString*(global: string, subscript: Subscripts, value:string): string =
   result = global & "("
   result.add(keysToString(subscript))
   result.add(")")
   if not value.isEmptyOrWhitespace:
     result.add("=" & value)
 
-proc stringToSeq*(s: string): Subscripts =
+func stringToSeq*(s: string): Subscripts =
     # Convert ^Global(1,2,3) -> @["1", "2", "3"]
     var str: string = newString(s.len)
     var idx = 0
@@ -75,12 +75,12 @@ proc stringToSeq*(s: string): Subscripts =
         str.setLen(idx)
         result.add(str)
 
-proc stringToSeq*(subs: Subscripts): Subscripts =
+func stringToSeq*(subs: Subscripts): Subscripts =
     # seq @["@[\"4712\"]"] -> @["4712"]
     for sub in subs:
         result.add(stringToSeq(sub))
 
-proc keyToSeq*(s: string): seq[string] =
+func keyToSeq*(s: string): seq[string] =
   # return the keys for a given global ^xy(1,2,3) -> @["1", "2", "3"]
   let pos = s.find("(")
   if pos > 0:
