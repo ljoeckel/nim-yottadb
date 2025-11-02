@@ -66,3 +66,4 @@ src/lj
 src/tests/iterator
 src/bench
 src/examples/tx_upcount_thread
+m/bidwarsApi
