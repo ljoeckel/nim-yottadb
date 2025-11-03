@@ -19,7 +19,7 @@ when compileOption("profiler"):  # --profiler:on
 # 30               77_879         47_359   23210 23158
 
 
-# YottaDB r2.03
+# YottaDB r2.03 / nim 2.2.4 / nim-yottadb 0.3.3
 #      bids per second /Journal disabled       enabled
 # Bidders  BidWars M       bidwars Nim        M     Nim     
 # 1       1_265_267          706_911         8827   9680    
@@ -32,8 +32,21 @@ when compileOption("profiler"):  # --profiler:on
 # 20        442_320          519_030        16544  16120
 # 30        491_321          489_991        19288  19117
 
+# YottaDB r2.03 / nim 2.2.6 / nim-yottadb 0.3.4
+#      bids per second /Journal disabled       enabled
+# Bidders  BidWars M       bidwars Nim        M      Nim     
+# 1       1_292_594         755_645          8811    9953
+# 2                                          7931    8174
+# 4         823_167         634_635          7968    7943
+# 6                                          8939    8873
+# 8         787_437         617_343          9860    9822
+# 12                                        12452   12313
+# 16        643_781         611_529         15131   15236
+# 20                                        17750   17846
+# 30        502_460         572_914         21476   21577
+
 const
-    bidders = 30   # Contention (26 optimum on macmini m4)
+    bidders = 30
     duration = 5  # Seconds
 
 let pid = getvar: $JOB
