@@ -164,7 +164,6 @@ proc getApiName(basename: string, args: var seq[NimNode]): string =
   if count and (kv or keys or value):
       raise newException(YdbError, "No 'kv', 'keys' or 'value' when 'count'")
 
-  var procName: string
   if key:     result = basename & "xKey"
   elif keys:  result = basename & "xKeys"
   elif kv:    result = basename & "xKv"
@@ -585,107 +584,59 @@ proc lockx*(args: varargs[string]) =
 # returns ^global(key,..)
 iterator queryItrx*(args: varargs[string]): string =
   let ydbvar = seqToYdbVar(args)
-  var rc = YDB_OK
-  var subs: seq[string]
-  let dta = ydb_data(ydbvar.name, ydbvar.subscripts)
-  if dta in {1, 11}:
-    subs = ydbvar.subscripts
-  else:
-    (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
+  var (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
   while rc == YDB_OK:
       yield keysToString(ydbvar.name, subs)
       (rc, subs) = ydb_node_next(ydbvar.name, subs)
 
 iterator queryItrxReverse*(args: varargs[string]): string =
   let ydbvar = seqToYdbVar(args)
-  var rc = YDB_OK
-  var subs: seq[string]
-  let dta = ydb_data(ydbvar.name, ydbvar.subscripts)
-  if dta in {1, 11}:
-    subs = ydbvar.subscripts
-  else:
-    (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
+  var (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
   while rc == YDB_OK:
       yield keysToString(ydbvar.name, subs)
       (rc, subs) = ydb_node_previous(ydbvar.name, subs)
 
 # returns @["1"], @["2"], ...
 iterator queryItrxKeys*(args: varargs[string]): seq[string] =
-    var rc = YDB_OK
-    var subs: seq[string]
     let ydbvar = seqToYdbVar(args)
-    let dta = ydb_data(ydbvar.name, ydbvar.subscripts)
-    if dta in {1, 11}:
-      subs = ydbvar.subscripts
-    else:
-      (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
+    var (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
     while rc == YDB_OK:
        yield subs
        (rc, subs) = ydb_node_next(ydbvar.name, subs)
 
 iterator queryItrxKeysReverse*(args: varargs[string]): seq[string] =
-    var rc = YDB_OK
-    var subs: seq[string]
     let ydbvar = seqToYdbVar(args)
-    let dta = ydb_data(ydbvar.name, ydbvar.subscripts)
-    if dta in {1, 11}:
-      subs = ydbvar.subscripts
-    else:
-      (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
+    var (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
     while rc == YDB_OK:
        yield subs
        (rc, subs) = ydb_node_previous(ydbvar.name, subs)
 
 iterator queryItrxKv*(args: varargs[string]): (string, string) =
-    var rc = YDB_OK
-    var subs: seq[string]
     let ydbvar = seqToYdbVar(args)
-    let dta = ydb_data(ydbvar.name, ydbvar.subscripts)
-    if dta in {1, 11}:
-      subs = ydbvar.subscripts
-    else:
-      (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
+    var (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
     while rc == YDB_OK:
        let value = ydb_get(ydbvar.name, subs)
        yield (keysToString(ydbvar.name, subs), value)
        (rc, subs) = ydb_node_next(ydbvar.name, subs)
 
 iterator queryItrxKvReverse*(args: varargs[string]): (string, string) =
-    var rc = YDB_OK
-    var subs: seq[string]
     let ydbvar = seqToYdbVar(args)
-    let dta = ydb_data(ydbvar.name, ydbvar.subscripts)
-    if dta in {1, 11}:
-      subs = ydbvar.subscripts
-    else:
-      (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
+    var (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
     while rc == YDB_OK:
        let value = ydb_get(ydbvar.name, subs)
        yield (keysToString(ydbvar.name, subs), value)
        (rc, subs) = ydb_node_previous(ydbvar.name, subs)
 
 iterator queryItrxValue*(args: varargs[string]): string =
-    var rc = YDB_OK
-    var subs: seq[string]
     let ydbvar = seqToYdbVar(args)
-    let dta = ydb_data(ydbvar.name, ydbvar.subscripts)
-    if dta in {1, 11}:
-      subs = ydbvar.subscripts
-    else:
-      (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
+    var (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
     while rc == YDB_OK:
        yield ydb_get(ydbvar.name, subs)
        (rc, subs) = ydb_node_next(ydbvar.name, subs)
 
 iterator queryItrxValueReverse*(args: varargs[string]): string =
-    var rc = YDB_OK
-    var subs: seq[string]
     let ydbvar = seqToYdbVar(args)
-    let dta = ydb_data(ydbvar.name, ydbvar.subscripts)
-    if dta in {1, 11}:
-      subs = ydbvar.subscripts
-    else:
-      (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
+    var (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
     while rc == YDB_OK:
        yield ydb_get(ydbvar.name, subs)
        (rc, subs) = ydb_node_previous(ydbvar.name, subs)

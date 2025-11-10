@@ -23,7 +23,7 @@ proc testIterFrom() =
     var dbKeys: seq[string]
     for key in queryItr ^hello(5):
         dbKeys.add(key)
-    assert dbKeys == refKeys[5..^1]
+    assert dbKeys == refKeys[6..^1]
 
 proc testIterSeq() =
     var dbSubs: seq[seq[string]]
@@ -71,8 +71,7 @@ proc testIterMacroIndirectStart() =
     for gbl in queryItr @gblname(half):
         echo gbl
         inc cnt
-    echo "cnt=", cnt, " half=", half
-    assert cnt == half
+    assert cnt == half - 1
 
 
 

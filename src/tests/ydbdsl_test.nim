@@ -361,7 +361,7 @@ proc testNextNode() =
         ^GBL(3,1,"A")="3,1,A"
         ^GBL(3,1,"B")="3,1,B"
 
-    let refdata = @["^GBL()", "^GBL(1)", "^GBL(1,1)", "^GBL(1,1,A)", "^GBL(1,1,B)", "^GBL(1,a)", "^GBL(2,1)", "^GBL(2,1,A)", "^GBL(3,1,A)", "^GBL(3,1,B)"]
+    let refdata = @["^GBL(1)", "^GBL(1,1)", "^GBL(1,1,A)", "^GBL(1,1,B)", "^GBL(1,a)", "^GBL(2,1)", "^GBL(2,1,A)", "^GBL(3,1,A)", "^GBL(3,1,B)"]
     var dbdata: seq[string]
 
     var gblname = "^GBL"
@@ -381,7 +381,7 @@ proc testNextNode() =
         LCL(3,1,"A")="3,1,A"
         LCL(3,1,"B")="3,1,B"
 
-    let refdataL = @["LCL()", "LCL(1)", "LCL(1,1)", "LCL(1,1,A)", "LCL(1,1,B)", "LCL(1,a)", "LCL(2,1)", "LCL(2,1,A)", "LCL(3,1,A)", "LCL(3,1,B)"]
+    let refdataL = @["LCL(1)", "LCL(1,1)", "LCL(1,1,A)", "LCL(1,1,B)", "LCL(1,a)", "LCL(2,1)", "LCL(2,1,A)", "LCL(3,1,A)", "LCL(3,1,B)"]
     var dbdataL: seq[string]
 
     gblname = "LCL"
@@ -408,7 +408,7 @@ proc testPreviousNode() =
         ^GBL(3,1,"A")="3,1,A"
         ^GBL(3,1,"B")="3,1,B"
 
-    let refdata = @["^GBL()", "^GBL(3,1,B)","^GBL(3,1,A)","^GBL(2,1,A)","^GBL(2,1)","^GBL(1,a)","^GBL(1,1,B)","^GBL(1,1,A)","^GBL(1,1)","^GBL(1)"]
+    let refdata = @["^GBL(3,1,B)","^GBL(3,1,A)","^GBL(2,1,A)","^GBL(2,1)","^GBL(1,a)","^GBL(1,1,B)","^GBL(1,1,A)","^GBL(1,1)","^GBL(1)"]
     var dbdata: seq[string]
 
     for k in queryItr ^GBL.reverse:
@@ -427,7 +427,7 @@ proc testPreviousNode() =
         LCL(3,1,"A")="3,1,A"
         LCL(3,1,"B")="3,1,B"
     
-    let refdataL = @["LCL()","LCL(3,1,B)","LCL(3,1,A)","LCL(2,1,A)","LCL(2,1)","LCL(1,a)","LCL(1,1,B)","LCL(1,1,A)","LCL(1,1)","LCL(1)"]
+    let refdataL = @["LCL(3,1,B)","LCL(3,1,A)","LCL(2,1,A)","LCL(2,1)","LCL(1,a)","LCL(1,1,B)","LCL(1,1,A)","LCL(1,1)","LCL(1)"]
     var dbdataL: seq[string]
     for key in queryItr LCL.reverse:
         dbdataL.add(key)

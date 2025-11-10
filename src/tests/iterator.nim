@@ -17,10 +17,10 @@ proc setup() =
 
 proc testQuery() =
   let refdata = @["^gbl(1)", "^gbl(1,1)", "^gbl(2)", "^gbl(2,2)", "^gbl(3)", "^gbl(4)", "^gbl(5)"]
-  let refdata2 = @["^gbl(2)", "^gbl(2,2)", "^gbl(3)", "^gbl(4)", "^gbl(5)"]
+  let refdata2 = @["^gbl(2,2)", "^gbl(3)", "^gbl(4)", "^gbl(5)"]
 
   let reflocal = @["local(1)", "local(1,1)", "local(2)", "local(2,2)", "local(3)", "local(4)", "local(5)"]
-  let reflocal2 = @["local(2)", "local(2,2)", "local(3)", "local(4)", "local(5)"]
+  let reflocal2 = @["local(2,2)", "local(3)", "local(4)", "local(5)"]
 
   block:
     var subs: seq[string]
