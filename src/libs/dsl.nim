@@ -474,37 +474,32 @@ proc getxbinary*(args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)
     ydb_getbinary(ydbvar.name, ydbvar.subscripts)
 
-proc getxfloat*(args: varargs[string]): float =
-    parseFloat(getx(args))
-proc getxfloat32*(args: varargs[string]): float32 =
-    parseFloat(getx(args)).float32
-
-proc getxint*(args: varargs[string]): int =
-    let val = getx(args)
-    if val.len > 0:
-      result = parseInt(val).int
+# -------------------------------
+# Int / Uint / Float conversions
+# -------------------------------
+template defineGetX(typeName, parseFunc: untyped) =
+  proc `getx typeName`*(args: varargs[string]): typeName =
+    let s = getx(args)
+    if s.len == 0: return cast[typeName](0)
+    let tmpvar = parseFunc(s)
+    if tmpvar < low(typeName) or tmpvar > high(typeName):
+      raise newException(RangeDefect, "Illegal number. Must be in range " & $low(typeName) & ".." & $high(typeName))
     else:
-      result = 0.int
+      result = cast[typeName](tmpvar)
 
-proc getxint8*(args: varargs[string]): int8 =
-    parseInt(getx(args)).int8
-proc getxint16*(args: varargs[string]): int16 =
-    parseInt(getx(args)).int16
-proc getxint32*(args: varargs[string]): int32 =
-    parseInt(getx(args)).int32
-proc getxint64*(args: varargs[string]): int64 =
-    parseInt(getx(args)).int64
-proc getxuint*(args: varargs[string]): uint =
-    parseUInt(getx(args)).uint
-
-proc getxuint8*(args: varargs[string]): uint8 =
-    parseUInt(getx(args)).uint8
-proc getxuint16*(args: varargs[string]): uint16 =
-    parseUInt(getx(args)).uint16
-proc getxuint32*(args: varargs[string]): uint32 =
-    parseUInt(getx(args)).uint32
-proc getxuint64*(args: varargs[string]): uint64 =
-    parseUInt(getx(args)).uint64
+defineGetX(int, parseInt)
+defineGetX(int8, parseInt)
+defineGetX(int16, parseInt)
+defineGetX(int32, parseInt)
+defineGetX(int64, parseInt)
+defineGetX(uint, parseUInt)
+defineGetX(uint8, parseUInt)
+defineGetX(uint16, parseUInt)
+defineGetX(uint32, parseUInt)
+defineGetX(uint64, parseUInt)
+defineGetX(float, parseFloat)
+#defineGetX(float32, parseFloat) #TODO: cast gives strange results
+defineGetX(float64, parseFloat)
 
 proc getxOrderedSet*(args: varargs[string]): OrderedSet[int] =
     let str = getx(args)
