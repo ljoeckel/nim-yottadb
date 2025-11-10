@@ -1,6 +1,5 @@
 import std/[unittest]
 import yottadb
-import ydbutils
 
 
 proc setupLL() =
@@ -49,212 +48,130 @@ proc setupLL() =
 
 # ------------ Test procs ------------
 
-
-
-proc testData() =
-  var dta = data: ^X(0)
-  assert dta == YDB_DATA_UNDEF
-  assert YDB_DATA_UNDEF == data ^x(0)
-  assert YDB_DATA_VALUE_NODESC == data ^X(6)
-  assert YDB_DATA_VALUE_DESC == data ^X(5)
-  assert data(^X(7)) == YDB_DATA_NOVALUE_DESC
-
-
-
-
-proc testIncrement() =  
-  # Increment
-  killnode:
-    ^CNT("TXID")
-    ^cnt
-  assert 1 == increment ^CNT("TXID")
-  let incrval = increment (^CNT("TXID"), by=10)
-  assert 11 == incrval
-  assert 1 == increment ^cnt
-  assert 11 == increment (^cnt, by=10)
-
-
-
-
-
-proc testLock()  =
-  # Set Locks
-  lock:
-    {
-      ^LL("HAUS", "11"),
-      ^LL("HAUS", "12"),
-      ^LL("HAUS", "XX"), # not yet existent, but ok
-    }
-  var numOfLocks = getLockCountFromYottaDb()
-  assert 3 == numOfLocks
-
-  lock: {} # release all locks
-  numOfLocks = getLockCountFromYottaDb()
-  assert 0 == getLockCountFromYottaDb()
-  
-
-proc testLockIncrement() =
-  lock: +^LL("HAUS", "ELEKTRIK")
-  assert getLockCountFromYottaDb() == 1
-  lock: +^LL("HAUS", "HEIZUNG")
-  assert getLockCountFromYottaDb() == 2
-  lock: +^LL("HAUS", "FLAECHEN")
-  assert getLockCountFromYottaDb() == 3
-
-  # Decrement locks one by one
-  lock: -^LL("HAUS", "FLAECHEN")
-  assert getLockCountFromYottaDb() == 2
-  lock: -^LL("HAUS", "HEIZUNG")
-  assert getLockCountFromYottaDb() == 1
-  lock: -^LL("HAUS", "ELEKTRIK")
-  assert getLockCountFromYottaDb() == 0
-
-  # Increment non existing subscript (Lock will be created)
-  lock: +^LL("HAUS", "XXXXXXX")
-  assert getLockCountFromYottaDb() == 1
-  lock: -^LL("HAUS", "XXXXXXX")
-  assert getLockCountFromYottaDb() == 0
-
-  # Decrement non existing global (Lock will be created)
-  lock: +^ZZZZ("HAUS", "XXXXXXX")
-  assert getLockCountFromYottaDb() == 1
-  lock: -^ZZZZ("HAUS", "XXXXXXX")
-  assert getLockCountFromYottaDb() == 0
-
-  # Increment 3 times same lock
-  lock: +^ZZZZ("HAUS", 31)
-  assert getLockCountFromYottaDb() == 1
-  lock: +^ZZZZ("HAUS", 31)  
-  assert getLockCountFromYottaDb() == 1
-  lock: +^ZZZZ("HAUS", 31)  
-  assert getLockCountFromYottaDb() == 1
-  # Decrement 3 times
-  lock: -^ZZZZ("HAUS", 31)  
-  assert getLockCountFromYottaDb() == 1
-  lock: -^ZZZZ("HAUS", 31)  
-  assert getLockCountFromYottaDb() == 1
-  lock: -^ZZZZ("HAUS", 31)  
-  assert getLockCountFromYottaDb() == 0
-  
-
-proc testNextNode() =
-  var rc:int
+proc testQuery() =
   var node:string
   var nodeseq: seq[string]
 
   # as full qualified global/subscript
-  (rc, node) = nextnode: ^LL
+  node = query: ^LL
   assert node == "^LL(HAUS)"
 
   # as seq[string]
-  (rc, nodeseq) = nextnode: @node.seq
+  nodeseq = query @node.keys
   assert nodeseq == @["HAUS", "ELEKTRIK"]
 
   # use seq[string] as keys
-  (rc, node) = nextnode: ^LL(nodeseq)
+  node = query ^LL(nodeseq)
   assert node == "^LL(HAUS,ELEKTRIK,DOSEN)"
 
-  (rc, node) = nextnode: @node
+  node = query @node
   assert node == "^LL(HAUS,ELEKTRIK,DOSEN,1)"
   assert "Telefondose" == getvar @node
 
-proc testPrevNode() =
-  var rc:int
+
+proc testQueryReverse() =
   var node:string
   var nodeseq: seq[string]
 
   # as full qualified global/subscript
-  (rc, node) = prevnode: ^LL
+  node = query ^LL.reverse
   assert node == "^LL(ORT)"
 
   # as seq[string]
-  (rc, nodeseq) = prevnode: @node.seq
+  nodeseq = query @node.keys.reverse
   assert nodeseq == @["LAND", "NUTZUNG"]
 
   # use seq[string] as keys
-  (rc, node) = prevnode: ^LL(nodeseq)
+  node = query ^LL(nodeseq).reverse
   assert node == "^LL(LAND,FLAECHEN)"
 
-  (rc, node) = prevnode: @node
+  node = query @node.reverse
   assert node == "^LL(LAND)"
 
 
-proc testOrder() =
-  # Go forwards
+proc testQuery2() =
+  let expectedKeys = @["^XX(1,2,3)", "^XX(1,2,3,7)", "^XX(1,2,4)", "^XX(1,2,5,9)", "^XX(1,6)", "^XX(B,1)"]
+  let expectedKeysReverse = @["^XX(B,1)","^XX(1,6)","^XX(1,2,5,9)","^XX(1,2,4)","^XX(1,2,3,7)","^XX(1,2,3)"]
+
+  # Go forwards with 'query'
   block:
     var results: seq[string]
-    var (rc, node) = nextnode: ^XX
-    while rc == YDB_OK:
+    var node = query ^XX
+    while node.len > 0:
       results.add(node)
-      (rc, node) = nextnode: @node
-      
-    assert results.len == 6
-    assert results[0] == "^XX(1,2,3)"
-    assert results[1] == "^XX(1,2,3,7)"
-    assert results[2] == "^XX(1,2,4)"
-    assert results[3] == "^XX(1,2,5,9)"
-    assert results[4] == "^XX(1,6)"
-    assert results[5] == "^XX(B,1)"
+      node = query @node
 
-  # Go backwards
+    assert results.len == 6
+    assert results == expectedKeys
+
+  # Go forwards with 'queryItr'
   block:
     var results: seq[string]
-    var (rc, node) = prevnode: ^XX
-    while rc == YDB_OK:
+    for node in queryItr ^XX:
       results.add(node)
-      (rc, node) = prevnode: @node
 
     assert results.len == 6
-    assert results[5] == "^XX(1,2,3)"
-    assert results[4] == "^XX(1,2,3,7)"
-    assert results[3] == "^XX(1,2,4)"
-    assert results[2] == "^XX(1,2,5,9)"
-    assert results[1] == "^XX(1,6)"
-    assert results[0] == "^XX(B,1)"
+    assert results == expectedKeys
 
+  # Go backwards with query
+  block:
+    var results: seq[string]
+    var node = query ^XX.reverse
+    while node.len > 0:
+      results.add(node)
+      node = query @node.reverse
+    assert results.len == 6
+    assert expectedKeysReverse == results
 
-proc testNextCount() =
-  var
-    cnt = 0
-    rc:int
-    node:string
+  # Go backwards with 'queryItr'
+  block:
+    var results: seq[string]
+    for node in queryItr ^XX.reverse:
+      results.add(node)
+    assert results.len == 6
+    assert expectedKeysReverse == results
 
-  (rc, node) = nextnode: ^LL()
-  while rc == YDB_OK:
+proc testQueryCount() =
+  var cnt = 0
+  for node in queryItr ^LL:
     inc(cnt)
-    (rc, node) = nextnode: @node
   assert cnt == 21
 
+  cnt = query ^LL.count
+  assert cnt == 21
 
-proc testNextSubscript() =
-  var (rc2, node2) = nextsubscript @"^LL(HAUS,ELEKTRIK,DOSEN,1)"
-  assert node2 == "^LL(HAUS,ELEKTRIK,DOSEN,2)"
-  var (rc3, node3) = nextsubscript @"^LL(HAUS,ELEKTRIK,DOSEN,1)".seq
-  assert node3 == @["HAUS", "ELEKTRIK", "DOSEN", "2"]
+proc testNextOrder() =
+  var node2 = order @"^LL(HAUS,ELEKTRIK,DOSEN,1)"
+  assert node2 == "2"
+  var node3 = order @"^LL(HAUS,ELEKTRIK,DOSEN,2)".keys
+  assert node3 == @["HAUS", "ELEKTRIK", "DOSEN", "3"]
 
 
-proc testPrevSubscript() =
-  var (rc, node) = prevsubscript @"^LL(HAUS,ELEKTRIK,DOSEN,2)"
+proc testPrevOrder() =
+  var node = order @"^LL(HAUS,ELEKTRIK,DOSEN,2)".reverse
+  assert node == "1"
+  
+  node = order @"^LL(HAUS,ELEKTRIK,DOSEN,2)".key.reverse
   assert node == "^LL(HAUS,ELEKTRIK,DOSEN,1)"
-  (rc, node) = prevsubscript @node
+
+  node = order @node.reverse
   assert node == ""
-  (rc, node) = prevsubscript @"^LL(HAUS,ELEKTRIK,)"
+  
+  node = order @"^LL(HAUS,ELEKTRIK,)".reverse.key
   assert node == "^LL(HAUS,ELEKTRIK,SICHERUNGEN)"
-  (rc, node) = prevsubscript @node
+  
+  node = order @node.reverse.key
   assert node == "^LL(HAUS,ELEKTRIK,KABEL)"
-  (rc, node) = prevsubscript @node
+  
+  node = order @node.reverse.key
   assert node == "^LL(HAUS,ELEKTRIK,DOSEN)"
 
 
 when isMainModule:
   setupLL()
-  test "increment": testIncrement()
-  test "data": testData()
-  test "locks": testLock()
-  test "lockincrement": testLockIncrement()
-  test "ydb_node_next": testNextNode()
-  test "ydb_node_previous": testPrevNode()
-  test "order": testOrder()
-  test "ydb_node_next count": testNextCount()
-  test "testNextSubscript": testNextSubscript()
-  test "testPrevSubscript": testPrevSubscript()
+  test "query": testQuery()
+  test "query reverse": testQueryReverse()
+  test "query": testQuery2()
+  test "query count": testQueryCount()
+  test "testNextOrder": testNextOrder()
+  test "testPrevOrder": testPrevOrder()

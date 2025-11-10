@@ -69,10 +69,9 @@ proc testKill2() =
 
   let refdata = @["1000", "1010", "1015"]
   var dbdata: Subscripts
-  var (rc, subs) = nextnode ^tmp2.seq
-  while rc == YDB_OK:
+  
+  for subs in queryItr ^tmp2.keys:
     dbdata.add(subs)
-    (rc, subs) = nextnode ^tmp2(subs).seq
   assert dbdata == refdata
 
 

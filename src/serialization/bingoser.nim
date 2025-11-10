@@ -1,6 +1,5 @@
 import macros, strutils, options, tables, sets
 import libs/ydbapi
-import libs/ydbtypes
 
 proc saveInYdb(global: string, subs: seq[string], key: string, value: string) =
   var subscpy = subs
@@ -122,14 +121,15 @@ proc load[T](global: string, subs: seq[string], k: string; x: var set[T]) =
   var idx, rc = 0
   var subscripts = subs
   subscripts.add( @[k, ""] )
-  while(rc == YDB_OK):
-    (rc, subscripts) = ydb_subscript_next(global, subscripts)
-    if rc == YDB_OK:
-      let value = ydb_get(global, subscripts)
-      when typeof(x) is set[char]:
-        x.incl(value[0])
-      else:
-        x.incl(parseInt(value).T)
+  while true:
+    let subkey = ydb_subscript_next(global, subscripts)
+    if subkey.len == 0: break
+    subscripts[^1] = subkey
+    let value = ydb_get(global, subscripts)
+    when typeof(x) is set[char]:
+      x.incl(value[0])
+    else:
+      x.incl(parseInt(value).T)
   inc(idx)
 
 
@@ -142,32 +142,34 @@ proc load[T: var SomeSet](global: string, subs: seq[string], k: string; x: var T
   var idx, rc = 0
   var subscripts = subs
   subscripts.add(@[k, ""])
-  while(rc == YDB_OK):
-    (rc, subscripts) = ydb_subscript_next(global, subscripts)
-    if rc == YDB_OK:
-      x.incl(ydb_get(global, subscripts))
+  while true:
+    let subkey = ydb_subscript_next(global, subscripts)
+    if subkey.len == 0: break
+    subscripts[^1] = subkey
+    x.incl(ydb_get(global, subscripts))
     inc(idx)
 
 # seq[T] | seq[T of object]
 proc load[T](global: string, subs: seq[string], k: string; x: var seq[T] ) =
-  var rc = 0
   when T is object:
     var subscripts = subs
     subscripts.add("")
     let gbl = "^" & $T
-    while(rc == YDB_OK):
-      (rc, subscripts) = ydb_subscript_next(gbl, subscripts)
-      if rc == YDB_OK:
-        var t:T = T()
-        load(gbl, subscripts, t)
-        x.add(t)
+    while true:
+      let subkey = ydb_subscript_next(gbl, subscripts)
+      if subkey.len == 0: break
+      subscripts[^1] = subkey
+      var t:T = T()
+      load(gbl, subscripts, t)
+      x.add(t)
   else:
     var subscripts = subs
     subscripts.add(@[k,""])
-    while(rc == YDB_OK):
-      (rc, subscripts) = ydb_subscript_next(global, subscripts)
-      if rc == YDB_OK:
-        x.add(ydb_get(global, subscripts))
+    while true:
+      let subkey = ydb_subscript_next(global, subscripts)
+      if subkey.len == 0: break
+      subscripts[^1] = subkey
+      x.add(ydb_get(global, subscripts))
 
 proc load[K, V](global: string, subs: seq[string], kv: string; o: var (Table[K, V]|OrderedTable[K, V])) =
   for fn, fv in pairs(o):

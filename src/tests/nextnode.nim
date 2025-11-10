@@ -15,11 +15,9 @@ proc stringAndSequence() =
     let refdata1 = @[@["1"], @["1", "1"], @["1", "2", "a", "b"], @["a", "b"]]
     var dbdata: seq[seq[string]]
 
-    var (rc, subs) = nextnode ^tmp2.seq
-    assert rc == YDB_OK and type(subs) is seq[string]
-    while rc == YDB_OK:
-        dbdata.add(subs)
-        (rc,subs) = nextnode ^tmp2(subs).seq
+    for subs in queryItr ^tmp2.keys:
+      assert type(subs) is seq[string]
+      dbdata.add(subs)
     assert dbdata.len == 4
     assert dbdata == refdata1
 
@@ -31,11 +29,8 @@ proc stringAndSequence() =
     let refdata2 = @["^tmp2(1)", "^tmp2(1,1)", "^tmp2(1,2,a,b)", "^tmp2(a,b)"]
     var dbdata2: seq[string]
     var gbl = "^tmp2"
-    (rc, gbl) = nextnode @gbl
-    assert rc == YDB_OK and type(gbl) is string
-    while rc == YDB_OK:
-        dbdata2.add(gbl)
-        (rc, gbl) = nextnode @gbl
+    for gbl in queryItr @gbl:
+      dbdata2.add(gbl)
     assert dbdata2.len == 4
     assert dbdata2 == refdata2
 
@@ -44,23 +39,6 @@ proc stringAndSequence() =
         assert idx == val
         assert idx == getvar @v.int
 
-proc netxtnodeWithKillnode() = 
-    for i in 1000..1020:
-        setvar: ^tmp2(i)=i
-
-    for i in 1010..1015:
-        killnode: ^tmp2(i)
-
-    var (rc, subs) = nextnode ^tmp2.seq
-    assert rc == YDB_OK and type(subs) is seq[string]
-    while rc == YDB_OK:
-        (rc,subs) = nextnode ^tmp2(subs).seq
-
-    var gbl = "^tmp2"
-    (rc, gbl) = nextnode @gbl
-    assert rc == YDB_OK and type(gbl) is string
-    while rc == YDB_OK:
-        (rc, gbl) = nextnode @gbl
 
 proc setNextPrevTest() =
   let (id1, id2, id3) = ("users", "43", "name")
@@ -78,30 +56,29 @@ proc setNextPrevTest() =
   assert "Martina" == getvar ^test(sub0)
 
   # NEXTSUB / PREVSUB example
-  var (rc, subs) = nextsubscript ^test("users", "42").seq
-  assert rc == YDB_OK
+  var subs = order ^test("users", "42").keys
   assert @["users", "43"] == subs
-  (rc, subs) = prevsubscript ^test(subs).seq
+  subs = order ^test(subs).keys.reverse
   assert @["users", "42"] == subs
 
   # NEXTNODE / PREVNODE example
-  (rc, subs) = nextnode ^test("users").seq
-  assert @["users", "42", "name"] == subs
+  for subs in queryItr ^test("users").keys:
+    assert @["users", "42", "name"] == subs
+    break
 
-  (rc, subs) = prevnode ^test("users").seq
-  assert rc == YDB_ERR_NODEEND
+  subs = order ^test("users").keys.reverse
   assert subs.len == 0
 
-  # nextnode from beginning
-  (rc, subs) = nextnode ^test().seq
-  assert rc == YDB_OK and subs.len > 0
-  (rc, subs) = nextnode ^test("xxxxxxxx").seq
-  assert rc == YDB_ERR_NODEEND and subs.len == 0
+  # query from beginning
+  subs = query ^test().keys
+  assert subs.len > 0
+  subs = query ^test("xxxxxxxx").keys
+  assert subs.len == 0
 
   # prevnode from end
-  (rc, subs) = prevnode ^test().seq
-  assert rc == YDB_OK and subs.len > 0
-  assert @["users", "46", "name"] == subs
+  subs = order ^test().keys.reverse
+  assert subs.len > 0
+  assert @["users"] == subs
 
 proc readnext() =
   kill: ^hello
@@ -115,16 +92,12 @@ proc readnext() =
     @["1"], @["1.5"], @["a"], @["a", "1", "b"]
   ]
   var dbdata :seq[Subscripts]
-  var (rc, subs) = nextnode: ^hello().seq
-  while rc == YDB_OK:
+  for subs in queryItr ^hello().keys:
     dbdata.add(subs)
-    (rc, subs) = nextnode: ^hello(subs).seq
-  assert rc == YDB_ERR_NODEEND
   assert dbdata == refdata
 
 if isMainModule:
     test "setup": setup()
     test "stringAndSequence": stringAndSequence()
-    test "nextNodeWithKillnode": netxtnodeWithKillnode()
     test "setNextPrev": setNextPrevTest()
     test "readnext": readnext()

@@ -1,9 +1,35 @@
-# Changelog for version 0.3.4
+# Changelog for version 0.4.0
 - Upgrade YottaDB to version 2.03
 - Added TransactionMT templates for use in multi-threaded applications
 - Reworked / extended transaction examples
 - YdbVar now usable in multi-threaded applications
 - Reworked YottaDB error handling (Restart/Rollback/Timeout,.)
+- There are now 2 basic iterators 'queryItr' that behaves like the M-function $query and 'orderItr' like $order.
+- Iterators now have the postfixes:
+  - "count" - Count the number of entries
+  - "key" - Return the full subscripted key (^Customer(1,"Name"))
+  - "keys" - Return the full key as seq[string] (@["1", "Name"])
+  - "kv" - Return the key and the value as tuple (^Customer(1,"Name", "Lothar Jöckel")
+  - "val" - Returns the value for the key 
+  "reverse" - Traverses in backward direction
+
+## Breaking Changes
+- Iterators are moved from the ydbapi to the DSL
+- Iterators are renamed to get closer to M semantics
+There is now only 'orderItr' and 'queryItr'. The direction is per default forward.
+'.reverse' traverses in reverse direction
+```nim
+for key in queryItr ^Customer.reverse
+  echo key  # ^Customer(99999,profile,name)
+```
+.reverse can be appended to another postfix:
+```nim
+for keys in queryItr ^Customer.keys.reverse
+  echo keys  # @["999999","profile","name"]
+```
+The 'hello_customer' example show the different form on how to use the iterators with the postfix .key, .keys, .value, .count
+- iterators nextKeys, prevKeys, nextValues, prevValues, nextPairs, prevPairs, nextSubscript, prevSubscript, nextSubscriptValues, prevSubscriptValues, nextSubscriptPairs, prevSubscriptPairs
+are now removed and replaced with 'orderItr' and 'queryItr'
 
 # Changelog for version 0.3.3
 ## Breaking Changes
@@ -13,7 +39,7 @@ Before, an exception was thrown.
 
 #### Iterator naming
 The naming for the iterators has changed:
-  - 'ydb_node_next_iter' -> 'nextKeys'
+  - 'ydb_node_next_iter' -> 'queryItr'
   - 'ydb_node_previous_iter' -> 'prevKeys'
   - 'ydb_subscript_next_iter' -> 'nextSubscript'
   - 'ydb_subscript_previous_iter' -> 'prevSubscript'
@@ -195,13 +221,13 @@ The familiy of next/prev node and next/prev subscript are now defaulting to the 
 
 That means that instead of a `seq[string]` which contains the key components, a single `string` with the variable name and the keys are now returned by default.
 
-If you need the old `seq[string]` form, you have to add `.seq`to the variable.
+If you need the old `seq[string]` form, you have to add `.keys`to the variable.
 ```nim
 var (rc: int, gbl: string) = nextnode: ^BENCHMARK2
 ```
 Returns `^BENCHMARK(1,A)`.  With that, you can now call any further DSL command, like `getvar @gbl``
 ```nim
-var (rc: int, subs: seq[string]) = nextnode: ^BENCHMARK2().seq
+var (rc: int, subs: seq[string]) = nextnode: ^BENCHMARK2().keys
 ```
 returns `@["1", "A"]`.
 

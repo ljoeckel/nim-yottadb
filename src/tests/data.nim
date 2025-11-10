@@ -15,6 +15,17 @@ proc dataTest() =
     ^dta(4710)=4710
     ^dta(4712)=4712
 
+  setvar:
+    ^X(1, "A")="1.A"
+    ^X(3)=3
+    ^X(4)="B"
+    ^X(5)="F"
+    ^X(5,1)="D"
+    ^X(5,2)="E"
+    ^X(6)="G"
+    ^X(7,3)="H"
+
+
   # DATA
   assert 1 == data ^dta("4710")
   assert "4710" == getvar ^dta(4710)
@@ -47,7 +58,7 @@ proc dataTest() =
   setvar: ^dta(4711) = 4711 # now has data and subtree
   assert 11 == data ^dta(4711)
 
-  (rc, subs) = nextnode ^dta(@["4710"]).seq
+  subs = query ^dta(@["4710"]).keys
   assert 11 == data ^dta(subs)
 
   echo fmt"echo fmt: data ^hello({subs})={data(^dta(subs))}"
@@ -96,6 +107,15 @@ proc testData() =
   assert ss == "gbl=4711"
   assert "" == getvar ^tmp2(4711) # ^tmp2(4711) not set because gbl(4711) is set TODO: global from variable
 
+proc testData3() =
+  var dta = data: ^X(0)
+  assert dta == YDB_DATA_UNDEF
+  assert YDB_DATA_UNDEF == data ^x(0)
+  assert YDB_DATA_VALUE_NODESC == data ^X(6)
+  assert YDB_DATA_VALUE_DESC == data ^X(5)
+  assert data(^X(7)) == YDB_DATA_NOVALUE_DESC
+
 if isMainModule:
   test "data": dataTest()
   test "data2": testData()
+  test "data3": testData3()

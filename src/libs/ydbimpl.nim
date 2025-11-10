@@ -335,7 +335,7 @@ proc ydb_node_previous_db*(name: string, keys: Subscripts, tptoken: uint64): (in
 
 
 # --- Subscript traversal (next/previous) ---
-proc subscript_traverse(direction: Direction, name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
+proc subscript_traverse(direction: Direction, name: string, keys: Subscripts, tptoken: uint64): string =
   ## Traverse subscripts at current level  
   check()
   setYdbBuffer(GLOBAL, name)
@@ -359,24 +359,19 @@ proc subscript_traverse(direction: Direction, name: string, keys: Subscripts, tp
       rc = ydb_subscript_previous_s(GLOBAL.addr, subs.len.cint, IDXARR[0].addr,  DATABUF.addr)    
 
   if rc == YDB_OK:
-    # update the key sequence as return value
     DATABUF.buf_addr[DATABUF.len_used] = '\0' # null terminate
-    if subs.len == 0:
-      subs.add($DATABUF.buf_addr)
-    else:
-      subs[^1] = $DATABUF.buf_addr
-    return (rc.int, subs)
+    result = $DATABUF.buf_addr
   elif rc == YDB_ERR_NODEEND:
-    return (rc.int, @[])
+    result = EMPTY_STRING
   else:
     checkRC()
 
 
-proc ydb_subscript_next_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
+proc ydb_subscript_next_db*(name: string, keys: Subscripts, tptoken: uint64): string =
   ## Traverse to next subscript  
   subscript_traverse(Direction.Next, name, keys, tptoken)
 
-proc ydb_subscript_previous_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
+proc ydb_subscript_previous_db*(name: string, keys: Subscripts, tptoken: uint64): string =
   ## Traverse to previous subscript  
   subscript_traverse(Direction.Previous, name, keys, tptoken)
 
@@ -418,7 +413,7 @@ proc ydb_getbinary_db*(name: string, keys: Subscripts = @[], tptoken: uint64): s
         if subs[^1].startsWith("___$0"):
           let val = ydb_get_db(name, subs, tptoken, true)
           sb.write(val)
-        (rc, subs) = ydb_subscript_next_db(name, subs, tptoken)
+        subs[^1] = ydb_subscript_next_db(name, subs, tptoken)
       sb.setPosition(0)
       return sb.readAll()
     else:

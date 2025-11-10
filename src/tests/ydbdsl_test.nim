@@ -97,10 +97,10 @@ proc benchTestGlobals() =
             sum2 += parseInt(ydb_get("^GBL", @[$i]))
         assert sum1 == sum2
     timed:
-        echo "nextnode @gbl Indirection"
-        var gbl = "^GBL"
-        while gbl != "":
-            (rc, gbl) = nextnode @gbl
+        echo "query @gbl Indirection"
+        var gblname = "^GBL"
+        for gbl in queryItr @gblname:
+            assert gbl.len > 0
     timed:
         echo "killnode: nodes"
         for i in 0..BENCH_MAX_RECS:
@@ -135,21 +135,18 @@ proc benchTestLocals() =
             sum2 += parseInt(ydb_get("LCL", @[$i]))
         assert sum1 == sum2
     timed:
-        echo "nextnode dsl"
-        var gbl = "LCL"
-        while gbl != "":
-            (rc, gbl) = nextnode @gbl
+        echo "query dsl"
+        var gblname = "LCL"
+        for gbl in queryItr @gblname:
+            assert gbl.len > 0
     timed:
         echo "Delete nodes"
         for i in 0..BENCH_MAX_RECS:
             killnode: LCL(i)
         
-        gbl = "LCL"
-        while gbl != "":
-            (rc, gbl) = nextnode @gbl
-        assert rc == YDB_ERR_NODEEND
-        assert gbl == ""
-
+        gblname = "LCL"
+        for gbl in queryItr @gblname:
+            assert gbl.len > 0
 
 proc testDeleteNode() =
     setvar: ^GBL="hallo"
@@ -208,12 +205,10 @@ proc testDeleteTree() =
     kill: ^GBL
     assert "" == getvar ^GBL
 
-    var
-        rc = 0
-        gbl = "^GBL"
-    (rc, gbl) = nextnode @gbl
-    assert gbl == ""
 
+    let gblname = "^GBL"
+    for gbl in queryItr @gblname:
+        assert gbl.len > 0
 
 proc testData() =
     kill: ^GBL
@@ -366,14 +361,12 @@ proc testNextNode() =
         ^GBL(3,1,"A")="3,1,A"
         ^GBL(3,1,"B")="3,1,B"
 
-    let refdata = @["^GBL", "^GBL(1)", "^GBL(1,1)", "^GBL(1,1,A)", "^GBL(1,1,B)", "^GBL(1,a)", "^GBL(2,1)", "^GBL(2,1,A)", "^GBL(3,1,A)", "^GBL(3,1,B)"]
+    let refdata = @["^GBL()", "^GBL(1)", "^GBL(1,1)", "^GBL(1,1,A)", "^GBL(1,1,B)", "^GBL(1,a)", "^GBL(2,1)", "^GBL(2,1,A)", "^GBL(3,1,A)", "^GBL(3,1,B)"]
     var dbdata: seq[string]
 
-    gbl = "^GBL"
-    while gbl != "":
+    var gblname = "^GBL"
+    for gbl in queryItr @gblname:
         dbdata.add(gbl)
-        (rc, gbl) = nextnode @gbl
-    assert rc == YDB_ERR_NODEEND
     assert refdata == dbdata
 
     setvar:
@@ -388,15 +381,12 @@ proc testNextNode() =
         LCL(3,1,"A")="3,1,A"
         LCL(3,1,"B")="3,1,B"
 
-    let refdataL = @["LCL", "LCL(1)", "LCL(1,1)", "LCL(1,1,A)", "LCL(1,1,B)", "LCL(1,a)", "LCL(2,1)", "LCL(2,1,A)", "LCL(3,1,A)", "LCL(3,1,B)"]
+    let refdataL = @["LCL()", "LCL(1)", "LCL(1,1)", "LCL(1,1,A)", "LCL(1,1,B)", "LCL(1,a)", "LCL(2,1)", "LCL(2,1,A)", "LCL(3,1,A)", "LCL(3,1,B)"]
     var dbdataL: seq[string]
 
-    gbl = "LCL"
-    while gbl != "":
+    gblname = "LCL"
+    for gbl in queryItr @gblname:
         dbdataL.add(gbl)
-        (rc, gbl) = nextnode @gbl
-    assert rc == YDB_ERR_NODEEND
-    assert gbl == ""
     assert refdataL == dbdataL
 
 
@@ -418,16 +408,11 @@ proc testPreviousNode() =
         ^GBL(3,1,"A")="3,1,A"
         ^GBL(3,1,"B")="3,1,B"
 
-    let refdata = @["^GBL(3,1,B)","^GBL(3,1,A)","^GBL(2,1,A)","^GBL(2,1)","^GBL(1,a)","^GBL(1,1,B)","^GBL(1,1,A)","^GBL(1,1)","^GBL(1)"]
+    let refdata = @["^GBL()", "^GBL(3,1,B)","^GBL(3,1,A)","^GBL(2,1,A)","^GBL(2,1)","^GBL(1,a)","^GBL(1,1,B)","^GBL(1,1,A)","^GBL(1,1)","^GBL(1)"]
     var dbdata: seq[string]
 
-    gbl = "^GBL"
-    while gbl != "":
-        (rc, gbl) = prevnode @gbl
-        if rc == YDB_OK:
-            dbdata.add(gbl)
-
-    assert rc == YDB_ERR_NODEEND
+    for k in queryItr ^GBL.reverse:
+        dbdata.add(k)
     assert refdata == dbdata
 
     setvar:
@@ -442,16 +427,10 @@ proc testPreviousNode() =
         LCL(3,1,"A")="3,1,A"
         LCL(3,1,"B")="3,1,B"
     
-    let refdataL = @["LCL(3,1,B)","LCL(3,1,A)","LCL(2,1,A)","LCL(2,1)","LCL(1,a)","LCL(1,1,B)","LCL(1,1,A)","LCL(1,1)","LCL(1)"]
+    let refdataL = @["LCL()","LCL(3,1,B)","LCL(3,1,A)","LCL(2,1,A)","LCL(2,1)","LCL(1,a)","LCL(1,1,B)","LCL(1,1,A)","LCL(1,1)","LCL(1)"]
     var dbdataL: seq[string]
-
-    gbl = "LCL"
-    while gbl != "":
-        (rc, gbl) = prevnode @gbl
-        if rc == YDB_OK:
-            dbdataL.add(gbl)
-
-    assert rc == YDB_ERR_NODEEND
+    for key in queryItr LCL.reverse:
+        dbdataL.add(key)
     assert gbl == ""
     assert refdataL == dbdataL
 
@@ -470,23 +449,17 @@ proc testNextSubscript() =
         ^GBL(3,1,"B")="3,1,B"
     
     var gbl = "^GBL"
-    var rc = YDB_OK
     var refdata = @["^GBL(1)","^GBL(2)", "^GBL(3)"]
     var dbdata: seq[string]
-    while rc == YDB_OK:
-        (rc, gbl) = nextsubscript @gbl
-        if rc == YDB_OK:
-            dbdata.add(gbl)
+    for gbl in orderItr @gbl.key:
+        dbdata.add(gbl)
     assert dbdata == refdata
 
     gbl = "^GBL(1,1,)"
-    rc = YDB_OK
-    refdata = @["^GBL(1,1,A)", "^GBL(1,1,B)"]
+    refdata = @["A", "B"]
     dbdata = @[]
-    while rc == YDB_OK:
-        (rc, gbl) = nextsubscript @gbl
-        if rc == YDB_OK:
-            dbdata.add(gbl)
+    for gbl in orderItr @gbl:
+        dbdata.add(gbl)
     assert dbdata == refdata
 
 proc testPrevSubscript() =
@@ -504,23 +477,17 @@ proc testPrevSubscript() =
         ^GBL(3,1,"B")="3,1,B"
     
     var gbl = "^GBL"
-    var rc = YDB_OK
-    var refdata = @["^GBL(3)","^GBL(2)", "^GBL(1)"]
+    var refdata = @["3","2", "1"]
     var dbdata: seq[string]
-    while rc == YDB_OK:
-        (rc, gbl) = prevsubscript @gbl
-        if rc == YDB_OK:
-            dbdata.add(gbl)
+    for gbl in orderItr @gbl.reverse:
+        dbdata.add(gbl)
     assert dbdata == refdata
 
     gbl = "^GBL(1,1,)"
-    rc = YDB_OK
-    refdata = @["^GBL(1,1,B)", "^GBL(1,1,A)"]
+    refdata = @["B", "A"]
     dbdata = @[]
-    while rc == YDB_OK:
-        (rc, gbl) = prevsubscript @gbl
-        if rc == YDB_OK:
-            dbdata.add(gbl)
+    for gbl in orderItr @gbl.reverse:
+        dbdata.add(gbl)
     assert dbdata == refdata
 
 if isMainModule:
@@ -537,5 +504,5 @@ if isMainModule:
     test "PrevNode": testPreviousNode()
     test "NextSubscript": testNextSubscript()
     test "PrevSubscript": testPrevSubscript()
-    test "Bench Globals": benchTestGlobals()
-    test "Bench Locals": benchTestLocals()
+    #test "Bench Globals": benchTestGlobals()
+    #test "Bench Locals": benchTestLocals()

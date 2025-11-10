@@ -142,89 +142,12 @@ proc ydb_node_previous*(global: string, subscripts: Subscripts = @[], tptoken: u
 
 # ------------------ Next/Previous subscripts -----------------
 
-proc ydb_subscript_next*(name: string, subs: Subscripts = @[], tptoken: uint64 = 0): (int, Subscripts) =
+proc ydb_subscript_next*(name: string, subs: Subscripts = @[], tptoken: uint64 = 0): string =
   ydb_subscript_next_db(name, subs, tptoken)
 
-proc ydb_subscript_previous*(name: string, subs: Subscripts = @[], tptoken: uint64 = 0): (int, Subscripts) =
+proc ydb_subscript_previous*(name: string, subs: Subscripts = @[], tptoken: uint64 = 0): string =
   ydb_subscript_previous_db(name, subs, tptoken)
 
-
-# ------------------ Iterators for Next/Previous Keys -----------------
-
-iterator nextKeys*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): seq[string] =
-  var (rc, subs) = ydb_node_next_db(global, start, tptoken)
-  while rc == YDB_OK:
-    yield subs
-    (rc, subs) = ydb_node_next_db(global, subs, tptoken)
-
-iterator prevKeys*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
-  var (rc, subs) = ydb_node_previous_db(global, start, tptoken)
-  while rc == YDB_OK:
-    yield subs
-    (rc, subs) = ydb_node_previous_db(global, subs, tptoken)
-
-iterator nextValues*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): string =
-  var (rc, subs) = ydb_node_next_db(global, start, tptoken)
-  while rc == YDB_OK:
-    yield ydb_get(global, subs)
-    (rc, subs) = ydb_node_next_db(global, subs, tptoken)
-
-iterator prevValues*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): string =
-  var (rc, subs) = ydb_node_previous_db(global, start, tptoken)
-  while rc == YDB_OK:
-    yield ydb_get(global, subs)
-    (rc, subs) = ydb_node_previous_db(global, subs, tptoken)
-
-iterator nextPairs*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): (Subscripts, string) =
-  var (rc, subs) = ydb_node_next_db(global, start, tptoken)
-  while rc == YDB_OK:
-    yield (subs, ydb_get(global, subs))
-    (rc, subs) = ydb_node_next_db(global, subs, tptoken)
-
-iterator prevPairs*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): (Subscripts, string) =
-  var (rc, subs) = ydb_node_previous_db(global, start, tptoken)
-  while rc == YDB_OK:
-    yield (subs, ydb_get(global, subs))
-    (rc, subs) = ydb_node_previous_db(global, subs, tptoken)
-
-# ------------------ Iterators for Next/Previous Subscript-------------
-
-iterator nextSubscript*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
-  var (rc, subs) = ydb_subscript_next(global, start, tptoken)
-  while rc == YDB_OK:
-    yield subs
-    (rc, subs) = ydb_subscript_next(global, subs, tptoken)
-
-iterator prevSubscript*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): Subscripts =
-  var (rc, subs) = ydb_subscript_previous(global, start, tptoken)
-  while rc == YDB_OK:
-    yield subs
-    (rc, subs) = ydb_subscript_previous(global, subs, tptoken)
-
-iterator nextSubscriptValues*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): string =
-  var (rc, subs) = ydb_subscript_next(global, start, tptoken)
-  while rc == YDB_OK:
-    yield ydb_get(global, subs)
-    (rc, subs) = ydb_subscript_next(global, subs, tptoken)
-
-iterator prevSubscriptValues*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): string =
-  var (rc, subs) = ydb_subscript_previous(global, start, tptoken)
-  while rc == YDB_OK:
-    yield ydb_get(global, subs)
-    (rc, subs) = ydb_subscript_previous(global, subs, tptoken)
-
-
-iterator nextSubscriptPairs*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): (Subscripts, string) =
-  var (rc, subs) = ydb_subscript_next(global, start, tptoken)
-  while rc == YDB_OK:
-    yield (subs, ydb_get(global, subs))
-    (rc, subs) = ydb_subscript_next(global, subs, tptoken)
-
-iterator prevSubscriptPairs*(global: string, start: Subscripts = @[], tptoken: uint64 = 0): (Subscripts, string) =
-  var (rc, subs) = ydb_subscript_previous(global, start, tptoken)
-  while rc == YDB_OK:
-    yield (subs, ydb_get(global, subs))
-    (rc, subs) = ydb_subscript_previous(global, subs, tptoken)
 
 # ------------------ Locks -----------------
 

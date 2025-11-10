@@ -64,8 +64,8 @@ when isMainModule:
       m.spawn worker(tn, ITERATIONS)
 
   echo "All threads finished"
-
   listVar("^TXM")
+  
   # test results
   for i in 0..<NUM_OF_THREADS:
     let txs = getvar ^CNT("M", i).int

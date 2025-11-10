@@ -10,8 +10,8 @@ kill:
     ^BENCHMARK3
 
 proc isEmpty(name: string): bool =
-    var (rc, _) = nextnode: name
-    result = (rc == YDB_ERR_NODEEND)
+    let s = query name
+    result = (s == "")
 
 proc upcount() =
     # api
@@ -29,7 +29,7 @@ proc getSimple() =
         let val = ydb_get("^BENCHMARK1",@[$id])
         assert $id == val
 
-proc nextnode() =
+proc query() =
     var cnt = 0
     var (rc, subs) = ydb_node_next("^BENCHMARK1")
     while rc == YDB_OK:
@@ -59,11 +59,9 @@ proc getSimple_dsl() =
         let val = getvar ^BENCHMARK2(id)
         assert $id == val
 
-proc nextnode_dsl() =
+proc query_dsl() =
     var cnt = 0
-    var (rc, subs) = nextnode: ^BENCHMARK2.seq
-    while rc == YDB_OK:
-        (rc, subs) = nextnode: ^BENCHMARK2(subs).seq
+    for subs in queryItr ^BENCHMARK2:
         inc cnt
     assert cnt == MAX
 
@@ -90,11 +88,10 @@ proc getSimple_indirect() =
         let val = getvar @gbl(id)
         assert $id == val
         
-proc nextnode_indirect() =
+proc query_indirect() =
     var cnt = 0
-    var (rc, gbl) = nextnode: ^BENCHMARK3
-    while rc == YDB_OK:
-        (rc, gbl) = nextnode: @gbl
+    let gblName = "^BENCHMARK3"
+    for gbl in queryItr @gblName:
         inc cnt
     assert cnt == MAX
 
@@ -113,7 +110,7 @@ when isMainModule:
             test "upcount": timed: upcount()
             test "set simple": timed: setSimple()
             test "get simple": timed: getSimple()
-            test "nextnode": timed: nextnode()
+            test "query": timed: query()
             test "killnode": timed: killnode()
         echo ""
 
@@ -122,7 +119,7 @@ when isMainModule:
             test "upcount dsl": timed: upcount_dsl()
             test "set simple dsl": timed: setSimple_dsl()
             test "get simple dsl": timed: getSimple_dsl()            
-            test "nextnode dsl": timed: nextnode_dsl()
+            test "query dsl": timed: query_dsl()
             test "killnode dsl": timed: killnode_dsl()
         echo ""
 
@@ -131,5 +128,5 @@ when isMainModule:
             test "upcount @": timed: upcount_indirect()
             test "set simple @": timed: setSimple_indirect()
             test "get simple @": timed: getSimple_indirect()
-            test "nextnode @": timed: nextnode_indirect()
+            test "query @": timed: query_indirect()
             test "killnode @": timed: killnode_indirect()

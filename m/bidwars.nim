@@ -1,5 +1,5 @@
 import yottadb
-import std/[cmdline, strformat, math, times, random, terminal]
+import std/[cmdline, strformat, math, times, random, terminal, strutils]
 import ydbutils
 when compileOption("profiler"):  # --profiler:on
     import std/nimprof
@@ -36,13 +36,13 @@ when compileOption("profiler"):  # --profiler:on
 #      bids per second /Journal disabled       enabled
 # Bidders  BidWars M       bidwars Nim        M      Nim     
 # 1       1_292_594         755_645          8811    9953
-# 2                                          7931    8174
+# 2                         659_638          7931    8174
 # 4         823_167         634_635          7968    7943
-# 6                                          8939    8873
+# 6                         621_603          8939    8873
 # 8         787_437         617_343          9860    9822
-# 12                                        12452   12313
+# 12                        613_502         12452   12313
 # 16        643_781         611_529         15131   15236
-# 20                                        17750   17846
+# 20                        594_183         17750   17846
 # 30        502_460         572_914         21476   21577
 
 const
@@ -85,13 +85,15 @@ proc Auction() =
         echo "Bid:       ", getvar @auction("Total")
         echo "Price:     ", getvar @auction("Price")
 
-        var (rc, gbl) = nextsubscript @auction("Bidders", "Average", "")
-        while rc == YDB_OK:
-            inc avgcnt
-            inc(sum, getvar @gbl.int)
-            (rc, gbl) = nextsubscript @gbl
+        for pid in orderItr @auction("Bidders","Average",""):
+            let avg = getvar @auction("Bidders","Average",pid).int
+            if avg > 0:
+                inc avgcnt
+                inc(sum, avg)
+
         if sum > 0:
             echo "Stats:     ", (sum div avgcnt), " microseconds per bid"
+
         nimSleep(100)
 
     # Stop auction

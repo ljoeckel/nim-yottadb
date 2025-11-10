@@ -1,7 +1,7 @@
 when not compileOption("threads"):
   {.fatal: "Must be compiled with --threads:on".}
 
-import std/[strutils]
+import std/[strutils, strformat]
 import yottadb
 import malebolgia
 
@@ -40,10 +40,19 @@ when isMainModule:
   assert "" == getvar ^CNT("RESTARTS")
 
   var cnt = 0
-  for keys in nextKeys("^CNT"):
-    if keys[0] == "UPCOUNT": continue
-    let txid = parseInt(keys[0])
+  for key in orderItr ^CNT:
+    if key == "UPCOUNT": continue
+    let txid = parseInt(key)
     if txid - cnt == 1:
       cnt = txid
     else:
       raise newException(YdbError, "Numbers are not in sequence")
+
+  var tncnt: array[0..NUM_OF_THREADS-1, int]
+  for key in queryItr ^CNT.keys:
+    if key[0] == "UPCOUNT": continue
+    let tn = parseInt(key[1])
+    inc(tncnt[tn])
+
+  for tn in 0..<NUM_OF_THREADS:
+    echo fmt"Thread {tn} has {tncnt[tn]} entries."

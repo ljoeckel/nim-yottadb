@@ -76,8 +76,21 @@ proc testIncrementBy() =
         var z = increment (^CNT("XXX"), by=5)
         assert z == i * 5 + 5
 
+proc testIncrement() =  
+  # Increment
+  killnode:
+    ^CNT("TXID")
+    ^cnt
+  assert 1 == increment ^CNT("TXID")
+  let incrval = increment (^CNT("TXID"), by=10)
+  assert 11 == incrval
+  assert 1 == increment ^cnt
+  assert 11 == increment (^cnt, by=10)
+
+
 if isMainModule:
   test "increment": incrementTest()
   test "incrementLocalsByOne": testIncrementLocalsByOne()
   test "incrementLocalsBy10": testIncrementLocalsByTen()
   test "incrementBy": testIncrementBy()
+  test "increment2": testIncrement()

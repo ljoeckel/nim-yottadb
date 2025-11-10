@@ -3,6 +3,32 @@ import std/strutils
 import yottadb
 import ydbutils
 
+proc setupLL() =
+  setvar:
+    ^LL("HAUS")=""
+    ^LL("HAUS", "ELEKTRIK")=""
+    ^LL("HAUS", "ELEKTRIK", "DOSEN")=""
+    ^LL("HAUS", "ELEKTRIK", "DOSEN", "1") = "Telefondose"
+    ^LL("HAUS", "ELEKTRIK", "DOSEN", "2") = "Steckdose"
+    ^LL("HAUS", "ELEKTRIK", "DOSEN", "3") = "IP-Dose"
+    ^LL("HAUS", "ELEKTRIK", "DOSEN", "4") = "KFZ-Dose"
+    ^LL("HAUS", "ELEKTRIK", "KABEL")=""
+    ^LL("HAUS", "ELEKTRIK", "KABEL", "FARBEN")=""
+    ^LL("HAUS", "ELEKTRIK", "KABEL", "FIN")=""
+    ^LL("HAUS", "ELEKTRIK", "KABEL", "STAERKEN")=""
+    ^LL("HAUS", "ELEKTRIK", "SICHERUNGEN")=""
+    ^LL("HAUS", "FLAECHEN", "RAUM1")=""
+    ^LL("HAUS", "FLAECHEN", "RAUM2")=""
+    ^LL("HAUS", "FLAECHEN", "RAUM2")=""
+    ^LL("HAUS", "HEIZUNG")=""
+    ^LL("HAUS", "HEIZUNG", "MESSGERAETE")=""
+    ^LL("HAUS", "HEIZUNG", "ROHRE")=""
+    ^LL("LAND")=""
+    ^LL("LAND", "FLAECHEN")=""
+    ^LL("LAND", "NUTZUNG")=""
+    ^LL("ORT")=""
+
+
 proc findLocks(ids: varargs[string]): bool =
     result = true
     for str in getLocksFromYottaDb():
@@ -157,8 +183,70 @@ proc testSingleLineLock() =
     assert getLockCountFromYottaDb() == 0
 
 
+proc testLock()  =
+  # Set Locks
+  lock:
+    {
+      ^LL("HAUS", "11"),
+      ^LL("HAUS", "12"),
+      ^LL("HAUS", "XX"), # not yet existent, but ok
+    }
+  var numOfLocks = getLockCountFromYottaDb()
+  assert 3 == numOfLocks
+
+  lock: {} # release all locks
+  numOfLocks = getLockCountFromYottaDb()
+  assert 0 == getLockCountFromYottaDb()
+  
+
+proc testLockIncrement() =
+  lock: +^LL("HAUS", "ELEKTRIK")
+  assert getLockCountFromYottaDb() == 1
+  lock: +^LL("HAUS", "HEIZUNG")
+  assert getLockCountFromYottaDb() == 2
+  lock: +^LL("HAUS", "FLAECHEN")
+  assert getLockCountFromYottaDb() == 3
+
+  # Decrement locks one by one
+  lock: -^LL("HAUS", "FLAECHEN")
+  assert getLockCountFromYottaDb() == 2
+  lock: -^LL("HAUS", "HEIZUNG")
+  assert getLockCountFromYottaDb() == 1
+  lock: -^LL("HAUS", "ELEKTRIK")
+  assert getLockCountFromYottaDb() == 0
+
+  # Increment non existing subscript (Lock will be created)
+  lock: +^LL("HAUS", "XXXXXXX")
+  assert getLockCountFromYottaDb() == 1
+  lock: -^LL("HAUS", "XXXXXXX")
+  assert getLockCountFromYottaDb() == 0
+
+  # Decrement non existing global (Lock will be created)
+  lock: +^ZZZZ("HAUS", "XXXXXXX")
+  assert getLockCountFromYottaDb() == 1
+  lock: -^ZZZZ("HAUS", "XXXXXXX")
+  assert getLockCountFromYottaDb() == 0
+
+  # Increment 3 times same lock
+  lock: +^ZZZZ("HAUS", 31)
+  assert getLockCountFromYottaDb() == 1
+  lock: +^ZZZZ("HAUS", 31)  
+  assert getLockCountFromYottaDb() == 1
+  lock: +^ZZZZ("HAUS", 31)  
+  assert getLockCountFromYottaDb() == 1
+  # Decrement 3 times
+  lock: -^ZZZZ("HAUS", 31)  
+  assert getLockCountFromYottaDb() == 1
+  lock: -^ZZZZ("HAUS", 31)  
+  assert getLockCountFromYottaDb() == 1
+  lock: -^ZZZZ("HAUS", 31)  
+  assert getLockCountFromYottaDb() == 0
+
+
 when isMainModule:
+    setupLL()
     test "intSetLock": intSetLockUpdate()
     test "Simple locks": testSimpleLocks()
     test "Localvar locks": testLocalvarLocks()
     test "SingleLine locks": testSingleLineLock()
+    test "Lock": testLock()

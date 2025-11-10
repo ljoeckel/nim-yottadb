@@ -6,8 +6,8 @@ When calling the next/prev family of DSL commands, you get an string with the va
 With this you can directly call any other DSL method.
 For example: `lock: @gbl`
 
-If you need control over the key components, you can use the `.seq` postfix to mark so.
-(rc, gbl) = nextsubscript @"^LL(HAUS,ELEKTRIK,DOSEN)"`.seq`
+If you need control over the key components, you can use the `.keys` postfix to mark so.
+(rc, gbl) = nextsubscript @"^LL(HAUS,ELEKTRIK,DOSEN)"`.keys`
 You get then back a seq[string] like @["HAUS", "ELEKTRIK", "DOSEN", "2"]
 
 ```nim
@@ -17,6 +17,6 @@ var gbl: string
 (rc, gbl) = nextsubscript @"^LL(HAUS,ELEKTRIK,DOSEN)"
 assert gbl == "^LL(HAUS,ELEKTRIK,KABEL)"
 
-(rc, gbl) = nextsubscript @"^LL(HAUS,ELEKTRIK,DOSEN,)".seq
+(rc, gbl) = nextsubscript @"^LL(HAUS,ELEKTRIK,DOSEN,)".keys
 assert gbl == @["HAUS", "ELEKTRIK", "DOSEN", "1"]
 ```

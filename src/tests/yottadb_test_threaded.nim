@@ -46,15 +46,12 @@ proc validateCounters() =
   var cntidx = 0
   let fibo = calcFibonacciSum()
 
-  for keys in nextKeys(gbl):
+  for keys in queryItr(@gbl.keys):
     if keys[0] == "cnt": continue
     inc cntidx
     results.incl(parseInt( keys[1])) # 0..max
-
-  for value in nextValues("^COUNTERS"):
-    discard
-
   assert cntidx == MAX * NUM_OF_THREADS
+
   # check the number of results in the db
   assert getvar(COUNTER(0).int) == cntidx
 

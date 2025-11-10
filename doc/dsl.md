@@ -148,46 +148,115 @@ lock -^gbl # release only ^gbl from locks
 lock +lclv # add lock for local variable
 ```
 
-## nextnode
+## query
 Traverse the global and get the next node in the collating sequence.
 ```nim
-(rc, node) = nextnode: ^LL()
-@["HAUS"]
-(rc, node) = nextnode: ^LL(node)
-  @["HAUS", "ELEKTRIK"]
+echo query ^LL
+^LL(HAUS)
+echo query ^LL("HAUS")
+^LL(HAUS, ELEKTRIK)
 ```
 
-## prevnode
+## query.reverse
 Traverse the global backward and get the previous node in the collating sequence.
 ```nim
-(rc, subs) = prevnode: ^LL("HAUS", "ELEKTRIK", "DOSEN", "1")
-assert subs = @["HAUS", "ELEKTRIK", "DOSEN"]
-
-(rc, subs) = prevnode: ^LL("HAUS", "ELEKTRIK")
-assert subs = @["HAUS"]
+echo query ^LL("HAUS", "ELEKTRIK", "DOSEN", "1").reverse
+^LL(HAUS,ELEKTRIK,DOSEN)
+echo query ^LL("HAUS", "ELEKTRIK").reverse
+^LL(HAUS)
 ```
 
-## nextsubscript
+## order
 Traverse on the globals on a given index level.
 ```nim
-var (rc, subs) = nextsubscript: ^images(@[""]) # -> @["223"]
-while rc == YDB_OK:
-   let path    = getvar ^images(subs, "path")
-   # do something with path
-   (rc, subs) = nextsubscript: ^images(subs)
+echo order ^LL
+HAUS
+echo order ^LL("HAUS")
+LAND
 ```
 
-## prevsubscript
+## order.reverse
 Traverse the globals backwards on a given index level.
 ```nim
-  var rc:int
-  var subs: Subscripts
-  (rc, subs) = prevsubscript: ^LL("HAUS", "FLAECHEN")
-  assert subs == @["HAUS", "ELEKTRIK"]
-  (rc, subs) = prevsubscript: ^LL("LAND")
-  assert subs == @["HAUS"]
-  (rc, subs) = prevsubscript: ^LL("HAUS")
-  assert rc == YDB_ERR_NODEEND and subs == @[""]
+echo order ^LL("LAND").reverse
+HAUS
+```
+## queryItr
+```nim
+for key in queryItr ^LL:
+  echo key
+^LL(HAUS)
+^LL(HAUS,ELEKTRIK)
+^LL(HAUS,ELEKTRIK,DOSEN)
+^LL(HAUS,ELEKTRIK,DOSEN,1)
+^LL(HAUS,ELEKTRIK,DOSEN,2)
+...
+```
+## orderItr
+```nim
+for key in queryItr ^LL:
+  echo key
+HAUS
+LAND
+ORT
+for key in queryItr ^LL("HAUS",""):
+  echo key
+ELEKTRIK
+FLAECHEN
+HEIZUNG
+```
+## Iterator postfix
+For both `order` and `query` there exists an iterator which simplifies the access further.
+With a postfix notation the value returned by the iterator can be controlled:
+- .key - Return the full subscripted key (^Customer(1,Name))
+- .keys - Return the full key as seq[string] (@["1", "Name"])
+- .kv - Return the key and the value as tuple (^Customer(1,"Name", "Lothar")
+- .val - Returns the value for the key 
+- .reverse - Traverses in backward direction
+- .count - Count the number of entries
+```nim
+for key in orderItr ^LL:
+    echo key 
+HAUS
+LAND
+ORT
+
+for key in orderItr ^LL("HAUS","").key:
+    echo key 
+^LL(HAUS,ELEKTRIK)
+^LL(HAUS,FLAECHEN)
+^LL(HAUS,HEIZUNG)
+
+for key in orderItr ^LL("HAUS", "ELEKTRIK", "DOSEN", "").key:
+    echo getvar @key
+Telefondose
+Steckdose
+IP-Dose
+KFZ-Dose
+
+for key in orderItr ^LL("HAUS","").keys:
+    echo key 
+@["HAUS", "ELEKTRIK"]
+@["HAUS", "FLAECHEN"]
+@["HAUS", "HEIZUNG"]
+
+for key in orderItr ^LL("HAUS","ELEKTRIK","DOSEN", "").val:
+    echo key    
+Telefondose
+Steckdose
+IP-Dose
+KFZ-Dose
+
+for key in orderItr ^LL("HAUS","ELEKTRIK","DOSEN", "").kv:
+    echo key    
+("1", "Telefondose")
+("2", "Steckdose")
+("3", "IP-Dose")
+("4", "KFZ-Dose")
+
+for cnt in orderItr ^LL("HAUS","ELEKTRIK","DOSEN", "").count:
+    echo cnt
+4
 ```
 
 ## str2zwr

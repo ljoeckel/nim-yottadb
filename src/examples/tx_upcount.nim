@@ -41,14 +41,10 @@ if isMainModule:
 
       # Wait for client's
       while clients > 0:
-        var (rc, gbl) = nextnode ^Pids
-        while rc == YDB_OK:
-          if 1 == data @gbl:
-            let pid = getvar @gbl.int
-            closeJob(pid)
-            killnode: @gbl
+        for pid in queryItr ^Pids.val:
+            closeJob(parseInt(pid))
+            killnode: ^Pids(pid)
             dec clients
-          (rc, gbl) = nextnode @gbl
         nimSleep(100)
       echo "All clients have stoped"
 
@@ -58,7 +54,7 @@ if isMainModule:
       echo "^CNT(restart)=", getvar @cntRestart
 
       var cnt = 0
-      for keys in nextKeys(cntData):
+      for keys in queryItr @cntData.keys:
         let txid = parseInt(keys[0])
         if txid - cnt == 1:
           cnt = txid

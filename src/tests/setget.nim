@@ -530,20 +530,18 @@ proc testCallMixIntStringInfix() =
     block:
         let gblexpct = @["^BENCHMARK3(0)","^BENCHMARK3(1)","^BENCHMARK3(1000)","^BENCHMARK3(1001)","^BENCHMARK3(2000)","^BENCHMARK3(2001)","^BENCHMARK3(X)"]
         var gbldb: seq[string]
-        var (rc, gbl) = nextsubscript ^BENCHMARK3
-        while rc == YDB_OK:
-          gbldb.add(gbl)
-          (rc, gbl) = nextsubscript @gbl
+        var gbl = order ^BENCHMARK3.key
+        while gbl != "":
+          gbldb.add(gbl) 
+          gbl = order @gbl.key
         assert gblexpct == gbldb
 
     block:
         var gblexpct = @["^BENCHMARK3(0)=0","^BENCHMARK3(0,0)=0","^BENCHMARK3(1)=1","^BENCHMARK3(1,1)=1","^BENCHMARK3(1000)=1000","^BENCHMARK3(1001)=1001","^BENCHMARK3(2000,0)=2000","^BENCHMARK3(2001,1)=2001","^BENCHMARK3(X,0)=0","^BENCHMARK3(X,1)=1"]
         var gbldb: seq[string]
-        var (rc, gbl) = nextnode ^BENCHMARK3
-        while rc == YDB_OK:
+        for gbl in queryItr ^BENCHMARK3:
             let s = gbl & "=" & getvar @gbl
             gbldb.add(s)
-            (rc, gbl) = nextnode @gbl
         assert gblexpct == gbldb
 
 proc testDefaults() =

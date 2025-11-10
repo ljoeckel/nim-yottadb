@@ -42,14 +42,10 @@ proc count_data(): int =
     node:Subscripts
     thm = initCountTable[char]()
 
-  (rc, node) = nextnode: ^YDB(node).seq
-  while rc == YDB_OK:
+  for (key, value) in queryItr ^YDB.kv:
     inc(cnt)
-    let val = getvar  ^YDB(node)
-    let tn = val[^1]
+    let tn = value[^1]
     thm.inc(tn)
-    # read next
-    (rc, node) = nextnode: ^YDB(node).seq
 
   echo "Count by thread: ", thm
   cnt
