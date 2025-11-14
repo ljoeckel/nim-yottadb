@@ -134,7 +134,7 @@ template processStmtList(body: NimNode) =
         raise newException(Exception, "Statement list needs ':' g.e. killnode: ^x(...) body.kind=" & $body.kind)
 
 
-proc getApiName(basename: string, args: var seq[NimNode]): string =
+func getApiName(basename: string, args: var seq[NimNode]): string =
   var keys, key, kv, count, reverse, value: bool
   while args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
     case  args[^1][1].strVal

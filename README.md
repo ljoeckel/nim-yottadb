@@ -27,17 +27,13 @@ The nim-yottadb implementation delievers the following features:
 
 ### Extensions to the Simple-API
 - Support for binary data > 1MB
-- Iterator for next/previous node
-- Iterator for next/previous subscript
+- [DSL](doc/dsl.md)
 - Indirection with @
 - YdbVar with $ and [] operator
 ```nim
 # Indirection
-let global = "^Geo"
-var (rc, global) = nextnode @global
-while rc == YDB_OK:
-    echo global # -> "^GEO("CH", "63010", 1)
-    (rc, global) = nextnode @global
+for node in queryItr ^GEO:
+    let value = getvar @node
     
 # YdbVar
 for i in 0..MAX:
@@ -46,94 +42,6 @@ for i in 0..MAX:
     v[] = "New " & v.value
     let val = $v # -> "New 0"
 ```
-### DSL
-The DSL allows to write programs with globals in very natural way.
-```nim
-  withlock(4711):
-    let id = @["4711", "Acc123"]
-    var amount = getvar  ^account(id).float
-    amount += 1500.0
-    setvar ^account(id) = amount # update db
-  echo "Done"
-  # lock automatically released here
-```
-To set an id for a global some different variants are available
-```nim
-setvar:
-  ^gbl(1)=1
-  ^gbl(1,1)=1.1
-  ^gbl("B")="..."
-  ^gbl("B","C")="..."
-  let (id1, id2, id3) = (4711, "CSTM", 1.0)
-  ^gbl(id1, id2, id3) = "....."
-  let subs: Subscripts = @["ACCNT", "4711", "1.1"]
-  ^gbl(subs)="...."
-```
-
-### Currently the following DSL is supported:
-- ### setvar: 
-```nim
-setvar: ^Customer(4711,"Name")="John Doe"
-```
-- increment:
-```nim
-let: int txid = increment ^CNT("TXID") # +1
-let: int csid = increment ^CNT("CSID", by=5) # +5
-```
-- ### getvar / .binary
-```nim
-let name = getvar  ^Customer(4711,"Name")
-let f: float = getvar  ^Customer(4711, accountId, transactionId, "amount").float
-let image = getvar ^images("folderA", 815).binary
-```
-- ### nextnode:
-```nim 
-  rc: int
-  node: Subscripts
-(rc, node) = nextnode: ^House("FLOOR")
-```
-- ### prevnode:
-```nim
-(rc, node) = prevnode: ^House("FLOOR", "9999")
-```
-- ### nextsubscript:
-```nim
-(rc, node) = nextsubscript: ^House("ELECTRIC")
-```
-- ### prevsubscript:
-```nim
-(rc, node) = prevsubscript: ^House("ELECTIRC", "CABLES")
-```
-- ### data:
-```nim
-let dta: int = data: ^House("FLOOR")
-'dta' can have the following values:
-enum YdbData:
-YDB_DATA_UNDEF = 0, # Node is undefined
-YDB_DATA_VALUE_NODESC = 1, # Node has a value but no descendants
-YDB_DATA_NOVALUE_DESC = 10, # Node has no value but has descendants
-YDB_DATA_VALUE_DESC = 11 # # Node has both value and descendants
-```
-- ### killnode:
-```nim
-killnode: ^House("FLOOR",1)
-```
-- ### kill:
-```nim
-kill: ^House("FLOOR")
-```
-- ### delexcl:
-```nim
-delexcl: { DELTEST1, DELTEST3, DELTEST5 }
-```
-- ### lock:
-```nim
-lock: { ^House("FLOOR", 11), ^House("FLOOR", 12) }
-lock: { lclvar, ^House("FLOOR"), timeout=1000000 }
-lock +^gblvar
-lock -lclvar
-```
-
 All API-Calls are available in a single- or multi-threaded version and ara automatically selected via the **when compileOption("threads")**
 
 ### No Maximum Record size

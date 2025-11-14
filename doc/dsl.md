@@ -57,11 +57,8 @@ let image = getvar ^images(4711).binary
 ## increment
 Atomic increment a global in the database
 ```nim
-let rc = killnode: ^CNT("TXID")
-var incrval = increment: ^CNT("TXID")
-assert 1 == incrval
-incrval = increment: ^CNT("TXID", by=10)
-assert 11 == incrval
+let incrval = increment: ^CNT("TXID")
+let c5 = increment: (^CNT("AUTO"), by=5)
 ```
 
 ## data
@@ -276,7 +273,7 @@ Read back data stored in the `str2zwr` format.
 The `str2zwr`and `zwr2str` methods are available for compatibility reasons only. For new applications there is no need. The database limit of 1MB for record size is no longer in effect. nim-yottadb handles larger record sizes up to 99_999_999 MB. The size is only limited due to memory constraints.
 In the future there will be a `stream-interface`to handle virtual unlimited record sizes.
 
-# 'get' with postfix
+# 'getvar' with postfix
 It is possible to enforce a type when getting data from YottaDB. By using a 'postfix' a expected type can be defined and tested.
 ```nim
 let i = getvar  ^global(1).int16

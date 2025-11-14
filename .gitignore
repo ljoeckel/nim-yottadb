@@ -67,3 +67,6 @@ src/tests/iterator
 src/bench
 src/examples/tx_upcount_thread
 m/bidwarsApi
+src/examples/global_editor
+src/tests/dsliterators
+src/tests/dsliterators
