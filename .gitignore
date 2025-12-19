@@ -11,6 +11,7 @@ nimble.paths
 client
 deepseek.nim
 deepseek
+dsliterators
 chatgpt/chatgpt
 examples/upcount
 yottadb_test
