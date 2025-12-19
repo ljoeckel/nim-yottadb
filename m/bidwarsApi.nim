@@ -71,11 +71,12 @@ proc Auction() =
         echo "Bid:       ", ydb_get(auction, @["1", "Total"])
         echo "Price:     ", ydb_get(auction, @["1", "Price"])
 
-        var (rc, subs) = ydb_subscript_next(auction, @["1", "Bidders", "Average", ""])
-        while rc == YDB_OK:
-            inc avgcnt
+        var pid = ydb_subscript_next(auction, @["1", "Bidders", "Average", ""])
+        while pid != "":
+            let subs = @["1", "Bidders", "Average", pid]
+            inc avgcnt 
             inc(sum, parseInt(ydb_get(auction, subs)))
-            (rc, subs) = ydb_subscript_next(auction, subs)
+            pid = ydb_subscript_next(auction, subs)
         if sum > 0:
             echo "Stats:     ", (sum div avgcnt), " microseconds per bid"
         nimSleep(100)
