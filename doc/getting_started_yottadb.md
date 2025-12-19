@@ -12,4 +12,11 @@ nimble install nimyottadb
 ```
 
 # Use
-wget https://github.com/ljoeckel/nim-yottadb/src/examples/sayHello.nim
+```bash
+wget https://raw.githubusercontent.com/ljoeckel/nim-yottadb/master/src/examples/sayHello.nim
+
+nim c -r --passL:"-L/usr/local/lib/yottadb/r203 -lyottadb" sayHello.nim
+````
+The --passL path points to the place where the libyottadb.so is installed. Depends on the YottaDB installation.
+This path needs also to be set in the LD_LIBRARY_PATH shell environment variable.
+
