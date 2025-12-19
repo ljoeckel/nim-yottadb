@@ -15,6 +15,7 @@ dsliterators
 chatgpt/chatgpt
 examples/upcount
 yottadb_test
+src/examples/sayHello
 src/examples/clientser
 src/examples/table_test
 src/examples/upcount
