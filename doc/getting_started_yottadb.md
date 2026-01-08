@@ -8,6 +8,8 @@ export PATH=„$HOME/.nimble/bin:$PATH"
 ```
 Install the 'nimyottadb' package:
 ```bash
+nimble install malebolgia
+nimble install bingo
 nimble install nimyottadb
 ```
 
