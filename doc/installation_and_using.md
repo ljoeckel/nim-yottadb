@@ -86,18 +86,21 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/yottadb/r202
 ```
 
 #### Install nimyottadb
-By now, nimyottadb is not yet in the [nimble.directory](https://nimble.directory/). So you can install with
 ```nim
-nimble install https://github.com/ljoeckel/nim-yottadb.git
+nimble install malebolgia
+nimble install bingo
+nimble install nimyottadb
 ```
 
 ### Create a nim-yottadb project
 - nimble init ydbtest
 - cd to ydbtest
-- Add file "nim.cfg" and add the following content:
+- Add file "nim.cfg" and add the following content where --passL should point to the path where yottadb is installed.
+:
 ```nim
 --mm:arc --threads:on --passL:"-L/usr/local/lib/yottadb/r202 -lyottadb"
 ```
+
 
 Create the sourcefile src/"hello.nim"
 ```nim
@@ -111,37 +114,34 @@ proc main() =
     ^CUSTOMER(2, "Name")="Jane Smith"
     ^CUSTOMER(2, "Email")="jane.smith.@yahoo.com"
 
-  echo "Iterate over all customers"
-  var (rc, subs) = nextsubscript: ^CUSTOMER()
-  while rc == YDB_OK:
-    let name = getvar  ^CUSTOMER(subs, "Name")
-    let email = getvar  ^CUSTOMER(subs, "Email")
-    echo fmt"Customer {subs[0]}: {name} <{email}>"
-    (rc, subs) = nextsubscript: ^CUSTOMER(subs) # Read next
+  echo "Iterate over all customer id's"
+  for id in orderItr(^CUSTOMER):
+    let name = getvar  ^CUSTOMER(id, "Name")
+    let email = getvar  ^CUSTOMER(id, "Email")
+    echo fmt"Customer {id}: {name} <{email}>"
 
   echo "Iterate over all nodes"
-  (rc, subs) = nextnode: ^CUSTOMER()
-  while rc == YDB_OK:
-    let value = getvar  ^CUSTOMER(subs)
-    echo fmt"Node {subs} = {value}"
-    (rc, subs) = nextnode: ^CUSTOMER(subs) # Read next
+  for node in queryItr ^CUSTOMER:
+    let value = getvar @node
+    echo fmt"{node}={value}"
 
 when isMainModule:
   main()
 ```
-compile with
+
+Compile with
 ```nim
 nim c -r src/hello.nim
 ````
 
-The output should look like:
+The output looks like:
 ```nim
-Iterate over all customers
+Iterate over all customer id's
 Customer 1: John Doe <john-doe.@gmail.com>
 Customer 2: Jane Smith <jane.smith.@yahoo.com>
 Iterate over all nodes
-Node @["1", "Email"] = john-doe.@gmail.com
-Node @["1", "Name"] = John Doe
-Node @["2", "Email"] = jane.smith.@yahoo.com
-Node @["2", "Name"] = Jane Smith
+^CUSTOMER(1,Email)=john-doe.@gmail.com
+^CUSTOMER(1,Name)=John Doe
+^CUSTOMER(2,Email)=jane.smith.@yahoo.com
+^CUSTOMER(2,Name)=Jane Smith
 ```
