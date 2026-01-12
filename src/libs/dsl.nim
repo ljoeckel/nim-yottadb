@@ -65,13 +65,13 @@ proc transform(node: NimNode, args: var seq[NimNode], attributes: seq[string] = 
             args.add(newLit(FIELDMARK))
     of nnkPrefix:
         if node.len > 1 and node[1].kind == nnkBracket and node[0].strVal == INDIRECTION:
-            # special handling when sequence in call.  ^gbl(@["abc",4711])
+            # Ignore '@'  ^gbl(@["abc",4711])
             discard
         else:
-            args.add(newLit(node[0].strVal))
+          args.add(newLit(node[0].strVal))
         transform(node[1], args, attributes)
     of nnkIdent, nnkInfix:
-        if args.len > 0 and args[0].strVal == INDIRECTION:
+        if args.len > 0 and (args[0].strVal == INDIRECTION or args[^1].strVal == INDIRECTION):
             args.add(node)
         else:
             args.add(newLit(node.strVal))
@@ -129,7 +129,7 @@ template processStmtList(body: NimNode) =
       else:
         for i in 0..<body.len:
             transform(body[i], args)
-            args.add(newLit(FIELDMARK))
+            if i < body.len-1: args.add(newLit(FIELDMARK))
     else:
         raise newException(Exception, "Statement list needs ':' g.e. killnode: ^x(...) body.kind=" & $body.kind)
 
@@ -338,7 +338,6 @@ func resolveSubscripts(arg: string): (string, seq[string]) =
 
 
 proc seqToYdbVar(args: varargs[string]): YdbVar =
-    #echo "seqToYdbVar args=", args
     if args.len == 1: # "^gbl", "var", ^gbl(2,"x",.) given as string
       let (name, subs) = resolveSubscripts(args[0]) 
       if subs.len > 0: # subscript given?

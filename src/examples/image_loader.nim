@@ -1,10 +1,9 @@
 import os
 import std/[times, strutils, strformat]
 import yottadb
-import ydbutils
 
 const
-    IMGNBR = "^CNT(image_number)"
+    ID = "^CNT(id)"
 
 proc walk(path: string): seq[string] =
     for kind, path in walkDir(path):
@@ -17,10 +16,10 @@ proc walk(path: string): seq[string] =
 proc saveImagesToDb(basedir: string): uint =
     var totalBytes: uint
     for image in walk(basedir):
-        let image_number = increment @IMGNBR
         let image_data = readFile(image)
         echo fmt"Save image {image} ({image_data.len} bytes) to db"
-        let gbl = fmt"^images({image_number})"
+        let id = increment @ID
+        let gbl = fmt"^images({id})"
         setvar:
             @gbl = image_data
             @gbl("path") = image
@@ -47,15 +46,11 @@ proc readImagesFromDb(target: string): uint =
     return totalBytes
 
 if isMainModule:
-    timed "kill ^images":
-        kill: 
-            ^images
-            @IMGNBR
+    kill:
+        ^images
+        @ID
 
-    timed "Load images to db":
-        var totalBytesWritten = saveImagesToDb("./images") # read from the folder and save in db
-
-    timed "Read from db and save in filesystem":
-        var totalBytesRead = readImagesFromDb("./images_fromdb") # read from db and save under this folder
-        echo "written=", totalBytesWritten, " read=", totalBytesRead
-        assert totalBytesRead == totalBytesWritten
+    var totalBytesWritten = saveImagesToDb("./images") # read from the folder and save in db
+    var totalBytesRead = readImagesFromDb("./images_fromdb") # read from db and save under this folder
+    echo "written=", totalBytesWritten, " read=", totalBytesRead, " images:", getvar @ID
+    assert totalBytesRead == totalBytesWritten
