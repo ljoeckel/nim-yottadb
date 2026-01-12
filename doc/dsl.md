@@ -225,31 +225,31 @@ for key in orderItr ^LL("HAUS","").key:
 ^LL(HAUS,HEIZUNG)
 
 for key in orderItr ^LL("HAUS", "ELEKTRIK", "DOSEN", "").key:
-    echo getvar @key
-Telefondose
-Steckdose
-IP-Dose
-KFZ-Dose
+    echo key, "=", getvar @key
+^LL(HAUS,ELEKTRIK,DOSEN,1)=Telefondose
+^LL(HAUS,ELEKTRIK,DOSEN,2)=Steckdose
+^LL(HAUS,ELEKTRIK,DOSEN,3)=IP-Dose
+^LL(HAUS,ELEKTRIK,DOSEN,4)=KFZ-Dose
 
-for key in orderItr ^LL("HAUS","").keys:
-    echo key 
+for subs in orderItr ^LL("HAUS","").keys:
+    echo subs 
 @["HAUS", "ELEKTRIK"]
 @["HAUS", "FLAECHEN"]
 @["HAUS", "HEIZUNG"]
 
-for key in orderItr ^LL("HAUS","ELEKTRIK","DOSEN", "").val:
-    echo key    
+for value in orderItr ^LL("HAUS","ELEKTRIK","DOSEN", "").val:
+    echo value    
 Telefondose
 Steckdose
 IP-Dose
 KFZ-Dose
 
-for key in orderItr ^LL("HAUS","ELEKTRIK","DOSEN", "").kv:
-    echo key    
-("1", "Telefondose")
-("2", "Steckdose")
-("3", "IP-Dose")
-("4", "KFZ-Dose")
+for key,value in orderItr ^LL("HAUS","ELEKTRIK","DOSEN", "").kv:
+    echo key,"=",value    
+1=Telefondose
+2=Steckdose
+3=IP-Dose
+4=KFZ-Dose
 
 for cnt in orderItr ^LL("HAUS","ELEKTRIK","DOSEN", "").count:
     echo cnt

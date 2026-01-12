@@ -1,4 +1,4 @@
-import std/[strutils, os, osproc, posix, streams, strformat, tables, times]
+import std/[strutils, os, osproc, posix, streams, strformat, tables, times, math]
 import yottadb
 
 # -----------------------
@@ -85,25 +85,29 @@ proc isLocked*(lock: int | float): bool =
 # -----------------------
 # Generic functions 
 # -----------------------
+func getDuration(microseconds: int): string =
+  if microseconds >= 1000: # 1ms
+    return $(microseconds div 1000) & " ms."
+  else:
+    return $microseconds & " µs."
 
 # timed: templates
 template timed_execute(body: untyped): auto =
   let t1 = getTime()
   body
-  let durationMs = (getTime() - t1).inMilliseconds
-  durationMs
+  (getTime() - t1).inMicroseconds
 
 template timed*(body: untyped) =
-  let durationMs = timed_execute: body
-  echo "Duration: ", durationMs," ms."
+  var micros = timed_execute: body
+  echo getDuration(micros)
 
 template timed*(info: string, body: untyped) =
-  let durationMs = timed_execute: body
-  echo $info & ": ", durationMs," ms."
+  let micros = timed_execute: body
+  echo getDuration(micros)
 
 template timed_ms*(body: untyped): auto =
-  let durationMs = timed_execute: body
-  durationMs
+  let micros = timed_execute: body
+  micros div 1000
 
 template timed_rc*(body: untyped): auto =
   ## Measure the execution time of the given body and return the body return code and the duration in ms.
