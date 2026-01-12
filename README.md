@@ -27,7 +27,8 @@ The nim-yottadb implementation delievers the following features:
 
 ### Extensions to the Simple-API
 - Support for binary data > 1MB
-- [DSL](doc/dsl.md)
+- [DSL](doc/dsl.md) (Domain Specific Language to simplify coding)
+- Iterators for 'query' and 'order'
 - Indirection with @
 - YdbVar with $ and [] operator
 ```nim
@@ -59,8 +60,11 @@ The processing of strings and binary data is also automatic.
 ### Sample to load / restore images into YottaDb
 ```nim
 import os
-import std/[times, strutils]
+import std/[times, strutils, strformat]
 import yottadb
+
+const
+    ID = "^CNT(id)"
 
 proc walk(path: string): seq[string] =
     for kind, path in walkDir(path):
@@ -70,15 +74,21 @@ proc walk(path: string): seq[string] =
         of pcDir, pcLinkToDir:
             result.add(walk(path))
 
-proc loadImagesToDb(basedir: string) =
+proc saveImagesToDb(basedir: string): uint =
+    var totalBytes: uint
     for image in walk(basedir):
-        let image_number = increment(^CNT("image_number"))
+        let image_data = readFile(image)
+        echo fmt"Save image {image} ({image_data.len} bytes) to db"
+        let id = increment @ID
+        let gbl = fmt"^images({id})"
         setvar:
-            ^images($image_number) = readFile(image)
-            ^images($image_number, "path") = image
-            ^images($image_number, "created") = now()
+            @gbl = image_data
+            @gbl("path") = image
+            @gbl("created") = now()
+        inc(totalBytes, image_data.len)
+    return totalBytes
 
-proc saveImage(targetvar  string, path: string, img: string) =
+proc saveImageToFilesystem(target:  string, path: string, img: string) =
     if not dirExists(target):
         createDir(target)
 
@@ -86,17 +96,25 @@ proc saveImage(targetvar  string, path: string, img: string) =
     let fullpath = target & "/" & filename
     writeFile(fullpath, img)
 
-proc readImagesFromDb(targetvar  string) =
-    var (rc, subs) = nextsubscript: ^images(@[""]) # -> @["223"], @["224"], ...
-    while rc == YDB_OK:
-        let img     = getvar ^images(subs).binary
-        let path    = getvar ^images(subs, "path")
-        saveImage(target, path, img)
-        (rc, subs) = nextsubscript: ^images(subs)
+proc readImagesFromDb(target: string): uint =
+    var totalBytes: uint
+    for key in orderItr ^images.key:
+        let img     = getvar @key.binary
+        let path    = getvar @key("path")
+        echo fmt"Read image {path} ({img.len} bytes)"
+        saveImageToFilesystem(target, path, img)
+        inc(totalBytes, img.len)
+    return totalBytes
 
 if isMainModule:
-    loadImagesToDb("./images") # read from the folder and save in db
-    readImagesFromDb("./images_fromdb") # read from db and save under this folder
+    kill:
+        ^images
+        @ID
+
+    var totalBytesWritten = saveImagesToDb("./images") # read from the folder and save in db
+    var totalBytesRead = readImagesFromDb("./images_fromdb") # read from db and save under this folder
+    echo "written=", totalBytesWritten, " read=", totalBytesRead, " images:", getvar @ID
+    assert totalBytesRead == totalBytesWritten
 ```
 
 ### More Info
