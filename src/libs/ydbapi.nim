@@ -5,48 +5,19 @@ import ydbimpl
 import libydb
 import bingo
 
-type ValueType = enum 
-  UNKNOWN,
-  ALPHA,
-  INTEGER,
-  FLOAT
+func keysToString*(subs: seq[string]): string {.inline.} =
+  if subs.len == 0: return ""
+  let last = subs.len - 1
+  for i, s in subs:
+    result.add(s)
+    if i < last: result.add(",")
 
-# ------- Helpers --------
-func classify(input: string): ValueType =
-  var numeric: bool
-  var numeric_float: bool
-  for c in input:
-    numeric = numeric and (c in {'0','1','2','3','4','5','6','7','8','9','.'})
-    if c == '.': numeric_float = true
-  if numeric_float and numeric: return ValueType.FLOAT
-  elif numeric: return ValueType.INTEGER
-  else: return ValueType.ALPHA
-
-
-func keysToString*(subscript: Subscripts): string =
-  for i, s in subscript:
-    let valueType = classify(s)
-    case valueType
-    of INTEGER:
-      let nmbr = parseInt(s)
-      result.add($nmbr)
-    of FLOAT:
-      let nmbr = parseFloat(s)
-      result.add($nmbr)
-    else:
-      result.add(s)
-
-    if i < subscript.len - 1:
-      result.add(",")
-
-
-func keysToString*(global: string, subscript: Subscripts): string =
+func keysToString*(global: string, subscript: Subscripts): string {.inline.} =
   result = global & "("
   result.add(keysToString(subscript))
   result.add(")")
 
-
-func keysToString*(global: string, subscript: Subscripts, value:string): string =
+func keysToString*(global: string, subscript: Subscripts, value:string): string {.inline.} =
   result = global & "("
   result.add(keysToString(subscript))
   result.add(")")
