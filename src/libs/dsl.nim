@@ -574,84 +574,128 @@ proc lockx*(args: varargs[string]) =
 # --------------------
 # Query Iterators
 # --------------------
+template walkNodes(nextProc: untyped, body: untyped) =
+  let ydbvar {.inject.} = seqToYdbVar(args)
+  var rc {.inject.}: int
+  var subs {.inject.}: seq[string]
+  (rc, subs) = nextProc(ydbvar.name, ydbvar.subscripts)
+  while rc == YDB_OK:
+    body
+    (rc, subs) = nextProc(ydbvar.name, subs)
 
 # returns ^global(key,..)
 iterator queryItrx*(args: varargs[string]): string =
-  let ydbvar = seqToYdbVar(args)
-  var (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
-  while rc == YDB_OK:
-      yield keysToString(ydbvar.name, subs)
-      (rc, subs) = ydb_node_next(ydbvar.name, subs)
+  walkNodes(ydb_node_next):
+    yield keysToString(ydbvar.name, subs)
 
 iterator queryItrxReverse*(args: varargs[string]): string =
-  let ydbvar = seqToYdbVar(args)
-  var (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
-  while rc == YDB_OK:
-      yield keysToString(ydbvar.name, subs)
-      (rc, subs) = ydb_node_previous(ydbvar.name, subs)
+  walkNodes(ydb_node_previous):
+    yield keysToString(ydbvar.name, subs)
 
 # returns @["1"], @["2"], ...
 iterator queryItrxKeys*(args: varargs[string]): seq[string] =
-    let ydbvar = seqToYdbVar(args)
-    var (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
-    while rc == YDB_OK:
-       yield subs
-       (rc, subs) = ydb_node_next(ydbvar.name, subs)
+  walkNodes(ydb_node_next):
+    yield subs
 
 iterator queryItrxKeysReverse*(args: varargs[string]): seq[string] =
-    let ydbvar = seqToYdbVar(args)
-    var (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
-    while rc == YDB_OK:
-       yield subs
-       (rc, subs) = ydb_node_previous(ydbvar.name, subs)
+  walkNodes(ydb_node_previous):
+    yield subs
 
 iterator queryItrxKv*(args: varargs[string]): (string, string) =
-    let ydbvar = seqToYdbVar(args)
-    var (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
-    while rc == YDB_OK:
-       let value = ydb_get(ydbvar.name, subs)
-       yield (keysToString(ydbvar.name, subs), value)
-       (rc, subs) = ydb_node_next(ydbvar.name, subs)
+  walkNodes(ydb_node_next):
+    yield (keysToString(ydbvar.name, subs), ydb_get(ydbvar.name, subs))
 
 iterator queryItrxKvReverse*(args: varargs[string]): (string, string) =
-    let ydbvar = seqToYdbVar(args)
-    var (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
-    while rc == YDB_OK:
-       let value = ydb_get(ydbvar.name, subs)
-       yield (keysToString(ydbvar.name, subs), value)
-       (rc, subs) = ydb_node_previous(ydbvar.name, subs)
+  walkNodes(ydb_node_previous):
+    yield (keysToString(ydbvar.name, subs), ydb_get(ydbvar.name, subs))
 
 iterator queryItrxValue*(args: varargs[string]): string =
-    let ydbvar = seqToYdbVar(args)
-    var (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
-    while rc == YDB_OK:
-       yield ydb_get(ydbvar.name, subs)
-       (rc, subs) = ydb_node_next(ydbvar.name, subs)
+  walkNodes(ydb_node_next):
+    yield ydb_get(ydbvar.name, subs)
 
 iterator queryItrxValueReverse*(args: varargs[string]): string =
-    let ydbvar = seqToYdbVar(args)
-    var (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
-    while rc == YDB_OK:
-       yield ydb_get(ydbvar.name, subs)
-       (rc, subs) = ydb_node_previous(ydbvar.name, subs)
+  walkNodes(ydb_node_previous):
+    yield ydb_get(ydbvar.name, subs)
 
 iterator queryItrxCount*(args: varargs[string]): int =
   var cnt = 0
-  let ydbvar = seqToYdbVar(args)
-  var (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
-  while rc == YDB_OK:
+  walkNodes(ydb_node_next):
     inc cnt
-    (rc, subs) = ydb_node_next(ydbvar.name, subs)
   yield cnt
 
 iterator queryItrxCountReverse*(args: varargs[string]): int =
   var cnt = 0
-  let ydbvar = seqToYdbVar(args)
-  var (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
-  while rc == YDB_OK:
+  walkNodes(ydb_node_previous):
     inc cnt
-    (rc, subs) = ydb_node_previous(ydbvar.name, subs)
   yield cnt
+
+
+# --------------------
+# Order Iterators
+# --------------------
+template walkOrderNodes(nextProc: untyped, body: untyped) =
+  let ydbvar {.inject.} = seqToYdbVar(args)
+  var subs {.inject.} = ydbvar.subscripts
+  var key {.inject.} = nextProc(ydbvar.name, ydbvar.subscripts)
+  while key.len > 0:
+    if subs.len > 0: subs[^1] = key
+    else: subs.add(key)
+    body
+    key = nextProc(ydbvar.name, subs)
+
+# returns ^global(key,..)
+iterator orderItrx*(args: varargs[string]): string =
+  walkOrderNodes(ydb_subscript_next):
+    yield key
+
+iterator orderItrxReverse*(args: varargs[string]): string =
+  walkOrderNodes(ydb_subscript_previous):
+    yield key
+
+iterator orderItrxKeys*(args: varargs[string]): seq[string] =
+  walkOrderNodes(ydb_subscript_next):
+    yield subs
+
+iterator orderItrxKeysReverse*(args: varargs[string]): seq[string] =
+  walkOrderNodes(ydb_subscript_previous):
+    yield subs
+
+iterator orderItrxValue*(args: varargs[string]): string =
+  walkOrderNodes(ydb_subscript_next):
+    yield ydb_get(ydbvar.name, subs)
+
+iterator orderItrxValueReverse*(args: varargs[string]): string =
+  walkOrderNodes(ydb_subscript_previous):
+    yield ydb_get(ydbvar.name, subs)
+
+iterator orderItrxKv*(args: varargs[string]): (string, string) =
+  walkOrderNodes(ydb_subscript_next):
+    yield (key, ydb_get(ydbvar.name, subs))
+
+iterator orderItrxKvReverse*(args: varargs[string]): (string, string) =
+  walkOrderNodes(ydb_subscript_previous):
+    yield (key, ydb_get(ydbvar.name, subs))
+
+iterator orderItrxKey*(args: varargs[string]): string =
+  walkOrderNodes(ydb_subscript_next):
+    yield keysToString(ydbvar.name, subs)
+
+iterator orderItrxKeyReverse*(args: varargs[string]): string =
+  walkOrderNodes(ydb_subscript_previous):
+    yield keysToString(ydbvar.name, subs)
+
+iterator orderItrxCount*(args: varargs[string]): int =
+  var cnt = 0
+  walkOrderNodes(ydb_subscript_next):
+    inc cnt
+  yield cnt
+
+iterator orderItrxCountReverse*(args: varargs[string]): int =
+  var cnt = 0
+  walkOrderNodes(ydb_subscript_previous):
+    inc cnt
+  yield cnt
+
 
 # --------------------
 # Query procs
@@ -721,161 +765,6 @@ proc queryxKvReverse*(args: varargs[string]): (string, string) =
   else:
     return (EMPTY_STRING, EMPTY_STRING)
 
-
-# --------------------
-# Order Iterators
-# --------------------
-
-# returns ^global(key,..)
-iterator orderItrx*(args: varargs[string]): string =
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_next(ydbvar.name, subs)
-  while key.len > 0:
-      yield key
-      if subs.len == 0: subs.add(key)
-      else: subs[^1] = key
-      key = ydb_subscript_next(ydbvar.name, subs)
-
-iterator orderItrxReverse*(args: varargs[string]): string =
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_previous(ydbvar.name, subs)
-  while key.len > 0:
-      yield key
-      if subs.len == 0: subs.add(key)
-      else: subs[^1] = key
-      key = ydb_subscript_previous(ydbvar.name, subs)
-
-
-iterator orderItrxKeys*(args: varargs[string]): seq[string] =
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_next(ydbvar.name, subs)
-  while key.len > 0:
-      if subs.len > 0:
-        subs[^1] = key
-      else:
-        subs.add(key)
-      yield subs
-      key = ydb_subscript_next(ydbvar.name, subs)
-
-
-iterator orderItrxKeysReverse*(args: varargs[string]): seq[string] =
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_previous(ydbvar.name, subs)
-  while key.len > 0:
-      if subs.len > 0:
-        subs[^1] = key
-      else:
-        subs.add(key)
-      yield subs
-      key = ydb_subscript_previous(ydbvar.name, subs)
-
-
-iterator orderItrxValue*(args: varargs[string]): string =
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_next(ydbvar.name, subs)
-  while key.len > 0:
-      if subs.len > 0:
-        subs[^1] = key
-      else:
-        subs.add(key)
-      yield ydb_get(ydbvar.name, subs)
-      key = ydb_subscript_next(ydbvar.name, subs)
-
-iterator orderItrxValueReverse*(args: varargs[string]): string =
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_previous(ydbvar.name, subs)
-  while key.len > 0:
-      if subs.len > 0:
-        subs[^1] = key
-      else:
-        subs.add(key)
-      yield ydb_get(ydbvar.name, subs)
-      key = ydb_subscript_previous(ydbvar.name, subs)
-
-iterator orderItrxKv*(args: varargs[string]): (string, string) =
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_next(ydbvar.name, subs)
-  while key.len > 0:
-      if subs.len > 0:
-        subs[^1] = key
-      else:
-        subs.add(key)
-      let value = ydb_get(ydbvar.name, subs)
-      yield (key, value)
-      key = ydb_subscript_next(ydbvar.name, subs)
-
-iterator orderItrxKey*(args: varargs[string]): string =
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_next(ydbvar.name, subs)
-  while key.len > 0:
-      if subs.len > 0:
-        subs[^1] = key
-      else:
-        subs.add(key)
-      yield keysToString(ydbvar.name, subs)
-      key = ydb_subscript_next(ydbvar.name, subs)
-
-
-iterator orderItrxKvReverse*(args: varargs[string]): (string, string) =
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_previous(ydbvar.name, subs)
-  while key.len > 0:
-      if subs.len > 0:
-        subs[^1] = key
-      else:
-        subs.add(key)
-      let value = ydb_get(ydbvar.name, subs)
-      yield (key, value)
-      key = ydb_subscript_previous(ydbvar.name, subs)
-
-
-iterator orderItrxCount*(args: varargs[string]): int =
-  var cnt = 0
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_next(ydbvar.name, subs)
-  while key.len > 0:
-      inc cnt
-      if subs.len > 0:
-        subs[^1] = key
-      else:
-        subs.add(key)
-      key = ydb_subscript_next(ydbvar.name, subs)
-  yield cnt
-
-iterator orderItrxCountReverse*(args: varargs[string]): int =
-  var cnt = 0
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_previous(ydbvar.name, subs)
-  while key.len > 0:
-      inc cnt
-      if subs.len > 0:
-        subs[^1] = key
-      else:
-        subs.add(key)
-      key = ydb_subscript_previous(ydbvar.name, subs)
-  yield cnt
 
 
 # --------------------
