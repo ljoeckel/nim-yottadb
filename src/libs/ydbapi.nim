@@ -51,13 +51,6 @@ func stringToSeq*(subs: Subscripts): Subscripts =
     for sub in subs:
         result.add(stringToSeq(sub))
 
-func keyToSeq*(s: string): seq[string] =
-  # return the keys for a given global ^xy(1,2,3) -> @["1", "2", "3"]
-  let pos = s.find("(")
-  if pos > 0:
-    let pos2 = s.find(")")
-    if pos > 0:
-      result = stringToSeq(s[pos+1..pos2-1])
 
 proc ydbMessage*(status: cint): string =
   ydbMessage_db(status)

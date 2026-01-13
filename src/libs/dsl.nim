@@ -54,7 +54,7 @@ template transformCallNode(node: NimNode) =
         raise newException(Exception, "transformCallNode: node.kind:" & $node.kind & " not supported! node=" & repr(node))
 
 
-proc transform(node: NimNode, args: var seq[NimNode], attributes: seq[string] = @[]) =
+func transform(node: NimNode, args: var seq[NimNode], attributes: seq[string] = @[]) =
     case node.kind
     of nnkStmtList, nnkTupleConstr:
         for i in 0..<node.len:
@@ -337,7 +337,7 @@ func resolveSubscripts(arg: string): (string, seq[string]) =
   return (name, subs)
 
 
-proc seqToYdbVar(args: varargs[string]): YdbVar =
+func seqToYdbVar(args: varargs[string]): YdbVar =
     if args.len == 1: # "^gbl", "var", ^gbl(2,"x",.) given as string
       let (name, subs) = resolveSubscripts(args[0]) 
       if subs.len > 0: # subscript given?
