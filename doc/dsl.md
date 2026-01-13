@@ -322,3 +322,37 @@ It is important to use an empty bracket ().
 ```nim
   setvar: $ZMAXTPTIME()="2"
 ```
+
+# Transactions
+Transactions exists in two forms, single- and multithreaded.
+For single-threaded Transactions you write:
+```nim
+let rc = Transaction:
+  setvar: ^AAA(1) = "transaction1"
+```
+If the transaction succeeds, 'rc' is YDB_OK, otherwise YDB_TP_RESTART is returned.
+
+For multi-threaded applications you write:
+```nim
+let rc = TransactionMT("4711"):
+    let dta = $cast[cstring](param)
+    ydb_set("^AAA", @["2", dta], "transaction2, tptoken)
+```
+It is important to append the 'tptoken' parameter at the end. Otherwise YottaDB would block the call and the process is hanging.
+
+Inside the body you have access to the parameters that YottaDB passes over:
+  - tptoken:  uint64,
+  - errstr: ptr struct_ydb_buffer_t,
+  - param: pointer
+
+For both (single/multi-threaded) forms you can pass a single parameter which needs to be casted approbiate.
+For example passing a string parameter will be passed from YottaDB as cstring:
+```nim
+let str = $cast[cstring](param)
+```
+There is no limit in 'Transaction' statements within the code. Each 'Transaction' is commited automatically at the end of the code scope.
+
+Currently, the 'TransactionMT' does not support the DSL statements like 'setvar'. Instead you have to use the API form (ydb_set). This will be changed in future. 
+In the single-threaded form 'Transaction' you can freely use any DSL statements.
+
+To understand how YottaDB handles multi-threaded Transactions it is important to read their documents. (https://docs.yottadb.com/MultiLangProgGuide/programmingnotes.html#threads-txn-proc)

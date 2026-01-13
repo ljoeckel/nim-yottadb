@@ -66,3 +66,4 @@ src/tests/yottadb_test_threaded
 src/tests/zwr
 .vscode
 yottadb_test
+src/tests/transaction

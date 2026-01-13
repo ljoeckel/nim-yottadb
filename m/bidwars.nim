@@ -131,7 +131,7 @@ proc Bidder() =
     var count, avg = 0
     var then = getTime()
     while (getvar @auction("Active")) == "Yes":
-        let rc = Transaction2: # place bid
+        let rc = Transaction: # place bid
             let first = (pid == getvar @auction("Leader"))
             if not first:
                 let price = getvar @auction("Price").int
@@ -149,7 +149,7 @@ proc Bidder() =
         setvar: @auction("Bidders", "Average", pid) = avg    
         then = now
 
-    rc = Transaction3:
+    rc = Transaction:
         discard increment (@auction("Bidders"), by=(-1))
 
 if isMainModule:

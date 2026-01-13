@@ -21,12 +21,15 @@ proc worker(tn: int, iterations: int) =
   for cnt in 0..<ITERATIONS:
     # Save data
     let rc = TransactionMT($tn):
-      let tptoken = tptoken
+      # Params set by YottaDB when calling the transaction callback
+      # tptoken {.inject.} : uint64,
+      # errstr {.inject.} : ptr struct_ydb_buffer_t,
+      # param {.inject.} : pointer
       let tn = $cast[cstring](param)
       let txid = ydb_increment("^CNT", @["UPCOUNT"], 1, tptoken)
-      ydb_set("^CNT", @[$txid, tn], $txid, tptoken)
+      ydb_set("^CNT", @[$txid, tn], $txid & "-" & $tptoken, tptoken)
       if txid mod 100000 == 0:
-        echo "txid=", txid
+        echo "txid=", txid, " tptoken:", tptoken
 
 when isMainModule:
   var m = createMaster()
