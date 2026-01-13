@@ -44,7 +44,7 @@ proc worker(tn: int, iterations: int) =
       ydb_set(GLOBAL, @[$txid, $tnr], $data, tptoken)
     
     if rc == YDB_OK:
-      let rc = TransactionMT1($tn & "," & $ms):
+      let rc = TransactionMT($tn & "," & $ms):
         let info = $cast[cstring](param)
         let tn = info.split(",")[0]
         let ms = info.split(",")[1]

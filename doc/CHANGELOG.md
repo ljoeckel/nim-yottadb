@@ -1,3 +1,9 @@
+# Changelog for version 0.4.2
+- The transaction macros have been refactored and simplified
+- There is no longer a need to number transaction (Transaction1, TransactionMT1)
+- The code for query/order iterators has been refactored and simplified
+- Bugfix #42 (kill: ^gbl, @gbl) Mixed Global's with Indirections
+- Some code refactorings
 # Changelog for version 0.4.0
 - Upgrade YottaDB to version 2.03
 - Added TransactionMT templates for use in multi-threaded applications

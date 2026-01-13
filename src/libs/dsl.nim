@@ -875,201 +875,66 @@ proc setx*(args: varargs[string]) =
 
 
 # --------------------------------
-# Transaction Macros / Templates
+# Transaction Macros
 # --------------------------------
-macro tximpl*(name: string, body: untyped): untyped =
-  let nameStr =
-    if name.kind == nnkStrLit: name.strVal else: $name
-  let procName = newIdentNode("" & nameStr)
 
-  # Build the procedure definition
-  result = nnkStmtList.newTree(
-    nnkProcDef.newTree(
-      procName,
-      newEmptyNode(),
-      newEmptyNode(),
-      nnkFormalParams.newTree(
-        newIdentNode("cint"),
-        nnkIdentDefs.newTree(
-          newIdentNode("param"),
-          newIdentNode("pointer"),
-          newEmptyNode()
-        )
-      ),
-      nnkPragma.newTree(newIdentNode("cdecl")),
-      newEmptyNode(),
-      nnkStmtList.newTree(
-        quote do:
-          try:
-            `body`
-          except:
-            return YDB_TP_RESTART
-          return YDB_OK
-      )
-    ),
-  )
-  
+macro Transaction*(body: untyped): untyped =
+  let fn = genSym(nskProc, "tx")
+  result = quote do:
+    proc `fn`(param: pointer): cint {.cdecl.} =
+      try:
+        `body`
+      except:
+        return YDB_TP_RESTART
+      return YDB_OK
 
-macro tximplMT*(name: string, body: untyped): untyped =
-  let nameStr =
-    if name.kind == nnkStrLit: name.strVal else: $name
-  let procName = newIdentNode("" & nameStr)
-
-  # Build the procedure definition
-  #YDB_tp2fnptr_t* = proc (tptoken: uint64, buff: ptr struct_ydb_buffer_t, param: pointer): cint {.cdecl, gcsafe.}
-  result = nnkStmtList.newTree(
-    nnkProcDef.newTree(
-      procName,
-      newEmptyNode(),
-      newEmptyNode(),
-      nnkFormalParams.newTree(
-        newIdentNode("cint"),
-        nnkIdentDefs.newTree(
-          newIdentNode("tptoken"),
-          newIdentNode("uint64"),
-          newEmptyNode()
-        ),
-        nnkIdentDefs.newTree(
-          newIdentNode("errstr"),
-          nnkPtrTy.newTree(newIdentNode("struct_ydb_buffer_t")),
-          newEmptyNode()
-        ),
-        nnkIdentDefs.newTree(
-          newIdentNode("param"),
-          newIdentNode("pointer"),
-          newEmptyNode()
-        )
-      ),
-      nnkPragma.newTree(newIdentNode("cdecl")),
-      newEmptyNode(),
-      nnkStmtList.newTree(
-        quote do:
-          try:
-            `body`
-          except:
-            return YDB_TP_RESTART
-          return YDB_OK
-      )
-    ),
-  )
-  
-template TransactionMT*(body: untyped): untyped =
-  tximplMT("TXMT"):
-    body
-  ydb_tp_mt(TXMT, "")
-
-template TransactionMT*(param: string, body: untyped): untyped =
-  tximplMT("TXMTP"):
-    body
-  ydb_tp_mt(TXMTP, param)
-
-template TransactionMT1*(body: untyped): untyped =
-  tximplMT("TXMT1"):
-    body
-  ydb_tp_mt(TXMT1, "")
-
-template TransactionMT1*(param: string, body: untyped): untyped =
-  tximplMT("TXMTP1"):
-    body
-  ydb_tp_mt(TXMTP1, param)
-
-template TransactionMT2*(body: untyped): untyped =
-  tximplMT("TXMT2"):
-    body
-  ydb_tp_mt(TXMT2, "")
-
-template TransactionMT2*(param: string, body: untyped): untyped =
-  tximplMT("TXMTP2"):
-    body
-  ydb_tp_mt(TXMTP2, param)
-
-template TransactionMT3*(body: untyped): untyped =
-  tximplMT("TXMT3"):
-    body
-  ydb_tp_mt(TXMT3, "")
-
-template TransactionMT3*(param: string, body: untyped): untyped =
-  tximplMT("TXMTP3"):
-    body
-  ydb_tp_mt(TXMTP3, param)
-
-template TransactionMT4*(body: untyped): untyped =
-  tximplMT("TXMT4"):
-    body
-  ydb_tp_mt(TXMT4, "")
-
-template TransactionMT4*(param: string, body: untyped): untyped =
-  tximplMT("TXMTP4"):
-    body
-  ydb_tp_mt(TXMTP4, param)
-
-template TransactionMT5*(body: untyped): untyped =
-  tximplMT("TXMT5"):
-    body
-  ydb_tp_mt(TXMT5, "")
-
-template TransactionMT5*(param: string, body: untyped): untyped =
-  tximplMT("TXMTP5"):
-    body
-  ydb_tp_mt(TXMTP5, param)
+    ydb_tp(`fn`, "")
 
 
-template Transaction*(body: untyped): untyped =
-  tximpl("TX"):
-    body
-  ydb_tp(TX, "")
+macro Transaction*(param: string, body: untyped): untyped =
+  let fn = genSym(nskProc, "tx")
+  result = quote do:
+    proc `fn`(param: pointer): cint {.cdecl.} =
+      try:
+        `body`
+      except:
+        return YDB_TP_RESTART
+      return YDB_OK
 
-template Transaction*(param: string, body: untyped): untyped =
-  tximpl("TXP"):
-    body
-  ydb_tp(TXP, param)
+    ydb_tp(`fn`, `param`)
 
-template Transaction1*(body: untyped): untyped =
-  tximpl("TX1"):
-    body
-  ydb_tp(TX1, "")
 
-template Transaction1*(param: string, body: untyped): untyped =
-  tximpl("TX1P"):
-    body
-  ydb_tp(TX1P, param)
+macro TransactionMT*(body: untyped): untyped =
+  let fn = genSym(nskProc, "txmt")
 
-template Transaction2*(body: untyped): untyped =
-  tximpl("TX2"):
-    body
-  ydb_tp(TX2, "")
+  result = quote do:
+    proc `fn`(
+      tptoken {.inject.} : uint64,
+      errstr {.inject.} : ptr struct_ydb_buffer_t,
+      param {.inject.} : pointer
+    ): cint {.cdecl.} =
+      try:
+        `body`
+      except:
+        return YDB_TP_RESTART
+      return YDB_OK
 
-template Transaction2*(param: string, body: untyped): untyped =
-  tximpl("TX2P"):
-    body
-  ydb_tp(TX2P, param)
+    ydb_tp_mt(`fn`, "")
 
-template Transaction3*(body: untyped): untyped =
-  tximpl("TX3"):
-    body
-  ydb_tp(TX3, "")
 
-template Transaction3*(param: string, body: untyped): untyped =
-  tximpl("TX3P"):
-    body
-  ydb_tp(TX3P, param)
+macro TransactionMT*(param: string, body: untyped): untyped =
+  let fn = genSym(nskProc, "txmt")
 
-template Transaction4*(body: untyped): untyped =
-  tximpl("TX4"):
-    body
-  ydb_tp(TX4, "")
+  result = quote do:
+    proc `fn`(
+      tptoken {.inject.} : uint64,
+      errstr {.inject.} : ptr struct_ydb_buffer_t,
+      param {.inject.} : pointer
+    ): cint {.cdecl.} =
+      try:
+        `body`
+      except:
+        return YDB_TP_RESTART
+      return YDB_OK
 
-template Transaction4*(param: string, body: untyped): untyped =
-  tximpl("TX4P"):
-    body
-  ydb_tp(TX4P, param)
-
-template Transaction5*(body: untyped): untyped =
-  tximpl("TX5"):
-    body
-  ydb_tp(TX5, "")
-
-template Transaction5*(param: string, body: untyped): untyped =
-  tximpl("TX5P"):
-    body
-  ydb_tp(TX5P, param)
+    ydb_tp_mt(`fn`, `param`)
