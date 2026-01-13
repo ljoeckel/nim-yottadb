@@ -71,7 +71,7 @@ task test, "Run nimyottadb unittests":
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test_threaded.nim"
 
 task examples, "Compile the example apps":
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/benchmark"
+  exec "nim c -r -d:release -d:danger --hints:off --verbosity:0 --threads:off src/examples/benchmark"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/serialization/clientser"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/hello_customer"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/tx"
@@ -80,4 +80,4 @@ task examples, "Compile the example apps":
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:on src/examples/tx_upcount_thread"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:on src/examples/ydbSet_thread"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/image_loader"
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/3n1/solver"
+  exec "nim c -r -d:release -d:danger --hints:off --verbosity:0 --threads:off src/3n1/solver"
