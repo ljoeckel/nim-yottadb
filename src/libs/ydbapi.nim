@@ -1,4 +1,4 @@
-import std/[strutils, os, osproc, streams]
+import std/[os, osproc, streams]
 import pegs
 import ydbtypes
 import ydbimpl
@@ -21,7 +21,7 @@ func keysToString*(global: string, subscript: Subscripts, value:string): string 
   result = global & "("
   result.add(keysToString(subscript))
   result.add(")")
-  if not value.isEmptyOrWhitespace:
+  if value.len > 0:
     result.add("=" & value)
 
 func stringToSeq*(s: string): Subscripts =
@@ -150,14 +150,14 @@ proc ydb_ci*(name: string, tptoken: uint64 = 0) =
 # ------------------ YdbVar ----------------
 
 proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = "", tptoken: uint64 = 0): YdbVar =
-  if global.isEmptyOrWhitespace: raise newException(YdbError, "Empty 'global' param")
+  if global.len == 0: raise newException(YdbError, "Empty 'global' param")
 
   result.name = global
   result.subscripts = subscripts
   result.value = value
   result.tptoken = tptoken
   # Read from / or write to DB
-  if value.isEmptyOrWhitespace:
+  if value.len == 0:
     result.value = ydb_get(result.name, result.subscripts, result.tptoken)
   else:
     ydb_set(result.name, result.subscripts, result.value, result.tptoken)
@@ -225,7 +225,7 @@ proc subscriptsToValue*(global: string, subscript: Subscripts): string =
     value = ydb_get(global, subscript)
   except:
     discard
-  if value.isEmptyOrWhitespace:
+  if value.len == 0:
     result = keysToString(global, subscript)
   else:
     result = keysToString(global, subscript) & "=" & value

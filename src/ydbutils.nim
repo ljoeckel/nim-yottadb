@@ -48,7 +48,7 @@ proc getGlobals*(): seq[string] =
         let names = line.split('^')
         for name in names:
             let s = name.strip()
-            if not s.isEmptyOrWhitespace:
+            if s.len > 0:
                 result.add("^" & s)
 
     discard waitForExit(p)  # Wait until process finishes
@@ -208,6 +208,6 @@ proc printLogs*() =
   for log in getLogs("."):
     let logFile = open(log, fmRead)
     let s = logFile.readAll()
-    if not s.isEmptyOrWhitespace():
+    if s.len > 0:
       echo "log: ", log, " ", s
     logFile.close()
