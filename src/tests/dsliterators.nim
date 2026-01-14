@@ -1,6 +1,5 @@
 import yottadb
 import ydbutils
-import strutils
 
 const 
     ITER = 10

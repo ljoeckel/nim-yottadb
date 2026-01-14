@@ -1,9 +1,9 @@
-import std/[times, os, unittest, strutils]
+import std/[times, os, unittest]
 import yottadb
 
 proc test_ydb_ci() =
   let ydb_ci = getEnv("ydb_ci")
-  if ydb_ci.isEmptyOrWhitespace:
+  if ydb_ci.len == 0:
     echo "Could not find environment variable 'ydb_ci' to set the callin table. *** Test ignored ***"
     return
   if not fileExists(ydb_ci):

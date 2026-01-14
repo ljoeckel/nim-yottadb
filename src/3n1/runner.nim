@@ -4,7 +4,7 @@ import ydbutils
 
 proc runSolver*(fromN: int, toN: int, clean: bool = false, verify: bool = false) =
     let solver = findExe("./solver")
-    if solver.isEmptyOrWhitespace():
+    if solver.len == 0:
         raise newException(IOError, "'solver' binary not found")
     else:
         if execCmd("./solver --from=" & $fromN & " --to=" & $toN &  " --clean=" & $clean & " --verify=" & $verify) != 0:
