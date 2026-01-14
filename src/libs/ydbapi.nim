@@ -52,8 +52,8 @@ func stringToSeq*(subs: Subscripts): Subscripts =
         result.add(stringToSeq(sub))
 
 
-proc ydbMessage*(status: cint): string =
-  ydbMessage_db(status)
+proc ydbMessage*(status: cint, tptoken: uint64 = 0): string =
+  ydbMessage_db(status, tptoken)
 
 
 proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "", tptoken: uint64 = 0) =
@@ -89,11 +89,17 @@ proc ydb_increment*(name: string, keys: Subscripts, increment: int = 1, tptoken:
 
 
 proc ydb_tp_mt*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string = "", transid: string = ""): int =
-  result = ydb_tp2_start(myTxnProc, param, transid)
+  ydb_tp2_start(myTxnProc, param, transid)
+
+proc ydb_tp_mt*[T: YDB_tp2fnptr_t](myTxnProc: T, param: int, transid: string = ""): int =
+  ydb_tp2_start(myTxnProc, param, transid)
 
 
 proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: string = "", transid: string = ""): int =
-  result = ydb_tp_start(myTxnProc, param, transid)
+  ydb_tp_start(myTxnProc, param, transid)
+
+proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: int, transid: string = ""): int =
+  ydb_tp_start(myTxnProc, param, transid)
 
 
 # ------------------ Next/Previous Node -----------------

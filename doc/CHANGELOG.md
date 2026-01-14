@@ -1,6 +1,7 @@
 # Changelog for version 0.4.2
 - The transaction macros have been refactored and simplified
-- There is no longer a need to number transaction (Transaction1, TransactionMT1)
+- There is no longer a need to number transactions (Transaction1, TransactionMT1)
+  'Transaction' handles now both, single- and multi-threaded transactions
 - The code for query/order iterators has been refactored and simplified
 - Bugfix #42 (kill: ^gbl, @gbl) Mixed Global's with Indirections
 - Some code refactorings

@@ -20,7 +20,7 @@ proc worker(tn: int, iterations: int) =
 
   for cnt in 0..<ITERATIONS:
     # Save data
-    let rc = TransactionMT($tn):
+    let rc = Transaction($tn):
       # Params set by YottaDB when calling the transaction callback
       # tptoken {.inject.} : uint64,
       # errstr {.inject.} : ptr struct_ydb_buffer_t,
