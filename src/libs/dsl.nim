@@ -878,63 +878,79 @@ proc setx*(args: varargs[string]) =
 # Transaction Macros
 # --------------------------------
 
-macro Transaction*(body: untyped): untyped =
+proc forbidRedeclare(body: NimNode; names: openArray[string]) =
+  for n in body:
+    if n.kind in {nnkVarSection, nnkLetSection}:
+      for def in n:
+        let ident = $def[0]
+        if ident in names:
+          error("Illegal redeclaration of injected symbol '" & ident & "'", def)
+    forbidRedeclare(n, names)
+
+
+macro transactionImpl(param: untyped, body: untyped): untyped =
+  var isMT:bool
+  when compileOption("threads"): isMT = true
+
   let fn = genSym(nskProc, "tx")
-  result = quote do:
-    proc `fn`(param: pointer): cint {.cdecl.} =
-      try:
-        `body`
-      except:
-        return YDB_TP_RESTART
-      return YDB_OK
 
-    ydb_tp(`fn`, "")
+  # Symbols visible inside body
+  let forbidden =
+    if isMT:
+      @["tptoken", "param", "errstr"]
+    else:
+      @["param"]
 
+  forbidRedeclare(body, forbidden)
 
-macro Transaction*(param: string, body: untyped): untyped =
-  let fn = genSym(nskProc, "tx")
-  result = quote do:
-    proc `fn`(param: pointer): cint {.cdecl.} =
-      try:
-        `body`
-      except:
-        return YDB_TP_RESTART
-      return YDB_OK
+  if isMT:
+    result = quote do:
+      proc `fn`(
+        tptoken {.inject.}: uint64,
+        errstr  {.inject.}: ptr struct_ydb_buffer_t,
+        param   {.inject.}: pointer
+      ): cint {.cdecl, gcsafe, raises: [].} =
+        ## Injected symbols:
+        ##   tptoken : uint64
+        ##   errstr  : ptr struct_ydb_buffer_t
+        ##   param   : pointer
+        try:
+          `body`
+        except:
+          try:
+            let restarted = parseInt(ydb_get("$TRESTART", tptoken=tptoken)) # How many times the proc was called from yottadb
+            if restarted >= 4: 
+              return YDB_TP_ROLLBACK
+          except:
+            echo "Could not parse $TRESTART"
+            return YDB_TP_ROLLBACK
+          return YDB_TP_RESTART
+        return YDB_OK
+      ydb_tp_mt(`fn`, `param`)
+     
+  else:
+    result = quote do:
+      proc `fn`(param {.inject.}: pointer): cint {.cdecl, gcsafe, raises: [].} =
+        ## Injected symbols:
+        ##   param : pointer
+        try:
+          `body`
+        except:
+          try:
+            let restarted = parseInt(ydb_get("$TRESTART")) # How many times the proc was called from yottadb
+            if restarted >= 4: 
+              return YDB_TP_ROLLBACK
+          except:
+            echo "Could not parse $TRESTART"
+            return YDB_TP_ROLLBACK
+          return YDB_TP_RESTART
+        return YDB_OK
 
-    ydb_tp(`fn`, `param`)
+      ydb_tp(`fn`, `param`)
 
+template Transaction*(body: untyped): int =
+  transactionImpl("", body)
 
-macro TransactionMT*(body: untyped): untyped =
-  let fn = genSym(nskProc, "txmt")
-
-  result = quote do:
-    proc `fn`(
-      tptoken {.inject.} : uint64,
-      errstr {.inject.} : ptr struct_ydb_buffer_t,
-      param {.inject.} : pointer
-    ): cint {.cdecl.} =
-      try:
-        `body`
-      except:
-        return YDB_TP_RESTART
-      return YDB_OK
-
-    ydb_tp_mt(`fn`, "")
-
-
-macro TransactionMT*(param: string, body: untyped): untyped =
-  let fn = genSym(nskProc, "txmt")
-
-  result = quote do:
-    proc `fn`(
-      tptoken {.inject.} : uint64,
-      errstr {.inject.} : ptr struct_ydb_buffer_t,
-      param {.inject.} : pointer
-    ): cint {.cdecl.} =
-      try:
-        `body`
-      except:
-        return YDB_TP_RESTART
-      return YDB_OK
-
-    ydb_tp_mt(`fn`, `param`)
+template Transaction*(param: untyped, body: untyped): int =
+  transactionImpl(param, body)
+  

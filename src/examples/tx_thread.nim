@@ -33,7 +33,7 @@ proc worker(tn: int, iterations: int) =
 
     # Save data
     let info = $tn & "," & $fibresult & "," & $ms
-    let rc = TransactionMT(info):
+    let rc = Transaction(info):
       let info = $cast[cstring](param)
       let tnr = info.split(",")[0]
       let fibresult = info.split(",")[1]
@@ -44,7 +44,7 @@ proc worker(tn: int, iterations: int) =
       ydb_set(GLOBAL, @[$txid, $tnr], $data, tptoken)
     
     if rc == YDB_OK:
-      let rc = TransactionMT($tn & "," & $ms):
+      let rc = Transaction($tn & "," & $ms):
         let info = $cast[cstring](param)
         let tn = info.split(",")[0]
         let ms = info.split(",")[1]

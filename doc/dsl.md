@@ -324,35 +324,41 @@ It is important to use an empty bracket ().
 ```
 
 # Transactions
-Transactions exists in two forms, single- and multithreaded.
+`Transaction` can handle both single- and multithreaded transactions.
 For single-threaded Transactions you write:
 ```nim
 let rc = Transaction:
   setvar: ^AAA(1) = "transaction1"
 ```
-If the transaction succeeds, 'rc' is YDB_OK, otherwise YDB_TP_RESTART is returned.
+If the transaction succeeds, 'rc' is YDB_OK, otherwise YDB_TP_ROLLBACK if the transaction was rolled back due to an error.
 
-For multi-threaded applications you write:
+You can pass a single `string` or `int` parameter to  `Transaction("abc")` or `Transaction(4711)`. To access the parameter inside the body a cast is required:
 ```nim
-let rc = TransactionMT("4711"):
-    let dta = $cast[cstring](param)
-    ydb_set("^AAA", @["2", dta], "transaction2, tptoken)
+# single threaded --threads:off
+let rc = Transaction("ABC"):
+  let s = $cast[cstring](param)
+  ydb_set("^gbl", @["101", s], "data", tptoken)
+
+# multi-threaded --threads:on (tptoken used)
+let rc2 = Transaction(4712):
+  let id = $cast[cint](param)
+  ydb_set("^gbl", @[id], "data", tptoken)
 ```
-It is important to append the 'tptoken' parameter at the end. Otherwise YottaDB would block the call and the process is hanging.
+
+For multi-threaded transactions, you need to pass the `tptoken` parameter to the ydb-API calls.
+Otherwise YottaDB would block the call and the process is hanging.
 
 Inside the body you have access to the parameters that YottaDB passes over:
   - tptoken:  uint64,
   - errstr: ptr struct_ydb_buffer_t,
   - param: pointer
 
-For both (single/multi-threaded) forms you can pass a single parameter which needs to be casted approbiate.
-For example passing a string parameter will be passed from YottaDB as cstring:
-```nim
-let str = $cast[cstring](param)
-```
-There is no limit in 'Transaction' statements within the code. Each 'Transaction' is commited automatically at the end of the code scope.
+There is no limit in 'Transaction' statements within the code. 
+Each 'Transaction' is commited automatically at the end of the code scope.
 
-Currently, the 'TransactionMT' does not support the DSL statements like 'setvar'. Instead you have to use the API form (ydb_set). This will be changed in future. 
+Currently, the multi-threaded 'Transaction' does not support the DSL statements like 'setvar'. Instead you have to use the API form (ydb_set(..,tptoken)). This will be changed in future. 
 In the single-threaded form 'Transaction' you can freely use any DSL statements.
+
+A good example to see how `Transaction` is used, look at m/bidwars.nim
 
 To understand how YottaDB handles multi-threaded Transactions it is important to read their documents. (https://docs.yottadb.com/MultiLangProgGuide/programmingnotes.html#threads-txn-proc)
