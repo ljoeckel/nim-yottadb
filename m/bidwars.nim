@@ -50,7 +50,7 @@ const
     duration = 5  # Seconds
 
 let pid = getvar: $JOB
-let auction = "^Auction(1)"
+const auction = "^Auction(1)"
 
 # -----------------
 # The Auctionator
@@ -70,7 +70,7 @@ proc Auction() =
 
     echo "Launching all ", bidders, " bidder processes"
     for i in 1..bidders:
-        let processId = job("./bidwars", @["Bidder"])
+        discard job("./bidwars", @["Bidder"])
     
     echo "Waiting for bidder registration"
     while (getvar @auction("Bidders").int) != bidders: nimSleep(50)
@@ -121,8 +121,9 @@ proc Auction() =
 # ---------------
 
 proc Bidder() =
-    var rc = Transaction:
+    var rc = Transaction(pid):
         # Register linux process id
+        let pid = $cast[cint](param)
         setvar: @auction("Bidders", pid) = increment @auction("Bidders")
 
     # Wait until auction is started
@@ -131,7 +132,8 @@ proc Bidder() =
     var count, avg = 0
     var then = getTime()
     while (getvar @auction("Active")) == "Yes":
-        let rc = Transaction: # place bid
+        rc = Transaction(pid): # place bid
+            let pid = $cast[cint](param)
             let first = (pid == getvar @auction("Leader"))
             if not first:
                 let price = getvar @auction("Price").int

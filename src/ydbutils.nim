@@ -187,7 +187,6 @@ proc job*(name: string, params: seq[string], timeout: int = 30000): int =
 
 proc closeJob*(pid: int) =
   if processKV.contains(pid):
-    let process = processKV[pid]
     processKV[pid].close()
     echo "Process ", pid, " closed"
   else:
