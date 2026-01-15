@@ -31,14 +31,13 @@ proc solve(n: int): seq[int]  =
     if n == 1: return
 
     var s = calc(n)
-    while s > 1:
+    while s > 0:
+        result.add(s)
         inc dbdata
         if data(^solver(s)) == 1: # Already solved?
-            result.add(s)
             inc numbers_solved
             break
 
-        result.add(s)
         s = calc(s)
 
 proc generate(fromN: int, toN: int) =
@@ -99,6 +98,7 @@ when isMainModule:
     if verifycheck:
         timed("verify"):
             check(max(1, fromN), toN)
+            statistics(fromN, toN)
 
     quit(0)
 # TODO: 
