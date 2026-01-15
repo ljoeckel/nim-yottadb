@@ -6,18 +6,14 @@ import ydbutils
 
 # First draft for the 3n+1 problem
 var 
-    numbers_found = 0
-    numbers_solved = 0
-    dbreads = 0
-    dbwrites = 0
-    dbdata = 0
-    dbnext = 0
-    verifyread = 0
+    numbers_found, numbers_solved, dbwrites, dbdata, dbnext, verifyread: int
 
 func calc(n: int): int =
     # Calculate 3n+1
-    if n mod 2 == 0: result = n div 2
-    else: result = 3*n + 1
+    if n mod 2 == 0:
+        n div 2
+    else:
+        3*n + 1
 
 proc verify(n: int): seq[int] =
     # Calculate a full sequence
@@ -35,7 +31,7 @@ proc solve(n: int): seq[int]  =
     if n == 1: return
 
     var s = calc(n)
-    while s >= 0:
+    while s > 1:
         inc dbdata
         if data(^solver(s)) == 1: # Already solved?
             result.add(s)
@@ -53,10 +49,8 @@ proc generate(fromN: int, toN: int) =
         if data(^solver(n)) == 1:
             inc numbers_found
         else:
-            let result = solve(n) # calculate and save on db
-            var str = ($result)[2..^2] # remove {}
+            setvar: ^solver(n) = join(solve(n), ",")
             inc dbwrites
-            setvar: ^solver(n) = str.replace(" ","") # trim spaces
 
 proc reconstruct(n: int): seq[int] =
     # Reconstruct the sequence from the db to the full sequence
