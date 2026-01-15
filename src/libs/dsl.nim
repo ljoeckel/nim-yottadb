@@ -28,6 +28,11 @@ const
     REVERSE = "reverse"
     VALUE = "val"
 
+const
+  MAX_RESTARTS = 4
+  LOCK_TIMEOUT_MS = 10000
+
+
 # ------------------
 # Macro procs
 # ------------------
@@ -226,7 +231,6 @@ macro queryItr*(body: untyped): untyped =
     transform(body, args)
     let apiName = getApiName("queryItr", args)
     return newCall(ident(apiName), args)
-
 
 macro orderItr*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -919,7 +923,7 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
         except:
           try:
             let restarted = parseInt(ydb_get("$TRESTART", tptoken=tptoken)) # How many times the proc was called from yottadb
-            if restarted >= 4: 
+            if restarted >= MAX_RESTARTS: 
               return YDB_TP_ROLLBACK
           except:
             echo "Could not parse $TRESTART"
@@ -938,7 +942,7 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
         except:
           try:
             let restarted = parseInt(ydb_get("$TRESTART")) # How many times the proc was called from yottadb
-            if restarted >= 4: 
+            if restarted >= MAX_RESTARTS: 
               return YDB_TP_ROLLBACK
           except:
             echo "Could not parse $TRESTART"
