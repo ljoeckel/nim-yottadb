@@ -1,25 +1,20 @@
-import std/[os, osproc, streams]
+import std/[os, osproc, streams, strutils]
 import pegs
 import ydbtypes
 import ydbimpl
 import libydb
 import bingo
 
-func keysToString*(subs: seq[string]): string {.inline.} =
-  if subs.len == 0: return ""
-  let last = subs.len - 1
-  for i, s in subs:
-    result.add(s)
-    if i < last: result.add(",")
-
-func keysToString*(global: string, subscript: Subscripts): string {.inline.} =
-  result = global & "("
-  result.add(keysToString(subscript))
+proc keysToString*(global: string, subs: Subscripts): string {.inline.} =
+  result = global
+  result.add("(")
+  result.add(subs.join(","))
   result.add(")")
 
-func keysToString*(global: string, subscript: Subscripts, value:string): string {.inline.} =
-  result = global & "("
-  result.add(keysToString(subscript))
+proc keysToString*(global: string, subs: Subscripts, value:string): string {.inline.} =
+  result = global
+  result.add("(")
+  result.add(subs.join(","))
   result.add(")")
   if value.len > 0:
     result.add("=" & value)
