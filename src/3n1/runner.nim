@@ -1,6 +1,10 @@
+when not compileOption("threads"):
+  {.fatal: "Must be compiled with --threads:on".}
+
 import std/[strutils, os, osproc]
 import malebolgia
 import ydbutils
+
 
 proc runSolver*(fromN: int, toN: int, clean: bool = false, verify: bool = false) =
     let solver = findExe("./solver")

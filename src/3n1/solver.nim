@@ -3,7 +3,7 @@ import std/sets
 import std/strutils
 import std/cmdline
 import ydbutils
-
+    
 # First draft for the 3n+1 problem
 var 
     numbers_found, numbers_solved, dbwrites, dbdata, dbnext, verifyread: int
@@ -51,14 +51,17 @@ proc generate(fromN: int, toN: int) =
             setvar: ^solver(n) = join(solve(n), ",")
             inc dbwrites
 
-proc reconstruct(n: int): seq[int] =
+proc reconstruct(n: int, depth: int = 0): seq[int] =
+    if depth >= 1900:
+        raise newException(ValueError, "Recursion depth >= 1900. Seems to be a data structure problem")
+
     # Reconstruct the sequence from the db to the full sequence
     inc verifyread
     for num in getvar ^solver(n).OrderedSet:
         result.add(num)
     let lastnum = result[^1]
     if lastnum > 1:
-        result.add(reconstruct(lastnum)[1..^1])
+        result.add(reconstruct(lastnum, depth + 1)[1..^1])
 
 proc check(fromN: int, toN: int) =
     # Compute 3n+1 again and verify the calculated with the truncated results on the db.
