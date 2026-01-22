@@ -548,23 +548,21 @@ proc testCallMixIntStringInfix() =
 
 proc testDefaults() =
   kill: ^GBL 
-  let val = getvar ^GBL(4711)
-  assert val == ""
+  assert "" == getvar ^GBL(4711)
+
   let valdefault = getvar (^GBL(4711), default=4711)
   assert valdefault == "4711"
   let valint = getvar (^GBL(4711), default=4711).int
   assert valint == 4711
 
-  let gbl = "^GBL(4711)"
-  var valindirekt = getvar @gbl
-  assert valindirekt == ""
-  valindirekt = getvar (@gbl, default="test")
-  assert valindirekt == "test"
+  let gbl = "^GBL(4712)"
+  assert "" == getvar @gbl
+  var valindirekt = getvar (@gbl, default=4712).int
+  assert valindirekt == 4712
 
-  valindirekt = getvar @gbl("Test")
-  assert valindirekt == ""
-  valindirekt = getvar (@gbl("Test"), default="test")
-  assert valindirekt == "test"
+  assert "" == getvar @gbl("Test2")
+  let valstr = getvar (@gbl("Test2"), default="test2")
+  assert valstr == "test2"
 
 
 if isMainModule:

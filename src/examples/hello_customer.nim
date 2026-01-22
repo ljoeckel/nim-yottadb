@@ -36,7 +36,7 @@ proc setup() =
 proc showOrder() =
   block:
     echo "\nIterate with order CUSTOMER"
-    var id = order: ^CUSTOMER
+    var id = order: ^CUSTOMER("")
     while id.len > 0:
       let name = getvar  ^CUSTOMER(id, "Name")
       let email = getvar  ^CUSTOMER(id, "Email")
@@ -45,7 +45,7 @@ proc showOrder() =
 
   block:
     echo "\nIterate with order CUSTOMER.keys"
-    var subs = order: ^CUSTOMER.keys
+    var subs = order: ^CUSTOMER("").keys
     while subs.len > 0:
       let name = getvar  ^CUSTOMER(subs, "Name")
       let email = getvar  ^CUSTOMER(subs, "Email")
@@ -55,7 +55,7 @@ proc showOrder() =
 
   block:
     echo "\nIterate over all CUSTOMER Indirection"
-    var gbl = order ^CUSTOMER.key
+    var gbl = order ^CUSTOMER("").key
     while gbl.len > 0:
       let name = getvar  @gbl("Name")
       let email = getvar @gbl("Email")
@@ -63,7 +63,7 @@ proc showOrder() =
       gbl = order @gbl.key
 
 proc showCustomer() =
-  for id in orderItr ^customer:
+  for id in orderItr ^customer(""):
     echo id
     for group in orderItr ^customer(id,""):
       echo "  ", group
@@ -78,42 +78,6 @@ proc showCustomer() =
       for attribute in orderItr ^customer(id, group, "").key:
         echo "    ", attribute, "=", getvar @attribute
 
-
-  # block:
-  #   echo "\nIterate with order customer.keys"
-  #   var subs = order: ^customer.keys
-  #   while subs.len > 0:
-  #     let name = getvar  ^customer(subs, "Name")
-  #     let email = getvar  ^customer(subs, "Email")
-  #     echo fmt"customer {subs[0]}: {name} <{email}>"
-  #     subs = order: ^customer(subs).keys # Read next
-
-
-  # block:
-  #   echo "\nIterate over all customer Indirection"
-  #   var gbl = order ^customer.key
-  #   while gbl.len > 0:
-  #     let name = getvar  @gbl("Name")
-  #     let email = getvar @gbl("Email")
-  #     echo fmt"{gbl}: name: {name}, email:{email}"
-  #     gbl = order @gbl.key
-
-  # # -------------------
-  # # orderItr
-  # # -------------------
-  #   echo "\nIterate over all customer with orderItr"
-  #   for key in orderItr ^customer:
-  #     echo "key=", key
-
-  #   echo "\nIterate over all customer with orderItr.key"
-  #   for id in orderItr ^customer.key:
-  #     echo fmt"id={id}, name={getvar @id(""Name"")}, email={getvar @id(""Email"")}"
-
-  #   echo "\nIterate over all customer with orderItr.keys"
-  #   for subs in orderItr ^customer.keys:
-  #     var keys = subs
-  #     keys.add("Name")
-  #     echo "subscripts=", keys, " Name=", getvar ^customer(keys)
 
 proc showQuery() =
   # --------------

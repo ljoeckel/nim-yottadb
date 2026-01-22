@@ -76,7 +76,7 @@ proc testIncrementBy() =
         var z = increment (^CNT("XXX"), by=5)
         assert z == i * 5 + 5
 
-proc testIncrement() =  
+proc testIncrement1() =  
   # Increment
   killnode:
     ^CNT("TXID")
@@ -87,10 +87,38 @@ proc testIncrement() =
   assert 1 == increment ^cnt
   assert 11 == increment (^cnt, by=10)
 
+proc testIncrement2() =
+    setvar: ^CNT = 0
+    var value = increment: ^CNT
+    assert 1 == value
+    value = increment: (^CNT, by=10)
+    assert 11 == value
+
+    setvar: ^CNT("txid") = 0
+    value = increment: ^CNT("txid")
+    assert 1 == value
+    value = increment: (^CNT("txid"), by=10)
+    assert 11 == value
+
+    let id = "custid"
+    setvar: ^CNT(id) = 0
+    value = increment: ^CNT(id)
+    assert 1 == value
+    value = increment: (^CNT(id), by=10)
+    assert 11 == value
+
+    let gbl = "^CNT(123)"
+    setvar: @gbl = 0
+    value = increment: @gbl
+    assert 1 == value
+    value = increment: (@gbl, by=10)
+    assert 11 == value
+
 
 if isMainModule:
   test "increment": incrementTest()
   test "incrementLocalsByOne": testIncrementLocalsByOne()
   test "incrementLocalsBy10": testIncrementLocalsByTen()
   test "incrementBy": testIncrementBy()
-  test "increment2": testIncrement()
+  test "increment1": testIncrement1()
+  test "increment3": testIncrement2()

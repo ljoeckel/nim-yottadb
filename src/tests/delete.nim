@@ -92,7 +92,69 @@ proc testKill3() =
   kill: ^X(1)
   assert "" == getvar ^X(1)
 
+proc testDeleteNode() =
+    setvar: ^GBL="hallo"
+    killnode: ^GBL
+    assert "" == getvar ^GBL
+
+    let gbl = "^GBL(1)"
+    setvar: @gbl = "gbl(1)"
+    killnode: @gbl
+    assert "" == getvar @gbl
+
+    setvar: ^GBL1="hallo"
+    assert "hallo" == getvar ^GBL1
+    killnode: ^GBL1
+    assert "" == getvar ^GBL1
+
+    setvar:
+        ^GBL1="gbl1"
+        ^GBL2="gbl2"
+        ^GBL3="gbl3"
+    killnode:
+        ^GBL1
+        ^GBL2
+        ^GBL3
+    assert "" == getvar ^GBL1
+    assert "" == getvar ^GBL2
+    assert "" == getvar ^GBL3
+
+    setvar:
+        ^GBL(1)=1
+        ^GBL(2)=2
+        ^GBL(3)=3
+    killnode:
+        ^GBL(1)
+        ^GBL(2)
+        ^GBL(3)
+    assert "" == getvar ^GBL(1)
+    assert "" == getvar ^GBL(2)
+    assert "" == getvar ^GBL(3)
+
+
+proc testDeleteTree() =
+    setvar: 
+        ^GBL="gbl"
+        ^GBL(1,1)="1,1"
+        ^GBL(1,2)="1,2"
+        ^GBL(2,1)="2,1"
+        ^GBL(2,2)="2,2"
+        
+    kill: ^GBL(1)
+    assert "" == getvar ^GBL(1,1)
+    assert "" == getvar ^GBL(1,2)
+    kill: ^GBL
+    assert "" == getvar ^GBL
+
+    let gblname = "^GBL"
+    for gbl in queryItr @gblname:
+        assert gbl.len > 0
+
+
+
 if isMainModule:
   test "killNode": testKill1()
   test "kill": testKill2()
   test "killnode": testKill3()
+  test "testDeleteTree": testDeleteTree()
+  test "testDeleteNode": testDeleteNode()

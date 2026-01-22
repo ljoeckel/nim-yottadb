@@ -243,6 +243,51 @@ proc testLockIncrement() =
   assert getLockCountFromYottaDb() == 0
 
 
+proc testLock2() =
+    lock:
+        ^XXX
+        ^GBL(2)
+        ^GBL(2,3)
+        ^GBL(2,3,"abc")
+        timeout = 0.002
+    assert getLockCountFromYottaDb() == 4
+
+    let gbl = "^GBL(2)"
+    lock: @gbl
+    assert getLockCountFromYottaDb() == 1
+
+    lock: {@gbl}
+    assert getLockCountFromYottaDb() == 1
+
+    lock: { ^XXX, ^GBL(2), ^GBL(2,3), ^GBL(2,3,"abc"), timeout = 0.002}
+    assert getLockCountFromYottaDb() == 4
+
+    lock: {}
+    assert getLockCountFromYottaDb() == 0
+
+    lock: {@gbl}
+    assert getLockCountFromYottaDb() == 1
+    lock:
+        discard 
+    assert getLockCountFromYottaDb() == 0
+
+
+proc testLockIncrement2() =
+    lock: ^GBL(4711)
+    assert getLockCountFromYottaDb() == 1
+    lock: +^GBL(4712)
+    assert getLockCountFromYottaDb() == 2 # 4712 lock.count = 1
+    lock: +^GBL(4712)
+    assert getLockCountFromYottaDb() == 2 # 4712 lock.count = 2
+    lock: -^GBL(4712)
+    assert getLockCountFromYottaDb() == 2 # 4712 lock.count = 1
+    lock: -^GBL(4712)
+    assert getLockCountFromYottaDb() == 1 # 4712 removed
+    lock: {}
+    assert getLockCountFromYottaDb() == 0
+
+
+
 when isMainModule:
     setupLL()
     test "intSetLock": intSetLockUpdate()
@@ -250,3 +295,6 @@ when isMainModule:
     test "Localvar locks": testLocalvarLocks()
     test "SingleLine locks": testSingleLineLock()
     test "Lock": testLock()
+    test "Lock2": testLock2()
+    test "LockIncrement": testLockIncrement()
+    test "LockIncrement2": testLockIncrement2()

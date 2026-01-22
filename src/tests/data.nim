@@ -101,11 +101,6 @@ proc testData() =
   assert data(^tmp2(xid3)) == 1
   assert data(^tmp2(@["11"])) == 1
 
-  let gbl = "^tmp2"
-  setvar: gbl(1)=4711 # set the local variable 'gbl' to 4711
-  let ss = "gbl=" & getvar gbl(1)
-  assert ss == "gbl=4711"
-  assert "" == getvar ^tmp2(4711) # ^tmp2(4711) not set because gbl(4711) is set TODO: global from variable
 
 proc testData3() =
   var dta = data: ^X(0)
@@ -115,7 +110,25 @@ proc testData3() =
   assert YDB_DATA_VALUE_DESC == data ^X(5)
   assert data(^X(7)) == YDB_DATA_NOVALUE_DESC
 
+proc testData4() =
+    kill: ^GBL
+    setvar: 
+        ^GBL="gbl"
+        ^GBL(1,1)="1,1"
+        ^GBL(1,2)="1,2"
+        ^GBL(2,1)="2,1"
+        ^GBL(2,2)="2,2"
+        ^GBL(3,3)="3,3"
+        ^GBL(5,1) = "5,1"
+        ^GBL(6)="6"
+
+    assert YDB_DATA_UNDEF == data ^GBLX
+    assert YDB_DATA_VALUE_DESC == data ^GBL
+    assert YDB_DATA_NOVALUE_DESC == data ^GBL(5) 
+    assert YDB_DATA_VALUE_NODESC == data ^GBL(6)
+
 if isMainModule:
   test "data": dataTest()
   test "data2": testData()
   test "data3": testData3()
+  test "test4": testData4()

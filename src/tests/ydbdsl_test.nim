@@ -150,84 +150,6 @@ proc benchTestLocals() =
         for gbl in queryItr @gblname:
             assert gbl.len > 0
 
-proc testDeleteNode() =
-    setvar: ^GBL="hallo"
-    killnode: ^GBL
-    assert "" == getvar ^GBL
-
-    let gbl = "^GBL(1)"
-    setvar: @gbl = "gbl(1)"
-    killnode: @gbl
-    assert "" == getvar @gbl
-
-    setvar: ^GBL1="hallo"
-    assert "hallo" == getvar ^GBL1
-    killnode: ^GBL1
-    assert "" == getvar ^GBL1
-
-    setvar:
-        ^GBL1="gbl1"
-        ^GBL2="gbl2"
-        ^GBL3="gbl3"
-    killnode:
-        ^GBL1
-        ^GBL2
-        ^GBL3
-    assert "" == getvar ^GBL1
-    assert "" == getvar ^GBL2
-    assert "" == getvar ^GBL3
-
-    setvar:
-        ^GBL(1)=1
-        ^GBL(2)=2
-        ^GBL(3)=3
-    killnode:
-        ^GBL(1)
-        ^GBL(2)
-        ^GBL(3)
-    assert "" == getvar ^GBL(1)
-    assert "" == getvar ^GBL(2)
-    assert "" == getvar ^GBL(3)
-
-
-proc testDeleteTree() =
-    setvar: 
-        ^GBL="gbl"
-        ^GBL(1,1)="1,1"
-        ^GBL(1,2)="1,2"
-        ^GBL(2,1)="2,1"
-        ^GBL(2,2)="2,2"
-        
-    kill: ^GBL(1)
-    assert "" == getvar ^GBL(1,1)
-    assert "" == getvar ^GBL(1,2)
-    kill: ^GBL(2)
-    assert "" == getvar ^GBL(2,1)
-    assert "" == getvar ^GBL(2,2)
-    kill: ^GBL
-    assert "" == getvar ^GBL
-
-
-    let gblname = "^GBL"
-    for gbl in queryItr @gblname:
-        assert gbl.len > 0
-
-proc testData() =
-    kill: ^GBL
-    setvar: 
-        ^GBL="gbl"
-        ^GBL(1,1)="1,1"
-        ^GBL(1,2)="1,2"
-        ^GBL(2,1)="2,1"
-        ^GBL(2,2)="2,2"
-        ^GBL(3,3)="3,3"
-        ^GBL(5,1) = "5,1"
-        ^GBL(6)="6"
-
-    assert YDB_DATA_UNDEF == data ^GBLX
-    assert YDB_DATA_VALUE_DESC == data ^GBL
-    assert YDB_DATA_NOVALUE_DESC == data ^GBL(5) 
-    assert YDB_DATA_VALUE_NODESC == data ^GBL(6)
 
 proc testDelexcl() =
   # Global's / Special / Invalid names are not allowed
@@ -271,79 +193,6 @@ proc testDelexcl() =
   # delete all variables
   delexcl: {}
   doAssertRaises(YdbError): discard getvar DELTEST1
-
-
-proc testIncrement() =
-    setvar: ^CNT = 0
-    var value = increment: ^CNT
-    assert 1 == value
-    value = increment: (^CNT, by=10)
-    assert 11 == value
-
-    setvar: ^CNT("txid") = 0
-    value = increment: ^CNT("txid")
-    assert 1 == value
-    value = increment: (^CNT("txid"), by=10)
-    assert 11 == value
-
-    let id = "custid"
-    setvar: ^CNT(id) = 0
-    value = increment: ^CNT(id)
-    assert 1 == value
-    value = increment: (^CNT(id), by=10)
-    assert 11 == value
-
-    let gbl = "^CNT(123)"
-    setvar: @gbl = 0
-    value = increment: @gbl
-    assert 1 == value
-    value = increment: (@gbl, by=10)
-    assert 11 == value
-
-
-proc testLock() =
-    lock:
-        ^XXX
-        ^GBL(2)
-        ^GBL(2,3)
-        ^GBL(2,3,"abc")
-        timeout = 0.002
-    assert getLockCountFromYottaDb() == 4
-
-    let gbl = "^GBL(2)"
-    lock: @gbl
-    assert getLockCountFromYottaDb() == 1
-
-    lock: {@gbl}
-    assert getLockCountFromYottaDb() == 1
-
-    lock: { ^XXX, ^GBL(2), ^GBL(2,3), ^GBL(2,3,"abc"), timeout = 0.002}
-    assert getLockCountFromYottaDb() == 4
-
-    lock: {}
-    assert getLockCountFromYottaDb() == 0
-
-    lock: {@gbl}
-    assert getLockCountFromYottaDb() == 1
-    lock:
-        discard 
-    assert getLockCountFromYottaDb() == 0
-
-
-proc testLockIncrement() =
-    lock: ^GBL(4711)
-    assert getLockCountFromYottaDb() == 1
-    lock: +^GBL(4712)
-    assert getLockCountFromYottaDb() == 2 # 4712 lock.count = 1
-    lock: +^GBL(4712)
-    assert getLockCountFromYottaDb() == 2 # 4712 lock.count = 2
-    lock: -^GBL(4712)
-    assert getLockCountFromYottaDb() == 2 # 4712 lock.count = 1
-    lock: -^GBL(4712)
-    assert getLockCountFromYottaDb() == 1 # 4712 removed
-    lock: {}
-    assert getLockCountFromYottaDb() == 0
-
 
 proc testNextNode() =
     var 
@@ -494,17 +343,9 @@ proc testPrevSubscript() =
 
 if isMainModule:
     test "Globals": testGlobals()
-    test "Data": testData()
     test "GetWithType": testGetWithType()
-    test "DeleteNode": testDeleteNode()
-    test "DeleteTree": testDeleteTree()
     test "DeleteExclusive": testDelexcl()
-    test "Increment": testIncrement()
-    test "Lock": testLock()
-    test "Lock Increment": testLockIncrement()
     test "NextNode": testNextNode()
     test "PrevNode": testPreviousNode()
     test "NextSubscript": testNextSubscript()
     test "PrevSubscript": testPrevSubscript()
-    #test "Bench Globals": benchTestGlobals()
-    #test "Bench Locals": benchTestLocals()

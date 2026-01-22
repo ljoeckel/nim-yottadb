@@ -8,6 +8,14 @@ curl -sSf https://nim-lang.org/choosenim/init.sh | sh
 export PATH=$HOME/.nimble/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/lib/yottadb/r202
 ```
+To ensure .bashrc runs every time you log in, add the following snippet to your ~/.bash_profile (or create the file if it doesn't exist): 
+bash
+```bash
+if [ -f ~/.bashrc ]; then
+    . ~/.bashrc
+fi
+```
+
 #### Logout and login to update the environment variables.
 
 #### Install the 'nimyottadb' package:

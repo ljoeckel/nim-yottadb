@@ -151,6 +151,26 @@ proc nimSleep*(ms: int) =
       if rc != -1: echo "nanosleep rc=": rc
       break
 
+proc microsSleep*(micros: int) =
+  ## Sleep for the given ns. but handle signal interruption
+  var req: Timespec
+  req.tv_sec = cast[posix.Time](0)
+  req.tv_nsec = (micros * 1000).clong
+  var rem: Timespec
+  # Handle signal interruptions
+  while true:
+    let rc = nanosleep(req, rem)
+    if rc == 0:
+      break
+    elif rc == EINTR:
+      # Interrupted by signal, continue with remaining time
+      req = rem
+      rem.tv_sec = cast[posix.Time](0)
+      rem.tv_nsec = 0.clong
+    else:
+      if rc != -1: echo "nanosleep rc=": rc
+      break
+
 
 # fibonacci
 
@@ -211,3 +231,10 @@ proc printLogs*() =
     if s.len > 0:
       echo "log: ", log, " ", s
     logFile.close()
+
+# if isatty(stdout): # ./stdout_to_file
+#   echo "This is output to the terminal."
+# else:
+#   let logFile = open("log.txt", fmWrite)
+#   stdout = logFile
+#   echo fmt"This is output to the {logFileName} file."
