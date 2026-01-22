@@ -43,4 +43,12 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/yottadb/r202
 Logout & Login again
 
 ## Install on x86 Architecture
-Please see on YottaDB website for ready build packages.
+- Create a temporary directory and change to it, e.g.: mkdir /tmp/tmp ; cd /tmp/tmp
+
+- Get the YottaDB install script: wget https://gitlab.com/YottaDB/DB/YDB/raw/master/sr_unix/ydbinstall.sh
+- Make it executable: chmod +x ydbinstall.sh
+- Run it (omit the --verbose option if you want less output): sudo ./ydbinstall.sh --verbose --utf8 --gui --octo (This command installs YottaDB under /usr/local/lib/.)
+
+The script has a plethora of installation options, which you will not use in the Acculturation Workshop. You can query it to list the options with the --help option, e.g., ./ydbinstall.sh --help.
+
+ydb -version provides a detailed report on the YottaDB build, e.g.,

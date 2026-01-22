@@ -40,7 +40,7 @@ when isMainModule:
   echo "All threads finished"
 
   assert NUM_OF_THREADS * ITERATIONS == getvar ^CNT("UPCOUNT").int
-  assert "" == getvar ^CNT("RESTARTS")
+  assert 0 == data ^CNT("RESTARTS")
 
   var cnt = 0
   for key in orderItr ^CNT:

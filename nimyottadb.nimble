@@ -8,6 +8,7 @@ binDir = "bin"
 requires "nim >= 2.2.4"
 
 # Dependencies
+requires "chronicles"
 requires "malebolgia"
 requires "bingo"
 

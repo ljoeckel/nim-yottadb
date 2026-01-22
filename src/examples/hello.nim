@@ -9,13 +9,13 @@ proc main() =
     ^CUSTOMER(2, "Email")="jane.smith.@yahoo.com"
 
   echo "Iterate over all customer id's"
-  for id in orderItr(^CUSTOMER):
+  for id in orderItr ^CUSTOMER(""):
     let name = getvar  ^CUSTOMER(id, "Name")
     let email = getvar  ^CUSTOMER(id, "Email")
     echo fmt"Customer {id}: {name} <{email}>"
 
   echo "Iterate over all nodes"
-  for node in queryItr ^CUSTOMER:
+  for node in queryItr ^CUSTOMER(""):
     let value = getvar @node
     echo fmt"{node}={value}"
 
