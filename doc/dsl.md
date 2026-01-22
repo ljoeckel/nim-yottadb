@@ -53,7 +53,6 @@ nim-yottadb supports binary data with a max recordsize of 99999999 MB. You can r
 ```nim
 let image = getvar ^images(4711).binary
 ```
-<<<<<<< Updated upstream
 =======
 ## getvar - 'default'
 getvar supports a 'default' value:
@@ -62,7 +61,6 @@ let name = getvar (^customer(123,"name"), default="<noname>")
 let discount = getvar (^account(123,"discount"), default=2.75).float
 ```
 The global variable with it's subscripts will be automatically created.
->>>>>>> Stashed changes
 
 ## increment
 Atomic increment a global in the database

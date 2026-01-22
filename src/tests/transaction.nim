@@ -34,13 +34,15 @@ else:
 
         rc = Transaction("ABC"):
             let dta = $cast[cstring](param)
+            assert dta == "ABC"
             ydb_set("^AAA", @["2", dta], "cstring")
         assert rc == YDB_OK            
         assert 1 == data ^AAA(2, "ABC")
 
         rc = Transaction(4712):
-            let dta = $cast[cint](param)
-            ydb_set("^AAA", @["3", dta], "cint")
+            let dta = cast[cint](param)
+            assert dta == 4712
+            ydb_set("^AAA", @["3", $dta], "cint")
         assert rc == YDB_OK            
         assert 1 == data ^AAA(3, 4712)
 

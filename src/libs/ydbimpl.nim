@@ -137,7 +137,7 @@ atexit(cleanupBuffers)
 proc ydbMessage_db*(status: int, tptoken: uint64 = 0): string =
   ## Return error message text for given status code
   if status == YDB_OK: return
-  check()
+  if not buf_initialized: check()
   when compileOption("threads"):
     rc = ydb_message_t(tptoken, ERRMSG.addr, status.cint, ERRMSG.addr)
   else:
@@ -167,33 +167,33 @@ proc checkRC(tptoken: uint64 = 0) =
 
 proc ydb_tp_start*(myTxn: ydb_tpfnptr_t, param: string, transid:string): int =
   ## Start a single-threaded transaction
-  check()
+  if not buf_initialized: check()
   result = ydb_tp_s(myTxn, cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
   checkRC(0)
 
 proc ydb_tp_start*(myTxn: ydb_tpfnptr_t, param: int, transid:string): int =
   ## Start a single-threaded transaction
-  check()
+  if not buf_initialized: check()
   result = ydb_tp_s(myTxn, cast[pointer](param.cint), transid, 0, GLOBAL.addr)
   checkRC(0)
 
 
 proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:string, transid:string): int =
   ## Start a multi-threaded transaction
-  check()
+  if not buf_initialized: check()
   result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
   checkRC()
 
 proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:int, transid:string): int =
   ## Start a multi-threaded transaction
-  check()
+  if not buf_initialized: check()
   result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cint), transid, 0, GLOBAL.addr)
   checkRC()
 
 
 proc ydb_set_small(name: string, keys: Subscripts, value: string, tptoken: uint64) =
   ## Store a value into a local or global node
-  check()
+  if not buf_initialized: check()
   setIdxArr(IDXARR, keys)
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF, value)
@@ -223,7 +223,7 @@ proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken: uint64)
 proc ydb_data_db*(name: string, keys: Subscripts, tptoken: uint64): int =
   ## Check existence/type of a global node
   ## Return codes: 0 = no data, 1 = data, 10 = child nodes, 11 = both
-  check()
+  if not buf_initialized: check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
   var value: cuint = 0
@@ -240,7 +240,7 @@ proc ydb_data_db*(name: string, keys: Subscripts, tptoken: uint64): int =
 # --- Delete node/tree ---
 proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64) =
   ## Internal helper to delete either a node or a subtree
-  check()
+  if not buf_initialized: check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
@@ -262,7 +262,7 @@ proc ydb_delete_tree_db*(name: string, keys: Subscripts, tptoken: uint64) =
 
 proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64) =
   ## Delete all locals except the specified names  
-  check()
+  if not buf_initialized: check()
   setYdbBuffer(NAMES, names)
 
   when compileOption("threads"):
@@ -275,7 +275,7 @@ proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64) =
 
 proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken: uint64): int =
   ## Increment a node value and return new value  
-  check()
+  if not buf_initialized: check()
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF, $increment)
   setIdxArr(IDXARR, keys)
@@ -298,7 +298,7 @@ proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken: 
 # --- Node traversal (next/previous) ---
 proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
   ## Traverse to the next/previous node and return subscripts  
-  check()
+  if not buf_initialized: check()
   setYdbBuffer(GLOBAL, name)
 
   var subs: Subscripts
@@ -348,7 +348,7 @@ proc ydb_node_previous_db*(name: string, keys: Subscripts, tptoken: uint64): (in
 # --- Subscript traversal (next/previous) ---
 proc subscript_traverse(direction: Direction, name: string, keys: Subscripts, tptoken: uint64): string =
   ## Traverse subscripts at current level  
-  check()
+  if not buf_initialized: check()
   setYdbBuffer(GLOBAL, name)
   var subs: Subscripts
   if keys.len == 0:
@@ -389,7 +389,7 @@ proc ydb_subscript_previous_db*(name: string, keys: Subscripts, tptoken: uint64)
 
 proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64, binary: bool = false): string =
   ## Retrieve a value from a local or global node
-  check()
+  if not buf_initialized: check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
@@ -436,7 +436,7 @@ proc ydb_getbinary_db*(name: string, keys: Subscripts = @[], tptoken: uint64): s
 # --- Locks ---
 proc ydb_lock_incr_db*(timeout_nsec: int, name: string, keys: Subscripts, tptoken: uint64) =
   ## Increment lock for variable
-  check()
+  if not buf_initialized: check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
@@ -459,7 +459,7 @@ proc ydb_lock_incr_db*(timeout_nsec: int, name: string, keys: Subscripts, tptoke
 
 proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken: uint64) =
   ## Increment lock variable
-  check()
+  if not buf_initialized: check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
@@ -579,7 +579,7 @@ proc ydb_lock_db*(timeout_nsec: int, keys: seq[Subscripts], tptoken: uint64) =
   if keys.len > YDB_MAX_NAMES:
     raise newException(YdbError, fmt"Too many arguments. Only {YDB_MAX_NAMES} are allowed")    
 
-  check()
+  if not buf_initialized: check()
 
   var locknames: seq[ydb_buffer_t] = newSeq[ydb_buffer_t]()
   var locksubs: seq[seq[ydb_buffer_t]] = newSeq[newSeq[ydb_buffer_t]()]()
@@ -613,7 +613,7 @@ proc ydb_lock_db*(timeout_nsec: int, keys: seq[Subscripts], tptoken: uint64) =
 proc ydb_ci_db*(name: string, tptoken: uint64) =
   ## Call into a M routine (CI = call-in) with NO arguments, and NO return argument  
   ## Pass variables via local or global variables back and forth
-  check()
+  if not buf_initialized: check()
 
   let c_call_name = allocCstring(name)
   defer:
@@ -629,7 +629,7 @@ proc ydb_ci_db*(name: string, tptoken: uint64) =
 
 proc ydb_str2zwr_db*(name: string, tptoken: uint64): string =
   ## Convert binary string: "hello\9World" -> "hello"_$C(9)_"World"
-  check()
+  if not buf_initialized: check()
   let bufsize = min( (name.len.float * 2.5).int , BUFFER_DATABUF_SIZE)
   var ZWRBUF = stringToYdbBuffer(zeroBuffer(bufsize))
   setYdbBuffer(ZWRBUF, EMPTY_STRING)
@@ -650,7 +650,7 @@ proc ydb_str2zwr_db*(name: string, tptoken: uint64): string =
 
 proc ydb_zwr2str_db*(name: string, tptoken: uint64): string =
   ## Convert converted binary string: "hello"_$C(9)_"World" -> "hello\9World"
-  check()
+  if not buf_initialized: check()
   setYdbBuffer(DATABUF, name)
   when compileOption("threads"):
     rc = ydb_zwr2str_st(tptoken, ERRMSG.addr, DATABUF.addr, DATABUF.addr)
