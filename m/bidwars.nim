@@ -80,17 +80,17 @@ proc Auction() =
     setvar: @auction("Active") = "Yes"
 
     for i in 0..duration*10: 
-        var sum, avgcnt = 0
         setCursorPos(0,3)
         echo "Bid:       ", getvar @auction("Total")
         echo "Price:     ", getvar @auction("Price")
 
+        # show average bid time for all bidders
+        var sum, avgcnt = 0
         for pid in orderItr @auction("Bidders","Average",""):
             let avg = getvar @auction("Bidders","Average",pid).int
             if avg > 0:
                 inc avgcnt
                 inc(sum, avg)
-
         if sum > 0:
             echo "Stats:     ", (sum div avgcnt), " microseconds per bid"
 
@@ -121,9 +121,7 @@ proc Auction() =
 # ---------------
 
 proc Bidder() =
-    var rc = Transaction(pid):
-        # Register linux process id
-        let pid = $cast[cint](param)
+    var rc = Transaction:
         setvar: @auction("Bidders", pid) = increment @auction("Bidders")
 
     # Wait until auction is started
@@ -132,10 +130,8 @@ proc Bidder() =
     var count, avg = 0
     var then = getTime()
     while (getvar @auction("Active")) == "Yes":
-        rc = Transaction(pid): # place bid
-            let pid = $cast[cint](param)
-            let first = (pid == getvar @auction("Leader"))
-            if not first:
+        rc = Transaction: # place bid
+            if pid != getvar @auction("Leader"):
                 let price = getvar @auction("Price").int
                 let raisedBy = rand(1..10)
                 let newprice = price + raisedBy

@@ -23,6 +23,8 @@ when compileOption("threads"):
             ydb_set("^^AAA", @["999"], "tp_rollback", tptoken)
         assert rc == YDB_TP_ROLLBACK
 
+        info "Nested transaction tests do not work currently with MT, skipping"
+
     test "transactionMT": testTransactionMT()
 
 else:
@@ -50,5 +52,28 @@ else:
         rc = Transaction:
             ydb_set("^^AAA", @["999"], "tp_rollback")
         assert rc == YDB_TP_ROLLBACK
+
+        rc = Transaction:
+            # Nested transaction
+            var rc2 = Transaction:
+                ydb_set("^AAA", @["4"], "noparam")
+            assert rc2 == YDB_OK
+            ydb_set("^AAA", @["5"], "noparam")
+        assert rc == YDB_OK           
+        assert 1 == data ^AAA(4)   
+        assert 1 == data ^AAA(5)
+
+        kill: ^AAA
+        rc = Transaction:
+            # Nested transaction with rollback
+            var rc2 = Transaction:
+                ydb_set("^AAA", @["4"], "noparam")
+                return YDB_TP_ROLLBACK
+            assert rc2 == YDB_TP_ROLLBACK
+            ydb_set("^AAA", @["5"], "noparam")
+        assert rc == YDB_OK           
+        assert 0 == data ^AAA(4)   
+        assert 1 == data ^AAA(5)
+
 
     test "transaction": testTransaction()

@@ -4,6 +4,7 @@ import std/strformat
 import std/sets
 import libs/ydbtypes
 import libs/ydbapi
+import chronicles
 when compileOption("profiler"):
   import std/nimprof
 
@@ -914,47 +915,52 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
         errstr  {.inject.}: ptr struct_ydb_buffer_t,
         param   {.inject.}: pointer
       ): cint {.cdecl, gcsafe, raises: [].} =
-        ## Injected symbols:
-        ##   tptoken : uint64
-        ##   errstr  : ptr struct_ydb_buffer_t
-        ##   param   : pointer
         try:
-          `body`
+            `body`
+            YDB_OK
         except:
-          try:
-            let restarted = parseInt(ydb_get("$TRESTART", tptoken=tptoken)) # How many times the proc was called from yottadb
-            if restarted >= MAX_RESTARTS: 
-              return YDB_TP_ROLLBACK
-          except:
-            echo "Could not parse $TRESTART"
-            return YDB_TP_ROLLBACK
-          return YDB_TP_RESTART
-        return YDB_OK
+            if getCurrentException() of TpRestart: discard
+            else: chronicles.error "Exception in transaction:", exception = getCurrentExceptionMsg()
+            
+            try:
+                let restarted = parseInt(ydb_get("$TRESTART", tptoken=tptoken)) # How many times the proc was called from yottadb
+                if restarted >= MAX_RESTARTS: 
+                    chronicles.error "Too many transaction restarts, Rolling back.", exception = getCurrentExceptionMsg()
+                    return YDB_TP_ROLLBACK
+            except:
+                chronicles.error "Exception while getting $TRESTART", exception = getCurrentExceptionMsg()
+                return YDB_TP_ROLLBACK
+            YDB_TP_RESTART
+
       ydb_tp_mt(`fn`, `param`)
-     
+    
   else:
+
     result = quote do:
       proc `fn`(param {.inject.}: pointer): cint {.cdecl, gcsafe, raises: [].} =
-        ## Injected symbols:
-        ##   param : pointer
         try:
-          `body`
+            `body`
+            YDB_OK
         except:
-          try:
-            let restarted = parseInt(ydb_get("$TRESTART")) # How many times the proc was called from yottadb
-            if restarted >= MAX_RESTARTS: 
-              return YDB_TP_ROLLBACK
-          except:
-            echo "Could not parse $TRESTART"
-            return YDB_TP_ROLLBACK
-          return YDB_TP_RESTART
-        return YDB_OK
+            if getCurrentException() of TpRestart: discard
+            else: chronicles.error "Exception in transaction:", exception = getCurrentExceptionMsg()
+            
+            try:
+                let restarted = parseInt(ydb_get("$TRESTART")) # How many times the proc was called from yottadb
+                if restarted >= MAX_RESTARTS: 
+                    chronicles.error "Too many transaction restarts, Rolling back.", exception = getCurrentExceptionMsg()
+                    return YDB_TP_ROLLBACK
+            except:
+                chronicles.error "Exception while getting $TRESTART", exception = getCurrentExceptionMsg()
+                return YDB_TP_ROLLBACK
+            YDB_TP_RESTART
+
 
       ydb_tp(`fn`, `param`)
+
 
 template Transaction*(body: untyped): int =
   transactionImpl("", body)
 
 template Transaction*(param: untyped, body: untyped): int =
   transactionImpl(param, body)
-  
