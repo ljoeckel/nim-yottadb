@@ -49,7 +49,7 @@ proc setupLL() =
 # ------------ Test procs ------------
 
 proc testQuery() =
-  var node:string
+  var node, value: string
   var nodeseq: seq[string]
 
   # as full qualified global/subscript
@@ -67,6 +67,13 @@ proc testQuery() =
   node = query @node
   assert node == "^LL(HAUS,ELEKTRIK,DOSEN,1)"
   assert "Telefondose" == getvar @node
+
+  value = query @node.val
+  assert "Steckdose" == value
+
+  (node, value) = query @node.kv
+  assert node == "^LL(HAUS,ELEKTRIK,DOSEN,2)"
+  assert "Steckdose" == value
 
 
 proc testQueryReverse() =
@@ -87,6 +94,14 @@ proc testQueryReverse() =
 
   node = query @node.reverse
   assert node == "^LL(LAND)"
+
+  node = "^LL(HAUS,ELEKTRIK,DOSEN,2)"
+  var value = query @node.val.reverse
+  assert "Telefondose" == value
+
+  (node, value) = query @node.kv.reverse
+  assert node == "^LL(HAUS,ELEKTRIK,DOSEN,1)"
+  assert "Telefondose" == value
 
 
 proc testQuery2() =

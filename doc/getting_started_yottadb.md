@@ -20,7 +20,7 @@ fi
 
 #### Install the 'nimyottadb' package:
 ```bash
-nimble install malebolgia bingo nimyottadb
+nimble install malebolgia bingo chronicles nimyottadb
 ```
 
 # Use

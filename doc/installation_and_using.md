@@ -1,12 +1,4 @@
-# Install YottaDB
-For a Linux installation on x86 architecture go to [Get-Started](https://yottadb.com/product/get-started/#your-linux-system)
-and follow the instructions or look at `Quickstart`. For installation on ARM go to [here](installation_yottadb.md)
 
-### Quickstart YottaDB Installation
-Install required development software:
-```bash
-sudo apt-get install --no-install-recommends file cmake make gawk gcc git curl tcsh libjansson4 {libconfig,libelf,libicu,libncurses,libreadline,libjansson,libssl}-dev binutils ca-certificates
-```
 
 Download and build YottaDB from source
 ```bash
@@ -71,8 +63,7 @@ nimble install nimlangserver
 
 Now install the required packages for `nimyottadb``
 ```bash
-nimble install bingo
-nimble install malebolgia
+nimble install bingo malebolgia chronicles
 ```
 Now you can start development with VisualStudio Code
 Install the following extensions:

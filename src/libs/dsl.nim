@@ -31,7 +31,6 @@ const
 
 const
   MAX_RESTARTS = 4
-  LOCK_TIMEOUT_MS = 10000
 
 
 # ------------------
@@ -576,6 +575,11 @@ proc lockx*(args: varargs[string]) =
         lockdecrx(timeout, decvars)
 
 
+proc setx*(args: varargs[string]) =
+    for ydbvar in seqToYdbVars(args):
+        ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
+
+
 # --------------------
 # Query Iterators
 # --------------------
@@ -702,187 +706,164 @@ iterator orderItrxCountReverse*(args: varargs[string]): int =
   yield cnt
 
 
-# --------------------
-# Query procs
-# --------------------
+# ----------------------------------
+# Query template and procs
+# ---------------------------------- 
+type QueryType = enum
+    qtNext,
+    qtPrevious,
+    qtCount,
+    qtCountReverse,
+    qtKey,
+    qtKeyReverse,
+    qtKeys,
+    qtKeysReverse
+    qtKv,
+    qtKvReverse
+    qtValue,
+    qtValueReverse
+
+template walkQ[T](qt: static QueryType, args: varargs[string], nodeProc: untyped): T =
+    let ydbvar = seqToYdbVar(args)
+    when qt in {qtnext, qtPrevious}:
+        let (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts)
+        if rc == YDB_OK: keysToString(ydbvar.name, subs)
+        else: EMPTY_STRING
+    elif qt in {qtCount, qtCountReverse}:
+        var cnt = 0
+        var (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts)
+        while rc == YDB_OK:
+            inc cnt
+            (rc, subs) = nodeProc(ydbvar.name, subs)
+        cnt
+    elif qt in {qtKeys, qtKeysReverse}:
+        let (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts)
+        if rc == YDB_OK: subs
+        else: EMPTY_KEYS
+    elif qt in {qtKv, qtKvReverse}:
+        let (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts)
+        if rc == YDB_OK:
+            let value = ydb_get(ydbvar.name, subs)
+            (keysToString(ydbvar.name, subs), value)
+        else:
+            (EMPTY_STRING, EMPTY_STRING)
+    elif qt in {qtValue, qtValueReverse}:
+        let (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts)
+        if rc == YDB_OK: ydb_get(ydbvar.name, subs)
+        else: EMPTY_STRING
+    else:
+        default(T)
 
 proc queryx*(args: varargs[string]): string =
-  let ydbvar = seqToYdbVar(args)
-  let (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
-  if rc == YDB_OK:
-    return keysToString(ydbvar.name, subs)
-  else:
-    return EMPTY_STRING
+    walkQ[string](qtNext, args, ydb_node_next)
 
 proc queryxReverse*(args: varargs[string]): string =
-  let ydbvar = seqToYdbVar(args)
-  let (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
-  if rc == YDB_OK:
-    return keysToString(ydbvar.name, subs)
-  else:
-    return EMPTY_STRING
+    walkQ[string](qtPrevious, args, ydb_node_previous)
 
 proc queryxCount*(args: varargs[string]): int =
-  let ydbvar = seqToYdbVar(args)
-  var (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
-  while rc == YDB_OK:
-    inc result
-    (rc, subs) = ydb_node_next(ydbvar.name, subs)
+    walkQ[int](qtCount, args, ydb_node_next)
 
 proc queryxCountReverse*(args: varargs[string]): int =
-  let ydbvar = seqToYdbVar(args)
-  var (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
-  while rc == YDB_OK:
-    inc result
-    (rc, subs) = ydb_node_previous(ydbvar.name, subs)
+    walkQ[int](qtCount, args, ydb_node_previous)
 
 proc queryxKeys*(args: varargs[string]): seq[string] =
-  let ydbvar = seqToYdbVar(args)
-  let (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
-  if rc == YDB_OK: 
-    return subs
-  else:
-    return EMPTY_KEYS
+    walkQ[seq[string]](qtKeys, args, ydb_node_next)
 
 proc queryxKeysReverse*(args: varargs[string]): seq[string] =
-  let ydbvar = seqToYdbVar(args)
-  let (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
-  if rc == YDB_OK: 
-    return subs
-  else:
-    return EMPTY_KEYS
+    walkQ[seq[string]](qtKeysReverse, args, ydb_node_previous)
+
+proc queryxValue*(args: varargs[string]): string =
+    walkQ[string](qtValue, args, ydb_node_next)
+
+proc queryxValueReverse*(args: varargs[string]): string =
+    walkQ[string](qtValueReverse, args, ydb_node_previous)
 
 proc queryxKv*(args: varargs[string]): (string, string) =
-  let ydbvar = seqToYdbVar(args)
-  let (rc, subs) = ydb_node_next(ydbvar.name, ydbvar.subscripts)
-  if rc == YDB_OK:
-    let value = ydb_get(ydbvar.name, subs)
-    return (keysToString(ydbvar.name, subs), value)
-  else:
-    return (EMPTY_STRING, EMPTY_STRING)
+    walkQ[(string, string)](qtKv, args, ydb_node_next)
 
 proc queryxKvReverse*(args: varargs[string]): (string, string) =
-  let ydbvar = seqToYdbVar(args)
-  let (rc, subs) = ydb_node_previous(ydbvar.name, ydbvar.subscripts)
-  if rc == YDB_OK:
-    let value = ydb_get(ydbvar.name, subs)
-    return (keysToString(ydbvar.name, subs), value)
-  else:
-    return (EMPTY_STRING, EMPTY_STRING)
+    walkQ[(string, string)](qtKvReverse, args, ydb_node_previous)
 
 
+# ----------------------------------
+# Order template and procs
+# ---------------------------------- 
+template walkO[T](qt: static QueryType, args: varargs[string], nodeProc: untyped): T =
+    var ydbvar = seqToYdbVar(args)
+    when qt in {qtnext, qtPrevious}:
+        nodeProc(ydbvar.name, ydbvar.subscripts)
+    elif qt in {qtCount, qtCountReverse}:
+        var subs = ydbvar.subscripts
+        var key = nodeProc(ydbvar.name, subs)
+        while key.len > 0:
+          inc result
+          if subs.len > 0: subs[^1] = key
+          else: subs.add(key)
+          key = ydb_subscript_next(ydbvar.name, subs)
+        result
+    elif qt in {qtKeys, qtKeysReverse}:
+        let key = nodeProc(ydbvar.name, ydbvar.subscripts)
+        if key.len == 0: return @[]
+        if ydbvar.subscripts.len > 0:
+            ydbvar.subscripts[^1] = key
+        else:
+            ydbvar.subscripts.add(key)
+        ydbvar.subscripts
+    elif qt in {qtKey, qtKeyReverse}:
+        let key = nodeProc(ydbvar.name, ydbvar.subscripts)
+        if key.len > 0:
+            if ydbvar.subscripts.len > 0:
+              ydbvar.subscripts[^1] = key
+            else:
+              ydbvar.subscripts.add(key)
+            keysToString(ydbvar.name, ydbvar.subscripts)
+        else:
+            EMPTY_STRING
+    elif qt in {qtKv, qtKvReverse}:
+            let key = nodeProc(ydbvar.name, ydbvar.subscripts)
+            if ydbvar.subscripts.len > 0:
+                ydbvar.subscripts[^1] = key
+            else:
+                ydbvar.subscripts.add(key)
+            let value = ydb_get(ydbvar.name, ydbvar.subscripts)
+            (key, value)
+    else:
+        default(T)
 
-# --------------------
-# Order procs
-# --------------------
 proc orderx*(args: varargs[string]): string =
-  let ydbvar = seqToYdbVar(args)
-  ydb_subscript_next(ydbvar.name, ydbvar.subscripts)
+    walkO[string](qtNext, args, ydb_subscript_next)
 
 proc orderxReverse*(args: varargs[string]): string =
-  let ydbvar = seqToYdbVar(args)
-  ydb_subscript_previous(ydbvar.name, ydbvar.subscripts)
+    walkO[string](qtPrevious, args, ydb_subscript_previous)
 
 proc orderxCount*(args: varargs[string]): int =
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_next(ydbvar.name, subs)
-  while key.len > 0:
-      inc result
-      if subs.len > 0:
-        subs[^1] = key
-      else:
-        subs.add(key)
-      key = ydb_subscript_next(ydbvar.name, subs)
+    walkO[int](qtCount, args, ydb_subscript_next)
 
 proc orderxCountReverse*(args: varargs[string]): int =
-  var key: string
-  let ydbvar = seqToYdbVar(args)
-  var subs = ydbvar.subscripts
-  key = ydb_subscript_previous(ydbvar.name, subs)
-  while key.len > 0:
-      inc result
-      if subs.len > 0:
-        subs[^1] = key
-      else:
-        subs.add(key)
-      key = ydb_subscript_previous(ydbvar.name, subs)
+    walkO[int](qtCount, args, ydb_subscript_previous)
 
 proc orderxKeys*(args: varargs[string]): seq[string] =
-  var ydbvar = seqToYdbVar(args)
-  let key = ydb_subscript_next(ydbvar.name, ydbvar.subscripts)
-  if key.len == 0: return @[]
-  if ydbvar.subscripts.len > 0:
-    ydbvar.subscripts[^1] = key
-  else:
-    ydbvar.subscripts.add(key)
-  return ydbvar.subscripts
+    walkO[seq[string]](qtKeys, args, ydb_subscript_next)
 
 proc orderxKeysReverse*(args: varargs[string]): seq[string] =
-  var ydbvar = seqToYdbVar(args)
-  let key = ydb_subscript_previous(ydbvar.name, ydbvar.subscripts)
-  if key.len == 0: return @[]
-  if ydbvar.subscripts.len > 0:
-    ydbvar.subscripts[^1] = key
-  else:
-    ydbvar.subscripts.add(key)
-  return ydbvar.subscripts
+    walkO[seq[string]](qtKeys, args, ydb_subscript_previous)
 
 proc orderxKey*(args: varargs[string]): string =
-  var ydbvar = seqToYdbVar(args)
-  let key = ydb_subscript_next(ydbvar.name, ydbvar.subscripts)
-  if key.len > 0:
-    if ydbvar.subscripts.len > 0:
-      ydbvar.subscripts[^1] = key
-    else:
-      ydbvar.subscripts.add(key)
-    return keysToString(ydbvar.name, ydbvar.subscripts)
-  else:
-    return EMPTY_STRING
+    walkO[string](qtKey, args, ydb_subscript_next)
 
 proc orderxKeyReverse*(args: varargs[string]): string =
-  var ydbvar = seqToYdbVar(args)
-  let key = ydb_subscript_previous(ydbvar.name, ydbvar.subscripts)
-  if key.len > 0:
-    if ydbvar.subscripts.len > 0:
-      ydbvar.subscripts[^1] = key
-    else:
-      ydbvar.subscripts.add(key)
-    return keysToString(ydbvar.name, ydbvar.subscripts)
-  else:
-    return EMPTY_STRING
-
+    walkO[string](qtKeyReverse, args, ydb_subscript_previous)
 
 proc orderxKv*(args: varargs[string]): (string, string) =
-  var ydbvar = seqToYdbVar(args)
-  let key = ydb_subscript_next(ydbvar.name, ydbvar.subscripts)
-  if ydbvar.subscripts.len > 0:
-    ydbvar.subscripts[^1] = key
-  else:
-    ydbvar.subscripts.add(key)
-  let value = ydb_get(ydbvar.name, ydbvar.subscripts)
-  return (key, value)
+    walkO[(string,string)](qtKv, args, ydb_subscript_next)
 
 proc orderxKvReverse*(args: varargs[string]): (string, string) =
-  var ydbvar = seqToYdbVar(args)
-  let key = ydb_subscript_previous(ydbvar.name, ydbvar.subscripts)
-  if ydbvar.subscripts.len > 0:
-    ydbvar.subscripts[^1] = key
-  else:
-    ydbvar.subscripts.add(key)
-  let value = ydb_get(ydbvar.name, ydbvar.subscripts)
-  return (key, value)
-
-proc setx*(args: varargs[string]) =
-    for ydbvar in seqToYdbVars(args):
-        ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
+    walkO[(string,string)](qtKvReverse, args, ydb_subscript_previous)
 
 
 # --------------------------------
 # Transaction Macros
 # --------------------------------
-
 proc forbidRedeclare(body: NimNode; names: openArray[string]) =
   for n in body:
     if n.kind in {nnkVarSection, nnkLetSection}:
