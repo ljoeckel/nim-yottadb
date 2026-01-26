@@ -34,6 +34,23 @@ else:
         assert rc == YDB_OK
         assert 1 == data ^AAA(1)
 
+        rc = Transaction:
+            setvar: ^AAA(2) = "noparam"
+        assert rc == YDB_OK
+        assert 1 == data ^AAA(2)
+
+        rc = Transaction:
+            let gbl = "^AAA"
+            setvar: @gbl(4) = "noparam"
+        assert rc == YDB_OK
+        assert 1 == data ^AAA(4)
+
+        rc = Transaction:
+            let gbl = "^AAA(5)"
+            setvar: @gbl = "noparam"
+        assert rc == YDB_OK
+        assert 1 == data ^AAA(5)
+
         rc = Transaction("ABC"):
             let dta = $cast[cstring](param)
             assert dta == "ABC"

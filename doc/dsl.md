@@ -339,29 +339,48 @@ let rc = Transaction:
   setvar: ^AAA(1) = "transaction1"
 ```
 If the transaction succeeds, 'rc' is YDB_OK, otherwise YDB_TP_ROLLBACK if the transaction was rolled back due to an error.
+By returning YDB_TP_RESTART, you can restart a transaction if desired or returning YDB_TP_ROLLBACK to abort and roll back a transaction.
 
-You can pass a single `string` or `int` parameter to  `Transaction("abc")` or `Transaction(4711)`. To access the parameter inside the body a cast is required:
+YottaDB checks all DB blocks if another process has changed the data in the meantime. If so, it restarts the Transaction by calling the codeblock in `Transaction` up to 3 times. After that it switches to pessimistic locking and holding the other processes so that a transaction can successfully commit.
+
+If a Transaction raises an exception, the macro implementation returns a YDB_TP_RESTART so that the transaction is restarted. If the problem persists, then also after the 4'th time, the transaction is aborted with YDB_TP_ROLLBACK. 
+Check the src/tests/transaction example.
+
+You can pass a single `string` parameter to  `Transaction("ABC")`. To access the parameter inside the body a cast to `cstring` is required:
 ```nim
 # single threaded --threads:off
 let rc = Transaction("ABC"):
   let s = $cast[cstring](param)
-  ydb_set("^gbl", @["101", s], "data", tptoken)
+  setvar: ^gbl(101, s) = "data"
+```
 
+For the single-threaded Transaction, you can use the API and DSL features.
+- ydb_set("^AAA", @["1"], "noparam")
+- setvar: ^AAA(2) = "noparam"
+- let gbl = "^AAA"
+  setvar: @gbl(4) = "noparam"
+- let gbl = "^AAA(5)"
+  setvar: @gbl = "noparam"
+
+
+
+For multi-threaded transactions, you need to pass the `tptoken` parameter to the ydb-API calls.
+DSL is currently not supported with multi-threaded Transactions.
+If no tptoken is set, YottaDB would block the call and the process is hanging.
+
+```bash
 # multi-threaded --threads:on (tptoken used)
 let rc2 = Transaction(4712):
   let id = $cast[cint](param)
   ydb_set("^gbl", @[id], "data", tptoken)
 ```
 
-For multi-threaded transactions, you need to pass the `tptoken` parameter to the ydb-API calls.
-Otherwise YottaDB would block the call and the process is hanging.
-
 Inside the body you have access to the parameters that YottaDB passes over:
   - tptoken:  uint64,
   - errstr: ptr struct_ydb_buffer_t,
   - param: pointer
 
-There is no limit in 'Transaction' statements within the code. 
+In general, there is no limit in 'Transaction' statements within the code. 
 Each 'Transaction' is commited automatically at the end of the code scope.
 
 Currently, the multi-threaded 'Transaction' does not support the DSL statements like 'setvar'. Instead you have to use the API form (ydb_set(..,tptoken)). This will be changed in future. 
