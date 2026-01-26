@@ -898,7 +898,6 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
       ): cint {.cdecl, gcsafe, raises: [].} =
         try:
             `body`
-            YDB_OK
         except:
             if getCurrentException() of TpRestart: discard
             else: chronicles.error "Exception in transaction:", exception = getCurrentExceptionMsg()
@@ -911,7 +910,7 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
             except:
                 chronicles.error "Exception while getting $TRESTART", exception = getCurrentExceptionMsg()
                 return YDB_TP_ROLLBACK
-            YDB_TP_RESTART
+            return YDB_TP_RESTART
 
       ydb_tp_mt(`fn`, `param`)
     
@@ -921,7 +920,6 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
       proc `fn`(param {.inject.}: pointer): cint {.cdecl, gcsafe, raises: [].} =
         try:
             `body`
-            YDB_OK
         except:
             if getCurrentException() of TpRestart: discard
             else: chronicles.error "Exception in transaction:", exception = getCurrentExceptionMsg()
@@ -934,8 +932,7 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
             except:
                 chronicles.error "Exception while getting $TRESTART", exception = getCurrentExceptionMsg()
                 return YDB_TP_ROLLBACK
-            YDB_TP_RESTART
-
+            return YDB_TP_RESTART
 
       ydb_tp(`fn`, `param`)
 

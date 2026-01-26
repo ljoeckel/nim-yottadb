@@ -52,7 +52,10 @@ proc ydbMessage*(status: cint, tptoken: uint64 = 0): string =
 
 
 proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "", tptoken: uint64 = 0) =
-  ydb_set_db(name, keys, value, tptoken)
+    if value.len <= YDB_MAX_BUF_SIZE:
+        ydb_set_db(name, keys, value, tptoken)
+    else:
+        ydb_set_binary_db(name, keys, value, tptoken)
 
 
 proc ydb_get*(name: string, keys: Subscripts = @[], tptoken: uint64 = 0): string =

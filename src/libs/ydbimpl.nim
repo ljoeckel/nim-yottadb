@@ -4,7 +4,6 @@ import libydb
 
 # Constants for buffer sizes used throughout YottaDB API calls
 const
-  BUFFER_DATABUF_SIZE = 1024*1024
   BUFFER_GLOBAL_SIZE = 256
   BUFFER_IDX_SIZE = 64
   INCRBUF_SIZE = 32
@@ -95,7 +94,7 @@ proc setYdbBuffer(buffer: var openArray[ydb_buffer_t], names: seq[string]) =
   for idx in names.len..<buffer.len:
     setYdbBuffer(buffer[idx], EMPTY_STRING)
 
-proc setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string] = @[]) =
+proc setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string]) =
   # Populate a fixed-size buffer array with keys (subscripts)
   for idx in 0..<keys.len:
     setYdbBuffer(arr[idx], keys[idx])
@@ -110,7 +109,7 @@ proc check() =
   ## Ensure buffers are allocated before first use.
   if not buf_initialized:
     ERRMSG = stringToYdbBuffer(zeroBuffer(YDB_MAX_ERRORMSG))
-    DATABUF = stringToYdbBuffer(zeroBuffer(BUFFER_DATABUF_SIZE))
+    DATABUF = stringToYdbBuffer(zeroBuffer(YDB_MAX_BUF_SIZE))
     INCRBUF = stringToYdbBuffer(zeroBuffer(INCRBUF_SIZE))    
     GLOBAL = stringToYdbBuffer(zeroBuffer(BUFFER_GLOBAL_SIZE))
     for idx in 0..<IDXARR.len:
@@ -191,7 +190,7 @@ proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:int, transid:string): int =
   checkRC()
 
 
-proc ydb_set_small(name: string, keys: Subscripts, value: string, tptoken: uint64) =
+proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken: uint64) =
   ## Store a value into a local or global node
   if not buf_initialized: check()
   setIdxArr(IDXARR, keys)
@@ -203,20 +202,20 @@ proc ydb_set_small(name: string, keys: Subscripts, value: string, tptoken: uint6
     rc = ydb_set_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
   checkRC(tptoken)
 
-proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken: uint64) =
-  if value.len <= BUFFER_DATABUF_SIZE:
-    ydb_set_small(name, keys, value, tptoken)
+proc ydb_set_binary_db*(name: string, keys: Subscripts, value: string, tptoken: uint64) =
+  if value.len <= YDB_MAX_BUF_SIZE:
+    ydb_set_db(name, keys, value, tptoken)
   else:
     var idx = 0
     var endpos = 0
-    for i in 0 .. value.len div BUFFER_DATABUF_SIZE:
-      endpos += BUFFER_DATABUF_SIZE - (if i == 0: 1 else: 0)
+    for i in 0 .. value.len div YDB_MAX_BUF_SIZE:
+      endpos += YDB_MAX_BUF_SIZE - (if i == 0: 1 else: 0)
       if endpos >= value.len: 
         endpos = value.len-1
       if idx >= endpos: break
       var subs:Subscripts = keys
       subs.add("___$" & fmt"{i:08}" & "$___")
-      ydb_set_small(name, subs, value[idx .. endpos], tptoken)
+      ydb_set_db(name, subs, value[idx .. endpos], tptoken)
       idx = endpos + 1
 
 
@@ -404,7 +403,7 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64, binary: 
       for idx in 0..<DATABUF.len_used:
         result[idx] = DATABUF.buf_addr[idx].char
     else:
-      if DATABUF.len_used >= BUFFER_DATABUF_SIZE:
+      if DATABUF.len_used >= YDB_MAX_BUF_SIZE:
         raise newException(YdbError, "Record too long. Use \'.binary\' postfix" & " name:" & name & " keys:" & $keys)  
       DATABUF.buf_addr[DATABUF.len_used] = '\0'
       return $DATABUF.buf_addr
@@ -630,7 +629,7 @@ proc ydb_ci_db*(name: string, tptoken: uint64) =
 proc ydb_str2zwr_db*(name: string, tptoken: uint64): string =
   ## Convert binary string: "hello\9World" -> "hello"_$C(9)_"World"
   if not buf_initialized: check()
-  let bufsize = min( (name.len.float * 2.5).int , BUFFER_DATABUF_SIZE)
+  let bufsize = min( (name.len.float * 2.5).int , YDB_MAX_BUF_SIZE)
   var ZWRBUF = stringToYdbBuffer(zeroBuffer(bufsize))
   setYdbBuffer(ZWRBUF, EMPTY_STRING)
   setYdbBuffer(DATABUF, name)
