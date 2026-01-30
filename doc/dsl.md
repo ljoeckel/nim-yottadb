@@ -11,13 +11,27 @@ setvar:
     ^XX("B",1)="AB"
 ```
 Get already converted data (string/int/float)
+
+# DSL Statements and Expressions
+
+## setvar / getvar / .binary
+```nim
+setvar:
+    ^XX(1,2,3)=123
+    ^XX(1,2,3,7)=1237
+    ^XX(1,2,4)=124
+    ^XX(1,2,5,9)=1259
+    ^XX(1,6)=16
+    ^XX("B",1)="AB"
+```
+Get already-converted data (string/int/float)
 ```nim
 let subs = @["4711", "Acct123"]
 setvar: ^CUST(subs) = 1500.50
-var amount = getvar  ^CUST(subs).float
+var amount = getvar ^CUST(subs).float
 amount += 1500.50
 setvar: ^CUST(subs) = amount
-let dbamount = getvar  ^CUST(subs).float  # read from db
+let dbamount = getvar ^CUST(subs).float  # read from db
 assert dbamount == amount
 ```
 
@@ -25,13 +39,13 @@ Set with mixed variable and string subscripts
 ```nim
 let id = 1
 setvar: ^X(id, "s") = "pi"
-let s = getvar  ^X(id, "s")
+let s = getvar ^X(id, "s")
 assert s == "pi"
 setvar: ^X(id, "i") = 3
-let i = getvar  ^X(id, "i").int
+let i = getvar ^X(id, "i").int
 assert i == 3
 setvar: ^X(id, "f") = 3.1414
-let f = getvar  ^X(id, "f").float
+let f = getvar ^X(id, "f").float
 assert f == 3.1414
 ```
 
@@ -40,37 +54,37 @@ setvar: in a loop
 for id in 0..<5:
   let tm = cpuTime()
   setvar: ^CUST(id, "Timestamp") = tm
-  let s = getvar  ^CUST(id, "Timestamp").float
+  let s = getvar ^CUST(id, "Timestamp").float
   assert s == tm
 ```
 
-Upto 31 Index-Levels are possible
+Up to 31 index levels are possible
 ```nim
 setvar: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,"Z")="xxx"
 ```
 
-nim-yottadb supports binary data with a max recordsize of 99999999 MB. You can read back binary data with `.binary`
+nim-yottadb supports binary data and can handle very large record sizes (practically limited by available memory). You can read back binary data with the `.binary` postfix.
 ```nim
 let image = getvar ^images(4711).binary
 ```
-=======
+
 ## getvar - 'default'
-getvar supports a 'default' value:
+getvar supports a `default` value:
 ```nim
 let name = getvar (^customer(123,"name"), default="<noname>")
 let discount = getvar (^account(123,"discount"), default=2.75).float
 ```
-The global variable with it's subscripts will be automatically created.
+The global variable with its subscripts will be automatically created if it does not yet exist.
 
 ## increment
-Atomic increment a global in the database
+Atomic increment of a global in the database
 ```nim
 let incrval = increment: ^CNT("TXID")
 let c5 = increment: (^CNT("AUTO"), by=5)
 ```
 
 ## data
-Test if a node or tree exists and has a subtree
+Test whether a node or tree exists and whether it has descendants
 ```nim
 setvar:
     ^X(1, "A")="1.A"
@@ -82,19 +96,19 @@ setvar:
     ^X(6)="G"
     ^X(7,3)="H"
   
-  var dta = data: ^X(0)
-  assert YdbData(dta) == YDB_DATA_UNDEF
-  dta = data: ^X(6)
-  assert YdbData(dta) == YDB_DATA_VALUE_NODESC
-  dta = data: ^X(5)
-  assert YdbData(dta) == YDB_DATA_NOVALUE_DESC
-  dta = data: ^X(7)
-  assert YdbData(dta) == YDB_DATA_VALUE_DESC
+var dta = data: ^X(0)
+assert YdbData(dta) == YDB_DATA_UNDEF
+dta = data: ^X(6)
+assert YdbData(dta) == YDB_DATA_VALUE_NODESC
+dta = data: ^X(5)
+assert YdbData(dta) == YDB_DATA_NOVALUE_DESC
+dta = data: ^X(7)
+assert YdbData(dta) == YDB_DATA_VALUE_DESC
 ```
 
 ## killnode
-Delete a node. If all nodes of a variable are removed, the variable itself is removed.
-No descendents are removed.
+Delete a single node. If all nodes of a variable are removed, the variable itself is removed.
+No descendants are removed.
 ```nim
 setvar: ^X(1)="hello"
 killnode: ^X(1) # delete only this node
@@ -103,42 +117,35 @@ killnode: ^X(1) # delete only this node
 ## kill
 Delete a subtree of a variable. If all nodes are removed, the variable itself is removed.
 ```nim
-  setvar: ^X(1,1)="hello"
-  setvar: ^X(1,2)="world"
-  let dta = data: ^X(1) # returns 10 (no data but subtree)
-  kill: ^X(1)
+setvar: ^X(1,1)="hello"
+setvar: ^X(1,2)="world"
+let dta = data: ^X(1) # returns 10 (no data but subtree)
+kill: ^X(1)
 ```
 
 ## lock
-Lock upto 35 Global variables at once. Other processes trying to lock one of the globals will wait until the lock is released or a timeout expires. 
+Lock up to 35 global variables at once. Other processes trying to lock one of the globals will wait until the lock is released or until a timeout expires.
 
-A {} has to be used to enclose more than one variable and an optional `timeout` value. 
+Use `{}` to enclose multiple variables and an optional `timeout` value. An empty `{}` releases all locks.
 
-A empty {} will release all locks.
+`timeout` is specified in nanoseconds and defines how long to wait for a lock. The default is `2147483643` nanoseconds (the value of `YDB_LOCK_TIMEOUT`). You may also specify the timeout in seconds with a decimal point; values greater than 2.147 seconds are treated as the default.
 
-A `timeout` defines the time in nsec how long to wait for a lock.
-Defaults to 2147483643 nano seconds, the value of YDB_LOCK_TIMEOUT.
-The `timeout` value can also be specified in seconds with a decimal point. Values > 2.147 seconds are set to the default.
+Locks are visible within each thread, and global locks affect processes on the same host.
 
-Locks are visible in each Thread. Global lock's affects each process on the same host.
-
-Each new lock operation releases earlier locks.
-
-A single variable can be added or removed to the lock table with '+' or '-' without releasing earlier locks.
-
+By default, each new `lock` operation replaces previous locks. You can add or remove a single variable from the current lock set using `+` and `-` without releasing the other locks.
 ```nim
-# Lock one variable at the time. Release old locks
+# Lock one variable at a time. This replaces previous locks
 lock localvar
 lock lclv(4711)
 lock ^globalvar
 lock ^gbl(4711)
 
-# Lock multiple variables at once
+# Lock multiple variables at once (use braces)
 lock:
   {
     ^LL("HAUS", "11"),
     ^LL("HAUS", "12"),
-    ^LL("HAUS", "XX"), # not yet existent, but ok
+    ^LL("HAUS", "XX"), # not yet existent, but OK
   }
 assert 3 == getLockCountFromYottaDb()
 lock: {} # release all locks
@@ -148,8 +155,9 @@ var id = 4711
 # Set a timeout value in seconds
 lock { ^CNT(id), timeout=0.5 }
 
-lock +^gbl # add lock without releasing old locks
-lock -^gbl # release only ^gbl from locks
+# Add or remove an individual lock without releasing others
+lock +^gbl # add lock
+lock -^gbl # remove only ^gbl from locks
 lock +lclv # add lock for local variable
 ```
 
@@ -157,159 +165,153 @@ lock +lclv # add lock for local variable
 Traverse the global and get the next node in the collating sequence.
 ```nim
 echo query ^LL
-^LL(HAUS)
+# ^LL(HAUS)
 echo query ^LL("HAUS")
-^LL(HAUS, ELEKTRIK)
+# ^LL(HAUS, ELEKTRIK)
 ```
 
 ## query.reverse
 Traverse the global backward and get the previous node in the collating sequence.
 ```nim
 echo query ^LL("HAUS", "ELEKTRIK", "DOSEN", "1").reverse
-^LL(HAUS,ELEKTRIK,DOSEN)
+# ^LL(HAUS,ELEKTRIK,DOSEN)
 echo query ^LL("HAUS", "ELEKTRIK").reverse
-^LL(HAUS)
+# ^LL(HAUS)
 ```
 
 ## order
-Traverse on the globals on a given index level.
+Traverse the globals at a given index level.
 ```nim
 echo order ^LL
-HAUS
+# HAUS
 echo order ^LL("HAUS")
-LAND
+# LAND
 ```
 
 ## order.reverse
-Traverse the globals backwards on a given index level.
+Traverse the globals backwards at a given index level.
 ```nim
 echo order ^LL("LAND").reverse
-HAUS
+# HAUS
 ```
 ## queryItr
 ```nim
 for key in queryItr ^LL:
   echo key
-^LL(HAUS)
-^LL(HAUS,ELEKTRIK)
-^LL(HAUS,ELEKTRIK,DOSEN)
-^LL(HAUS,ELEKTRIK,DOSEN,1)
-^LL(HAUS,ELEKTRIK,DOSEN,2)
-...
+  # ^LL(HAUS)
+  # ^LL(HAUS,ELEKTRIK)
+  # ^LL(HAUS,ELEKTRIK,DOSEN)
+  # ^LL(HAUS,ELEKTRIK,DOSEN,1)
+  # ^LL(HAUS,ELEKTRIK,DOSEN,2)
 ```
 ## orderItr
 ```nim
-for key in queryItr ^LL:
+for key in orderItr ^LL:
   echo key
-HAUS
-LAND
-ORT
-for key in queryItr ^LL("HAUS",""):
+  # HAUS
+  # LAND
+  # ORT
+
+for key in orderItr ^LL("HAUS",""):
   echo key
-ELEKTRIK
-FLAECHEN
-HEIZUNG
+  # ELEKTRIK
+  # FLAECHEN
+  # HEIZUNG
 ```
 ## Iterator postfix
-For both `order` and `query` there exists an iterator which simplifies the access further.
+For both `order` and `query` there are iterators which simplify access.
 With a postfix notation the value returned by the iterator can be controlled:
-- .key - Return the full subscripted key (^Customer(1,Name))
-- .keys - Return the full key as seq[string] (@["1", "Name"])
-- .kv - Return the key and the value as tuple (^Customer(1,"Name", "Lothar")
-- .val - Returns the value for the key 
-- .reverse - Traverses in backward direction
-- .count - Count the number of entries
+- .key - Return the full subscripted key (e.g. ^Customer(1,"Name"))
+- .keys - Return the full key as `seq[string]` (e.g. @["1", "Name"])
+- .kv - Return the key and the value as a tuple (key, value)
+- .val - Return the value for the key
+- .reverse - Traverse in backward direction
+- .count - Return the number of entries
 ```nim
 for key in orderItr ^LL:
-    echo key 
-HAUS
-LAND
-ORT
+  echo key
+  # HAUS
+  # LAND
+  # ORT
 
-for key in orderItr ^LL("HAUS","").key:
-    echo key 
-^LL(HAUS,ELEKTRIK)
-^LL(HAUS,FLAECHEN)
-^LL(HAUS,HEIZUNG)
+for key in orderItr ^LL("HAUS", "").key:
+  echo key
+  # ^LL(HAUS,ELEKTRIK)
+  # ^LL(HAUS,FLAECHEN)
+  # ^LL(HAUS,HEIZUNG)
 
 for key in orderItr ^LL("HAUS", "ELEKTRIK", "DOSEN", "").key:
-    echo key, "=", getvar @key
-^LL(HAUS,ELEKTRIK,DOSEN,1)=Telefondose
-^LL(HAUS,ELEKTRIK,DOSEN,2)=Steckdose
-^LL(HAUS,ELEKTRIK,DOSEN,3)=IP-Dose
-^LL(HAUS,ELEKTRIK,DOSEN,4)=KFZ-Dose
+  echo key, "=", getvar @key
+  # ^LL(HAUS,ELEKTRIK,DOSEN,1)=Telefondose
+  # ^LL(HAUS,ELEKTRIK,DOSEN,2)=Steckdose
+  # ^LL(HAUS,ELEKTRIK,DOSEN,3)=IP-Dose
+  # ^LL(HAUS,ELEKTRIK,DOSEN,4)=KFZ-Dose
 
-for subs in orderItr ^LL("HAUS","").keys:
-    echo subs 
-@["HAUS", "ELEKTRIK"]
-@["HAUS", "FLAECHEN"]
-@["HAUS", "HEIZUNG"]
+for subs in orderItr ^LL("HAUS", "").keys:
+  echo subs
+  # @["HAUS", "ELEKTRIK"]
+  # @["HAUS", "FLAECHEN"]
+  # @["HAUS", "HEIZUNG"]
 
-for value in orderItr ^LL("HAUS","ELEKTRIK","DOSEN", "").val:
-    echo value    
-Telefondose
-Steckdose
-IP-Dose
-KFZ-Dose
+for value in orderItr ^LL("HAUS", "ELEKTRIK", "DOSEN", "").val:
+  echo value
+  # Telefondose
+  # Steckdose
+  # IP-Dose
+  # KFZ-Dose
 
-for key,value in orderItr ^LL("HAUS","ELEKTRIK","DOSEN", "").kv:
-    echo key,"=",value    
-1=Telefondose
-2=Steckdose
-3=IP-Dose
-4=KFZ-Dose
+for key, value in orderItr ^LL("HAUS", "ELEKTRIK", "DOSEN", "").kv:
+  echo key, "=", value
+  # 1=Telefondose
+  # 2=Steckdose
+  # 3=IP-Dose
+  # 4=KFZ-Dose
 
-for cnt in orderItr ^LL("HAUS","ELEKTRIK","DOSEN", "").count:
-    echo cnt
-4
+for cnt in orderItr ^LL("HAUS", "ELEKTRIK", "DOSEN", "").count:
+  echo cnt
+  # 4
 ```
 
 ## str2zwr
-Save binary data through YottaDB's api.
-Theoretically the maximum size of the useable data is the half of the maximum string length of 1MB.
+Save binary data through YottaDB's API. This API is provided for compatibility; for most modern use cases the `binary` postfix is the preferred approach.
 ```nim
-  let x = str2zwr("hello\9World")
-  assert str2zwr("hello\9World") == """"hello"_$C(9)_"World""""
+let x = str2zwr("hello\9World")
+assert str2zwr("hello\9World") == """"hello""_$C(9)_"""World""""
 ```
-Use `binary` postfix as an alternative for binary data.
+Use the `binary` postfix as an alternative for binary data.
 
 ## zwr2str
 Read back data stored in the `str2zwr` format.
 ```nim
-  assert zwr2str(""""hello"_$C(9)_"World"""") == "hello\9World"
+assert zwr2str(""""hello""_$C(9)_"""World"""") == "hello\9World"
 ```
-The `str2zwr`and `zwr2str` methods are available for compatibility reasons only. For new applications there is no need. The database limit of 1MB for record size is no longer in effect. nim-yottadb handles larger record sizes up to 99_999_999 MB. The size is only limited due to memory constraints.
-In the future there will be a `stream-interface`to handle virtual unlimited record sizes.
+The `str2zwr` and `zwr2str` functions exist for compatibility. For new applications prefer the `binary` postfix or other modern APIs. The historical 1 MB record-size limit no longer applies; nim-yottadb can handle much larger records, practically limited by available memory. A streaming interface may be provided in the future to support effectively unlimited record sizes.
 
 # 'getvar' with postfix
-It is possible to enforce a type when getting data from YottaDB. By using a 'postfix' a expected type can be defined and tested.
+You can enforce an expected type when reading data from YottaDB using a postfix. If the stored value is out of the specified type range, a `ValueError` is raised.
 ```nim
-let i = getvar  ^global(1).int16
-let f = getvar  ^global(4711).float32
-let u = getvar  ^global(815).uint8
+let i = getvar ^global(1).int16
+let f = getvar ^global(4711).float32
+let u = getvar ^global(815).uint8
 ```
-If the value from the db is greater or smaller than the range defined through the postfix, a `ValueError` exception is raised.
-
-The following postfixes are implemented:
+Supported postfixes include:
 - int, int8, int16, int32, int64
 - uint, uint8, uint16, uint32, uint64
 - float, float32, float64
 
 # .OrderedSet Postfix
-Allows to read back a OrderedSet.
-When the string form '$' is saved then the saved data looks normally like `{9, 5, 1}`. The data may also be stored in the form `9,5,1` which is more efficient. The .OrderedSet postfix handles both forms.
+Allows reading back an `OrderedSet` saved as a string. The saved form may be `{9, 5, 1}` or the more efficient `9,5,1`; the `.OrderedSet` postfix handles both formats.
 ```nim
-  var os = toOrderedSet([9, 5, 1])
-  # os: {9, 5, 1}
-  setvar: ^tmp("set1") = $os
-  let osdb: OrderedSet[int] = getvar  ^tmp("set1").OrderedSet
-  assert osdb == os
+var os = toOrderedSet([9, 5, 1])
+# os: {9, 5, 1}
+setvar: ^tmp("set1") = $os
+let osdb: OrderedSet[int] = getvar ^tmp("set1").OrderedSet
+assert osdb == os
 ```
-In the momemnt, only type 'int' is implemented for this postfix.
-It's experimental and may be removed in the future.
+Currently only `int` is supported for this postfix. This feature is experimental and may change or be removed in the future.
 
 # Local Variables
-All methods available for globals can also be applied for local variables.
+All methods available for globals can also be applied to local variables.
 
 ```nim
 setvar:
@@ -318,74 +320,54 @@ setvar:
   myvar(@[id, "4711"]) = "..."
   # and so on
 ```
-# Special Variables
-Getting a value, use getvar 
-```nim
-  let zversion = getvar  $ZVERSION
-  echo zversion
-```
 
-To set a special variable via the DSL, use setvar:
-It is important to use an empty bracket ().
+# Special Variables
+To read a special variable, use `getvar`:
 ```nim
-  setvar: $ZMAXTPTIME()="2"
+let zversion = getvar $ZVERSION
+echo zversion
+```
+To set a special variable via the DSL use `setvar:` with empty parentheses `()`:
+```nim
+setvar: $ZMAXTPTIME() = "2"
 ```
 
 # Transactions
-`Transaction` can handle both single- and multithreaded transactions.
-For single-threaded Transactions you write:
+`Transaction` supports both single-threaded and multi-threaded transactions.
+
+For single-threaded transactions use:
 ```nim
 let rc = Transaction:
   setvar: ^AAA(1) = "transaction1"
 ```
-If the transaction succeeds, 'rc' is YDB_OK, otherwise YDB_TP_ROLLBACK if the transaction was rolled back due to an error.
-By returning YDB_TP_RESTART, you can restart a transaction if desired or returning YDB_TP_ROLLBACK to abort and roll back a transaction.
+If the transaction succeeds, `rc` is `YDB_OK`; if it is rolled back due to an error, `rc` is `YDB_TP_ROLLBACK`. Returning `YDB_TP_RESTART` from the transaction body requests a restart; returning `YDB_TP_ROLLBACK` aborts and rolls back the transaction.
 
-YottaDB checks all DB blocks if another process has changed the data in the meantime. If so, it restarts the Transaction by calling the codeblock in `Transaction` up to 3 times. After that it switches to pessimistic locking and holding the other processes so that a transaction can successfully commit.
+YottaDB detects concurrent changes to underlying blocks and will retry the transaction (re-running the code block) up to 3 times. If the contention persists it falls back to pessimistic locking to allow the transaction to commit.
 
-If a Transaction raises an exception, the macro implementation returns a YDB_TP_RESTART so that the transaction is restarted. If the problem persists, then also after the 4'th time, the transaction is aborted with YDB_TP_ROLLBACK. 
-Check the src/tests/transaction example.
+If a `Transaction` raises an exception, the macro returns `YDB_TP_RESTART` to retry. If the issue persists beyond the retry limit, the transaction is aborted with `YDB_TP_ROLLBACK`. See `src/tests/transaction` for an example.
 
-You can pass a single `string` parameter to  `Transaction("ABC")`. To access the parameter inside the body a cast to `cstring` is required:
+You can pass a single `string` parameter to `Transaction("ABC")`. Inside the body cast `param` to `cstring` to access it:
 ```nim
-# single threaded --threads:off
+# single-threaded (--threads:off)
 let rc = Transaction("ABC"):
   let s = $cast[cstring](param)
   setvar: ^gbl(101, s) = "data"
 ```
 
-For the single-threaded Transaction, you can use the API and DSL features.
-- ydb_set("^AAA", @["1"], "noparam")
-- setvar: ^AAA(2) = "noparam"
-- let gbl = "^AAA"
-  setvar: @gbl(4) = "noparam"
-- let gbl = "^AAA(5)"
-  setvar: @gbl = "noparam"
+In single-threaded mode you may use both the API and the DSL inside the transaction body (e.g. `ydb_set`, `setvar`, or using a dynamic global name via `let gbl = "^AAA"` and `setvar: @gbl(4) = "..."`).
 
-
-
-For multi-threaded transactions, you need to pass the `tptoken` parameter to the ydb-API calls.
-DSL is currently not supported with multi-threaded Transactions.
-If no tptoken is set, YottaDB would block the call and the process is hanging.
-
-```bash
-# multi-threaded --threads:on (tptoken used)
+For multi-threaded transactions you must pass the `tptoken` parameter to YottaDB API calls. DSL-style `setvar` is not currently supported inside multi-threaded `Transaction` bodies; use the API form (`ydb_set(..., tptoken)`). If `tptoken` is omitted in a multi-threaded context, the call will block.
+```nim
+# multi-threaded (--threads:on)
 let rc2 = Transaction(4712):
   let id = $cast[cint](param)
   ydb_set("^gbl", @[id], "data", tptoken)
 ```
 
-Inside the body you have access to the parameters that YottaDB passes over:
-  - tptoken:  uint64,
-  - errstr: ptr struct_ydb_buffer_t,
-  - param: pointer
+Inside the multi-threaded transaction body you have access to:
+- `tptoken`: uint64
+- `errstr`: ptr struct_ydb_buffer_t
+- `param`: pointer
 
-In general, there is no limit in 'Transaction' statements within the code. 
-Each 'Transaction' is commited automatically at the end of the code scope.
-
-Currently, the multi-threaded 'Transaction' does not support the DSL statements like 'setvar'. Instead you have to use the API form (ydb_set(..,tptoken)). This will be changed in future. 
-In the single-threaded form 'Transaction' you can freely use any DSL statements.
-
-A good example to see how `Transaction` is used, look at m/bidwars.nim
-
-To understand how YottaDB handles multi-threaded Transactions it is important to read their documents. (https://docs.yottadb.com/MultiLangProgGuide/programmingnotes.html#threads-txn-proc)
+Transactions commit automatically at the end of their scope. For an example of `Transaction` usage see `m/bidwars.nim`. For background on YottaDB multi-threaded transactions read the YottaDB docs: https://docs.yottadb.com/MultiLangProgGuide/programmingnotes.html#threads-txn-proc
+````

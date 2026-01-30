@@ -9,12 +9,19 @@ proc setup() =
       ^tmp
       ^images
 
+const
+    BLOCKSIZES = [512, 1024, 1025, 2048, 2049, 8192, 16384, 32767, 65535, 131073, 262146]
+var KB = newStringOfCap(1024)
+for j in 0..<4:
+    for i in 0 .. 255:
+        KB.add(i.char)
+
+
 proc createBinData(kb: int): string =
   # create a binary string
-  var binval: string
-  for i in 0 .. 255:
-    binval.add(i.char)
-  repeat(binval, kb*4)
+  result = newStringOfCap(1024*kb)
+  for i in 0..<kb:
+    result.add(KB)
 
 
 proc testBinaryPostfix() =
@@ -35,7 +42,7 @@ proc testBinaryPostfix() =
 proc testBinaryPostfixHugeWrite(): int =
   kill: ^tmphuge
   var totalBytes = 0
-  for size in [512, 1024, 1025, 2048, 2049, 8192, 16384, 32767, 65535, 131073]:
+  for size in BLOCKSIZES:
     let data = createBinData(size)
     inc(totalBytes, data.len)
     setvar: ^tmphuge(size) = data
@@ -43,14 +50,14 @@ proc testBinaryPostfixHugeWrite(): int =
 
 proc testBinaryPostfixHugeRead(): int =
   var totalBytes = 0
-  for size in [512, 1024, 1025, 2048, 2049, 8192, 16384, 32767, 65535, 131073]:
+  for size in BLOCKSIZES:
     let data = getvar ^tmphuge(size).binary
     inc(totalBytes, data.len)
   return totalBytes
 
 proc testBinaryPostfixHugeVerify(): int =
   var totalBytes = 0
-  for size in [512, 1024, 1025, 2048, 2049, 8192, 16384, 32767, 65535, 131073]:
+  for size in BLOCKSIZES:
     let data = createBinData(size)
     let dbval = getvar ^tmphuge(size).binary
     inc(totalBytes, dbval.len)
