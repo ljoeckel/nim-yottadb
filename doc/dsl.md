@@ -369,5 +369,25 @@ Inside the multi-threaded transaction body you have access to:
 - `errstr`: ptr struct_ydb_buffer_t
 - `param`: pointer
 
-Transactions commit automatically at the end of their scope. For an example of `Transaction` usage see `m/bidwars.nim`. For background on YottaDB multi-threaded transactions read the YottaDB docs: https://docs.yottadb.com/MultiLangProgGuide/programmingnotes.html#threads-txn-proc
-````
+Transactions commit automatically at the end of their scope. For an example of `Transaction` usage see `m/bidwars.nim`. 
+
+
+
+If you need access to variables outside the `Transaction` scope then the variable must be in Nim's global scope:
+```bash
+var somedata = "ABC"
+proc doTransaction() =
+    let somevar = "DEF"
+    let rc = Transaction:
+        setvar: ^data(4711) = somedata
+        # setvar: ^data(4712) = somevar # this will NOT work
+```
+Instead you can use YottaDB's local variables to pass data between your proc and the Transaction scope:
+```bash
+setvar: ctx("somedata") = "ABC"
+proc doTransaction() =
+    let rc = Transaction:
+        setvar: ^data(4711) = getvar ctx("somedata")
+```
+
+For background on YottaDB multi-threaded transactions read the YottaDB docs: https://docs.yottadb.com/MultiLangProgGuide/programmingnotes.html#threads-txn-proc
