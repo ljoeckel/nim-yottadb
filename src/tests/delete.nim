@@ -87,10 +87,14 @@ proc testKill3() =
   # create a tree
   setvar: ^X(1,1)="hello"
   setvar: ^X(1,2)="world"
+  setvar: ^X(2) = "hello world"
   let dta = data: ^X(1) 
   assert 10 == dta # Expect no data but subtree
   kill: ^X(1)
   assert "" == getvar ^X(1)
+  let id = 2
+  kill: ^X(id)
+  assert "" == getvar ^X(id)
 
 proc testDeleteNode() =
     setvar: ^GBL="hallo"

@@ -23,7 +23,7 @@ when compileOption("threads"):
             ydb_set("^^AAA", @["999"], "tp_rollback", tptoken)
         assert rc == YDB_TP_ROLLBACK
 
-        info "Nested transaction tests do not work currently with MT, skipping"
+        echo "Nested transaction tests do not work currently with MT, skipping"
 
     test "transactionMT": testTransactionMT()
 

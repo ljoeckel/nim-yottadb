@@ -4,7 +4,6 @@ import std/strformat
 import std/sets
 import libs/ydbtypes
 import libs/ydbapi
-import chronicles
 when compileOption("profiler"):
   import std/nimprof
 
@@ -900,15 +899,15 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
             `body`
         except:
             if getCurrentException() of TpRestart: discard
-            else: chronicles.error "Exception in transaction:", exception = getCurrentExceptionMsg()
+            else: echo "Exception in transaction:", getCurrentExceptionMsg()
             
             try:
                 let restarted = parseInt(ydb_get("$TRESTART", tptoken=tptoken)) # How many times the proc was called from yottadb
                 if restarted >= MAX_RESTARTS: 
-                    chronicles.error "Too many transaction restarts, Rolling back.", exception = getCurrentExceptionMsg()
+                    echo "Too many transaction restarts, Rolling back.", getCurrentExceptionMsg()
                     return YDB_TP_ROLLBACK
             except:
-                chronicles.error "Exception while getting $TRESTART", exception = getCurrentExceptionMsg()
+                echo "Exception while getting $TRESTART", getCurrentExceptionMsg()
                 return YDB_TP_ROLLBACK
             return YDB_TP_RESTART
 
@@ -922,15 +921,15 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
             `body`
         except:
             if getCurrentException() of TpRestart: discard
-            else: chronicles.error "Exception in transaction:", exception = getCurrentExceptionMsg()
+            else: echo "Exception in transaction:", getCurrentExceptionMsg()
             
             try:
                 let restarted = parseInt(ydb_get("$TRESTART")) # How many times the proc was called from yottadb
                 if restarted >= MAX_RESTARTS: 
-                    chronicles.error "Too many transaction restarts, Rolling back.", exception = getCurrentExceptionMsg()
+                    echo "Too many transaction restarts, Rolling back.", getCurrentExceptionMsg()
                     return YDB_TP_ROLLBACK
             except:
-                chronicles.error "Exception while getting $TRESTART", exception = getCurrentExceptionMsg()
+                echo "Exception while getting $TRESTART", getCurrentExceptionMsg()
                 return YDB_TP_ROLLBACK
             return YDB_TP_RESTART
 
