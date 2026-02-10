@@ -1,5 +1,5 @@
 # Package Information
-version = "0.4.1"
+version = "0.4.3"
 author = "Lothar Joeckel"
 description = "Nim language implementation for the YottaDB database"
 license = "MIT"
