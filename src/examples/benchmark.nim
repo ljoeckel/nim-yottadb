@@ -2,7 +2,7 @@ import std/[times, unittest, strutils]
 import yottadb
 import ydbutils
 
-const MAX = 10_000_000
+const MAX = 1_000_000
 
 Kill:
     ^BENCHMARK
@@ -29,7 +29,7 @@ proc getSimple() =
         let val = ydb_get("^BENCHMARK1",@[$id])
         assert $id == val
 
-proc Query() =
+proc query() =
     var cnt = 0
     var (rc, subs) = ydb_node_next("^BENCHMARK1")
     while rc == YDB_OK:
@@ -37,7 +37,15 @@ proc Query() =
         inc cnt
     assert cnt == MAX
 
-proc Killnode() =
+proc order() =
+    var cnt = 0
+    var key = ydb_subscript_next("^BENCHMARK1")
+    while key.len > 0:
+        key = ydb_subscript_next("^BENCHMARK1", @[key])
+        inc cnt
+    assert cnt == MAX
+
+proc killnode() =
     for id in 0..<MAX:
         ydb_delete_node("^BENCHMARK1", @[$id])
     assert isEmpty("^BENCHMARK1")
@@ -62,6 +70,12 @@ proc getSimple_dsl() =
 proc query_dsl() =
     var cnt = 0
     for subs in QueryItr ^BENCHMARK2:
+        inc cnt
+    assert cnt == MAX
+
+proc order_dsl() =
+    var cnt = 0
+    for subs in OrderItr ^BENCHMARK2:
         inc cnt
     assert cnt == MAX
 
@@ -95,6 +109,13 @@ proc query_indirect() =
         inc cnt
     assert cnt == MAX
 
+proc order_indirect() =
+    var cnt = 0
+    let gblName = "^BENCHMARK3"
+    for gbl in OrderItr @gblName:
+        inc cnt
+    assert cnt == MAX
+
 proc killnode_indirect() =
     let gbl = "^BENCHMARK3"
     for id in 0..<MAX:
@@ -110,8 +131,9 @@ when isMainModule:
             test "upcount": timed: upcount()
             test "set simple": timed: setSimple()
             test "get simple": timed: getSimple()
-            test "Query": timed: Query()
-            test "Killnode": timed: Killnode()
+            test "ydb_next": timed: query()
+            test "ydb_subscript": timed: order()
+            test "Killnode": timed: killnode()
         echo ""
 
     timed:
@@ -120,6 +142,7 @@ when isMainModule:
             test "set simple dsl": timed: setSimple_dsl()
             test "get simple dsl": timed: getSimple_dsl()            
             test "Query dsl": timed: query_dsl()
+            test "Order dsl": timed: order_dsl()
             test "Killnode dsl": timed: killnode_dsl()
         echo ""
 
@@ -129,4 +152,5 @@ when isMainModule:
             test "set simple @": timed: setSimple_indirect()
             test "get simple @": timed: getSimple_indirect()
             test "Query @": timed: query_indirect()
+            test "Order @": timed: order_indirect()
             test "Killnode @": timed: killnode_indirect()

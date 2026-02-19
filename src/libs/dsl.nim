@@ -36,7 +36,6 @@ const
 # Macro procs
 # ------------------
 # proc exploreNode(node: NimNode) =
-#     echo "'", repr(node), "' (", node.kind,")"
 #     for n in node:
 #         echo "  ", repr(n), "' (", n.kind,")"
 #         if n.len > 0:
@@ -127,15 +126,9 @@ func transform(node: NimNode, args: var seq[NimNode], attributes: seq[string] = 
         raise newException(Exception, "Unsupported node.kind:" & $node.kind)
 
 template processStmtList(body: NimNode) =
-    if body.kind == nnkStmtList:
-      if body.len == 1:
-        transform(body, args)
-      else:
-        for i in 0..<body.len:
-            transform(body[i], args)
-            if i < body.len-1: args.add(newLit(FIELDMARK))
-    else:
-        raise newException(Exception, "Statement list needs ':' g.e. Killnode: ^x(...) body.kind=" & $body.kind)
+    for i in 0..<body.len:
+        transform(body[i], args)
+        if i < body.len-1: args.add(newLit(FIELDMARK))
 
 
 func getApiName(basename: string, args: var seq[NimNode]): string =
@@ -243,15 +236,10 @@ macro Order*(body: untyped): untyped =
     let apiName = getApiName("Order", args)
     return newCall(ident(apiName), args)
 
-
 macro Set*(body: untyped): untyped =
     var args: seq[NimNode]
-    if body.len == 1:
-      transform(body, args)
-    else:
-      processStmtList(body)
+    processStmtList(body)
     return newCall(ident"setx", args)
-
 
 # ----------------------------
 # proc related helper proc's
