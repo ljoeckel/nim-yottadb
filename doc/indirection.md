@@ -4,7 +4,7 @@
 
 When calling the next/prev family of DSL commands, you get an string with the variable name and all key components like "^LL(HAUS,ELEKTRIK,KABEL)".
 With this you can directly call any other DSL method.
-For example: `lock: @gbl`
+For example: `Lock: @gbl`
 
 If you need control over the key components, you can use the `.keys` postfix to mark so.
 (rc, gbl) = nextsubscript @"^LL(HAUS,ELEKTRIK,DOSEN)"`.keys`

@@ -3,18 +3,18 @@ import yottadb
 
 proc testSpecialVars() =
   # Get
-  let zversion = getvar $ZVERSION
+  let zversion = Get $ZVERSION
   assert zversion.len > 0 and zversion.startsWith("GT.M")
 
   # Set
-  setvar: $ZMAXTPTIME()="2"
-  let zmaxtptime = getvar $ZMAXTPTIME
+  Set: $ZMAXTPTIME()="2"
+  let zmaxtptime = Get $ZMAXTPTIME
   assert zmaxtptime == "2"
 
 proc testSpecialVarsIndirekt() =
-    assert (getvar $ZVERSION).startsWith("GT.M")
+    assert (Get $ZVERSION).startsWith("GT.M")
     let specialname = "$ZVERSION"
-    assert (getvar @specialname).startsWith("GT.M")
+    assert (Get @specialname).startsWith("GT.M")
 
 
 test "specialVars": testSpecialVars()

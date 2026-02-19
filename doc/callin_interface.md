@@ -32,21 +32,21 @@ To create the M-program:
 
     method1
         ; VAR1 can be set in nim-yottadb with
-        ;    setvar: VAR1()="something"
+        ;    Set: VAR1()="something"
         ; Do whatever you want here in M and create
         ; variables to passback the result to nim.
         set RESULT="MyResultFromWork"
         ; RESULT will be set as local variable
         ; and can be read in nim-yottadb with
-        ;    let result = getvar  RESULT()
+        ;    let result = Get RESULT()
         quit
 ```
 **test_ci.nim**
 ```nim
 proc test_ydb_ci() =
     let tm = getTime()
-    setvar: VAR1()=tm             # set a YottaDB variable
+    Set: VAR1()=tm             # set a YottaDB variable
     ydb_ci("method1")           # call CI method
-    let result = getvar  RESULT() # Read variable
+    let result = Get RESULT() # Read variable
 ```
 

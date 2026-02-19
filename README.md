@@ -15,7 +15,7 @@ The nim-yottadb implementation delievers the following features:
 - ydb_get (Get a local or global variable)
 - ydb_incr (Atomic Increment a local or global variable)
 - ydb_lock (Lock 1 or more global variables)
-- ydb_lock_incr / ydb_lock_dec (Increment or decrement a lock count)
+- ydb_lock_incr / ydb_lock_dec (Increment or decrement a Lock count)
 - ydb_node_next (Get the next node of a global)
 - ydb_node_previous (Like next, but other direction)
 - ydb_set (Set the value of a local or global variable)
@@ -28,13 +28,13 @@ The nim-yottadb implementation delievers the following features:
 ### Extensions to the Simple-API
 - Support for binary data > 1MB
 - [DSL](doc/dsl.md) (Domain Specific Language to simplify coding)
-- Iterators for 'query' and 'order'
+- Iterators for 'Query' and 'Order'
 - Indirection with @
 - YdbVar with $ and [] operator
 ```nim
 # Indirection
-for node in queryItr ^GEO:
-    let value = getvar @node
+for node in QueryItr ^GEO:
+    let value = Get @node
     
 # YdbVar
 for i in 0..MAX:
@@ -54,7 +54,7 @@ Records larger than 1 MB are split into subrecords. To do this, an additional ke
 ```nim
 "___$00000000$___"
 ```
-When reading back with getvar and the `.binary` postfix, nim-yottadb automatically checks whether such index keys exist and loads the data accordingly.
+When reading back with Get and the `.binary` postfix, nim-yottadb automatically checks whether such index keys exist and loads the data accordingly.
 The processing of strings and binary data is also automatic.
 
 ### Sample to load / restore images into YottaDb
@@ -79,9 +79,9 @@ proc saveImagesToDb(basedir: string): uint =
     for image in walk(basedir):
         let image_data = readFile(image)
         echo fmt"Save image {image} ({image_data.len} bytes) to db"
-        let id = increment @ID
+        let id = Increment @ID
         let gbl = fmt"^images({id})"
-        setvar:
+        Set:
             @gbl = image_data
             @gbl("path") = image
             @gbl("created") = now()
@@ -98,22 +98,22 @@ proc saveImageToFilesystem(target:  string, path: string, img: string) =
 
 proc readImagesFromDb(target: string): uint =
     var totalBytes: uint
-    for key in orderItr ^images.key:
-        let img     = getvar @key.binary
-        let path    = getvar @key("path")
+    for key in OrderItr ^images.key:
+        let img     = Get @key.binary
+        let path    = Get @key("path")
         echo fmt"Read image {path} ({img.len} bytes)"
         saveImageToFilesystem(target, path, img)
         inc(totalBytes, img.len)
     return totalBytes
 
 if isMainModule:
-    kill:
+    Kill:
         ^images
         @ID
 
     var totalBytesWritten = saveImagesToDb("./images") # read from the folder and save in db
     var totalBytesRead = readImagesFromDb("./images_fromdb") # read from db and save under this folder
-    echo "written=", totalBytesWritten, " read=", totalBytesRead, " images:", getvar @ID
+    echo "written=", totalBytesWritten, " read=", totalBytesRead, " images:", Get @ID
     assert totalBytesRead == totalBytesWritten
 ```
 

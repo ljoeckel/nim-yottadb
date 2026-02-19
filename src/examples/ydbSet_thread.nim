@@ -26,8 +26,8 @@ proc api(tn: int) =
 
 proc dsl(tn: int) =
   worker:
-    let txid = increment: ^CNT("ydb_set")
-    setvar: ^YDB(txid) = "This is some test from dsl thread " & $tn
+    let txid = Increment: ^CNT("ydb_set")
+    Set: ^YDB(txid) = "This is some test from dsl thread " & $tn
 
 template main(workerProc: untyped) =
   var m = createMaster()
@@ -42,7 +42,7 @@ proc count_data(): int =
     node:Subscripts
     thm = initCountTable[char]()
 
-  for (key, value) in queryItr ^YDB.kv:
+  for (key, value) in QueryItr ^YDB.kv:
     inc(cnt)
     let tn = value[^1]
     thm.inc(tn)
@@ -53,7 +53,7 @@ proc count_data(): int =
 
 when isMainModule:
   # Reset counters
-  killnode: ^CNT("ydb_set")
+  Killnode: ^CNT("ydb_set")
 
   timed("main"): main(api)
   timed("main_dsl"): main(dsl)

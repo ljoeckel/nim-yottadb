@@ -36,7 +36,7 @@ const
     bidders = 30   # Contention (26 optimum on macmini m4)
     duration = 5  # Seconds
 
-let pid = getvar: $JOB
+let pid = Get: $JOB
 let auction = "^Auction"
 
 # -----------------
@@ -44,7 +44,7 @@ let auction = "^Auction"
 # -----------------
 
 proc Auction() =
-    kill: ^Auction
+    Kill: ^Auction
     ydb_set(auction, @["1"], "R2D2") # Astromech droid up for sale
     ydb_set(auction, @["1", "Active"], "")
     ydb_set(auction, @["1", "Bidders"], "0")
@@ -113,7 +113,7 @@ proc Auction() =
 proc Bidder() =
     var rc = Transaction:
         # Register linux process id
-        setvar: @auction("Bidders", pid) = increment @auction("Bidders")
+        Set: @auction("Bidders", pid) = Increment @auction("Bidders")
         let bidder = ydb_increment(auction, @["1", "Bidders"])
         ydb_set(auction, @["1", "Bidders", $pid], $bidder)
 

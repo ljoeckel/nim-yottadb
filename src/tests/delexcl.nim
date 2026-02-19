@@ -3,15 +3,15 @@ import yottadb
 
 proc testDeleteExcl() =
   # Global's / Special / Invalid names are not allowed
-  doAssertRaises(YdbError): delexcl: { ^SOMEGLOBAL }
-  doAssertRaises(YdbError): delexcl: { $SOMEGLOBAL }
-  doAssertRaises(YdbError): delexcl: {
+  doAssertRaises(YdbError): Delexcl: { ^SOMEGLOBAL }
+  doAssertRaises(YdbError): Delexcl: { $SOMEGLOBAL }
+  doAssertRaises(YdbError): Delexcl: {
      ^SOMEGLOBAL,
      $SOMEGLOBAL,
   }
   
   # Set local variables
-  setvar:
+  Set:
     DELTEST0("deltest")="deltest"
     DELTEST1="1"
     DELTEST2="2"
@@ -20,27 +20,27 @@ proc testDeleteExcl() =
     DELTEST5="5"
 
   # Test if local variable is readable
-  discard getvar  DELTEST0("deltest")
-  discard getvar  DELTEST1
+  discard Get DELTEST0("deltest")
+  discard Get DELTEST1
   
   # Remove all except the following
-  delexcl: 
+  Delexcl: 
     {
       DELTEST1, DELTEST3, DELTEST5 
     }
 
   # 1,3 and 5 should be there
-  discard getvar  DELTEST1
-  discard getvar  DELTEST3
-  discard getvar  DELTEST5
+  discard Get DELTEST1
+  discard Get DELTEST3
+  discard Get DELTEST5
 
   # Removed vars should raise exception on access
-  doAssertRaises(YdbError): discard getvar  DELTEST2
-  doAssertRaises(YdbError): discard getvar  DELTEST4
+  doAssertRaises(YdbError): discard Get DELTEST2
+  doAssertRaises(YdbError): discard Get DELTEST4
 
   # delete all variables
-  delexcl: {}
-  doAssertRaises(YdbError): discard getvar  DELTEST1
+  Delexcl: {}
+  doAssertRaises(YdbError): discard Get DELTEST1
 
 if isMainModule:
   test "DeleteExcl": testDeleteExcl()

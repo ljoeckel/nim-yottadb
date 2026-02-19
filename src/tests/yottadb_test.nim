@@ -40,7 +40,7 @@ proc simpleSet(global: string, cnt: int) =
     discard subs.pop()
 
 # Read ^X(0..100000000) in 600ms. 
-proc simplegetvar(global: string, cnt: int) =
+proc simpleGet(global: string, cnt: int) =
   var subs:seq[string]
   for i in 0..cnt:
     subs.add($i)
@@ -83,7 +83,7 @@ proc testYdbVar() =
     var v = newYdbVar("^LJ", @["LAND", "ORT", $i])
     assert v.value == "New " & $i
 
-proc testYdbSetgetvar() =
+proc testYdbSetGet() =
   for i in 0..MAX:
     let value = fmt"Hello Lothar Jöckel {i} aus der Schweiz"
     ydb_set("^LJ", @["LAND", "ORT", $i], value)
@@ -121,9 +121,9 @@ proc testPreviousNode(global: string, start: Subscripts = @[]) =
   doAssert cnt == MAX * 2 + 2
 
 proc testNextNodeIterator() =
-  kill: ^X
+  Kill: ^X
 
-  setvar:
+  Set:
     ^X(5, 1) = 1
     ^X(5, 2) = 2
     ^X(7, 3) = 3
@@ -143,7 +143,7 @@ proc testNextNodeIterator() =
   ]
   var dbdata: seq[Subscripts]
   let start: Subscripts = @[""]
-  for subs in queryItr ^X(start).keys:
+  for subs in QueryItr ^X(start).keys:
     dbdata.add(subs)
   assert dbdata == refdata
 
@@ -153,7 +153,7 @@ proc testPreviousNodeIterator() =
     @["123", "2"], @["123", "1"], @["7", "3"], @["5", "2"], @["5", "1"]
   ]
   var dbdata: seq[Subscripts]
-  for subs in queryItr ^X.reverse.keys:
+  for subs in QueryItr ^X.reverse.keys:
     dbdata.add(subs)
   assert dbdata == refdata
 
@@ -238,7 +238,7 @@ proc testSpecialVariables() =
     discard ydb_get(variable)
 
 
-proc testSetAndGetVariable() =
+proc testSetAndGetiable() =
   ydb_set("X", @[], "hello")
   ydb_set("X", @["1"], "hello X(1)")
   ydb_set("X", @["1","1"], "hello X(1,1)")
@@ -297,7 +297,7 @@ proc testLockIncrement() =
   ydb_lock_decr("^LL", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 0
 
-  # Increment / Decrement non existing lock (Should be ignored)
+  # Increment / Decrement non existing Lock (Should be ignored)
   ydb_lock_decr("^LL", @["HAUS", "99"])
   assert getLockCountFromYottaDb() == 0
 
@@ -305,7 +305,7 @@ proc testLockIncrement() =
   ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 1
 
-  # Increment / Decrement same lock multiple times
+  # Increment / Decrement same Lock multiple times
   ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
   assert getLockCountFromYottaDb() == 1
   ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
@@ -379,9 +379,9 @@ proc test_ydb_ci() =
     return
 
   let tm = getTime()
-  setvar: VAR1=tm                      # set a YottaDB variable
+  Set: VAR1=tm                      # set a YottaDB variable
   ydb_ci("method1")
-  let result = getvar  RESULT  # Read the YottaDB variable from the Callin
+  let result = Get RESULT  # Read the YottaDB variable from the Callin
   assert $tm == result
 
 # -------------------------------------------------------------------
@@ -390,11 +390,11 @@ if isMainModule:
   setupLL()
 
   test "simpleSet": simpleSet("^X", MAX)
-  test "simpleGet": simplegetvar("^X", MAX)
+  test "simpleGet": simpleGet("^X", MAX)
   test "simpleDelete": simpleDelete("^X", MAX)
   test "testYdbVar": testYdbVar()
   test "testWithError": setWithError()
-  test "testYdbSetGet": testYdbSetgetvar()
+  test "testYdbSetGet": testYdbSetGet()
   test "testData": testData()
   test "testNextNode ^LL": testNextNode("^LL")
   test "testNextNodeIterator": testNextNodeIterator()
@@ -418,9 +418,9 @@ if isMainModule:
   test "deleteGlobalVar": testDeleteTree()
   test "testLocalVarExcl": testDeleteExcl()
   test "testSpecialVariables": testSpecialVariables()
-  test "increment": testIncrement()
+  test "Increment": testIncrement()
   test "maxSubscripts": testMaxSubscripts()
   test "Call-In Interface": test_ydb_ci()
-  test "testSetAndGetVariable": testSetAndGetVariable()
+  test "testSetAndGetiable": testSetAndGetiable()
   test "testLock": testLock()
   test "testLockIncrement": testLockIncrement()

@@ -221,7 +221,7 @@ proc ydb_set_binary_db*(name: string, keys: Subscripts, value: string, tptoken: 
 
 proc ydb_data_db*(name: string, keys: Subscripts, tptoken: uint64): int =
   ## Check existence/type of a global node
-  ## Return codes: 0 = no data, 1 = data, 10 = child nodes, 11 = both
+  ## Return codes: 0 = no Data, 1 = Data, 10 = child nodes, 11 = both
   if not buf_initialized: check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
@@ -272,11 +272,11 @@ proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64) =
   checkRC(tptoken)
 
 
-proc ydb_increment_db*(name: string, keys: Subscripts, increment: int, tptoken: uint64): int =
+proc ydb_increment_db*(name: string, keys: Subscripts, Increment: int, tptoken: uint64): int =
   ## Increment a node value and return new value  
   if not buf_initialized: check()
   setYdbBuffer(GLOBAL, name)
-  setYdbBuffer(DATABUF, $increment)
+  setYdbBuffer(DATABUF, $Increment)
   setIdxArr(IDXARR, keys)
 
   when compileOption("threads"):
@@ -434,7 +434,7 @@ proc ydb_getbinary_db*(name: string, keys: Subscripts = @[], tptoken: uint64): s
 
 # --- Locks ---
 proc ydb_lock_incr_db*(timeout_nsec: int, name: string, keys: Subscripts, tptoken: uint64) =
-  ## Increment lock for variable
+  ## Increment Lock for variable
   if not buf_initialized: check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
@@ -457,7 +457,7 @@ proc ydb_lock_incr_db*(timeout_nsec: int, name: string, keys: Subscripts, tptoke
 
 
 proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken: uint64) =
-  ## Increment lock variable
+  ## Increment Lock variable
   if not buf_initialized: check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
@@ -477,7 +477,7 @@ proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken: uint64) =
 
 
 proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]], tptoken: uint64): cint =
-  ## Pass all potential lock parameters to the variadic c-function
+  ## Pass all potential Lock parameters to the variadic c-function
   ## Setting the numOfLocks controls how many parameters are read by c-function
   if numOfLocks == 0:  # release all locks
     when compileOption("threads"):
@@ -486,7 +486,7 @@ proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_b
       rc = ydb_lock_s(timeout, 0.cint)
   else:
     # Set subslen to 0 if we pass an empty subscript
-    # g.e. lock: ^gbl will be passed as seq["^gbl", ""]
+    # g.e. Lock: ^gbl will be passed as seq["^gbl", ""]
     var subslen: array[35, cint]
     for i in 0..<35:
       if subs[i].len == 1 and subs[i][0].len_used == 0:  
@@ -574,7 +574,7 @@ proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_b
 
 
 proc ydb_lock_db*(timeout_nsec: int, keys: seq[Subscripts], tptoken: uint64) =
-  ## Acquire lock on a node(s) with timeout in nsec
+  ## Acquire Lock on a node(s) with timeout in nsec
   if keys.len > YDB_MAX_NAMES:
     raise newException(YdbError, fmt"Too many arguments. Only {YDB_MAX_NAMES} are allowed")    
 

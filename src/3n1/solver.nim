@@ -34,7 +34,7 @@ proc solve(n: int): seq[int]  =
     while s > 0:
         result.add(s)
         inc dbdata
-        if data(^solver(s)) == 1: # Already solved?
+        if Data(^solver(s)) == 1: # Already solved?
             inc numbers_solved
             break
 
@@ -45,19 +45,19 @@ proc generate(fromN: int, toN: int) =
     for n in fromN..toN:
         if n mod 100_000 == 0: echo n
         inc dbdata
-        if data(^solver(n)) == 1:
+        if Data(^solver(n)) == 1:
             inc numbers_found
         else:
-            setvar: ^solver(n) = join(solve(n), ",")
+            Set: ^solver(n) = join(solve(n), ",")
             inc dbwrites
 
 proc reconstruct(n: int, depth: int = 0): seq[int] =
     if depth >= 1900:
-        raise newException(ValueError, "Recursion depth >= 1900. Seems to be a data structure problem")
+        raise newException(ValueError, "Recursion depth >= 1900. Seems to be a Data structure problem")
 
     # Reconstruct the sequence from the db to the full sequence
     inc verifyread
-    for num in getvar ^solver(n).OrderedSet:
+    for num in Get ^solver(n).OrderedSet:
         result.add(num)
     let lastnum = result[^1]
     if lastnum > 1:
@@ -65,7 +65,7 @@ proc reconstruct(n: int, depth: int = 0): seq[int] =
 
 proc check(fromN: int, toN: int) =
     # Compute 3n+1 again and verify the calculated with the truncated results on the db.
-    for subs in queryItr ^solver.keys:
+    for subs in QueryItr ^solver.keys:
         inc dbnext
         let n = parseInt(subs[0])
         if n < fromN or n > toN: continue
@@ -73,7 +73,7 @@ proc check(fromN: int, toN: int) =
         assert reconstruct(n) == verify(n)
 
 proc cleanDb() =
-    kill: ^solver
+    Kill: ^solver
 
 proc statistics(fromN: int, toN: int) =
     echo "solver from: ", fromN, " to: ", toN

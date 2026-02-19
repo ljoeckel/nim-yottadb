@@ -1,9 +1,15 @@
+# Changelog for version 0.4.4
+## Breaking Changes
+- The DSL names have been renamed with a `ydb` prefix to avoit namespace problems (g.E. Kill is also used in std/os)
+- setvar -> Set, get -> Get, kill -> Kill, etc.
+
+
 # Changelog for version 0.4.2
 - The transaction macros have been refactored and simplified
 - There is no longer a need to number transactions (Transaction1, TransactionMT1)
   'Transaction' handles now both, single- and multi-threaded transactions
-- The code for query/order iterators has been refactored and simplified
-- Bugfix #42 (kill: ^gbl, @gbl) Mixed Global's with Indirections
+- The code for Query/Order iterators has been refactored and simplified
+- Bugfix #42 (Kill: ^gbl, @gbl) Mixed Global's with Indirections
 - Some code refactorings
 # Changelog for version 0.4.0
 - Upgrade YottaDB to version 2.03
@@ -11,42 +17,42 @@
 - Reworked / extended transaction examples
 - YdbVar now usable in multi-threaded applications
 - Reworked YottaDB error handling (Restart/Rollback/Timeout,.)
-- There are now 2 basic iterators 'queryItr' that behaves like the M-function $query and 'orderItr' like $order.
+- There are now 2 basic iterators 'QueryItr' that behaves like the M-function $Query and 'OrderItr' like $Order.
 - Iterators now have the postfixes:
   - "count" - Count the number of entries
   - "key" - Return the full subscripted key (^Customer(1,"Name"))
   - "keys" - Return the full key as seq[string] (@["1", "Name"])
-  - "kv" - Return the key and the value as tuple (^Customer(1,"Name", "Lothar Jöckel")
+  - "kv" - Return the key and the value as tuple (^Customer(1,"Name"), "Lothar Jöckel")
   - "val" - Returns the value for the key 
   "reverse" - Traverses in backward direction
 
 ## Breaking Changes
 - Iterators are moved from the ydbapi to the DSL
 - Iterators are renamed to get closer to M semantics
-There is now only 'orderItr' and 'queryItr'. The direction is per default forward.
+There is now only 'OrderItr' and 'QueryItr'. The direction is per default forward.
 '.reverse' traverses in reverse direction
 ```nim
-for key in queryItr ^Customer.reverse
+for key in QueryItr ^Customer.reverse
   echo key  # ^Customer(99999,profile,name)
 ```
 .reverse can be appended to another postfix:
 ```nim
-for keys in queryItr ^Customer.keys.reverse
+for keys in QueryItr ^Customer.keys.reverse
   echo keys  # @["999999","profile","name"]
 ```
 The 'hello_customer' example show the different form on how to use the iterators with the postfix .key, .keys, .value, .count
 - iterators nextKeys, prevKeys, nextValues, prevValues, nextPairs, prevPairs, nextSubscript, prevSubscript, nextSubscriptValues, prevSubscriptValues, nextSubscriptPairs, prevSubscriptPairs
-are now removed and replaced with 'orderItr' and 'queryItr'
+are now removed and replaced with 'OrderItr' and 'QueryItr'
 
 # Changelog for version 0.3.3
 ## Breaking Changes
-#### getvar semantic changed
-'getvar' now returns always an empty string if no data found in the database. This follows the semantic of M $get function. 
+#### Get semantic changed
+'Get' now returns always an empty string if no Data found in the database. This follows the semantic of M $get function. 
 Before, an exception was thrown.
 
 #### Iterator naming
 The naming for the iterators has changed:
-  - 'ydb_node_next_iter' -> 'queryItr'
+  - 'ydb_node_next_iter' -> 'QueryItr'
   - 'ydb_node_previous_iter' -> 'prevKeys'
   - 'ydb_subscript_next_iter' -> 'nextSubscript'
   - 'ydb_subscript_previous_iter' -> 'prevSubscript'
@@ -60,31 +66,31 @@ Before `Transaction` you have to write the code like:
 ```nim
 proc bidTx(p0: pointer): cint {.cdecl.} =
     try:
-        let first = (pid == getvar @auction("Leader"))
+        let first = (pid == Get @auction("Leader"))
         if not first:
-            let price = getvar @auction("Price").int
+            let price = Get @auction("Price").int
             let raisedBy = rand(1..10)
             let newprice = price + raisedBy
-            setvar:
+            Set:
                 @auction("Leader") = pid
                 @auction("Price") = newprice
     except:
         return YDB_TP_RESTART
     YDB_OK
 
-while (getvar @auction("Active")) == "Yes":
+while (Get @auction("Active")) == "Yes":
   var rc = ydb_tp(bidTx, "") # place bid
 ```
 With the new `Transaction` macro you can now write:
 ```nim
-while (getvar @auction("Active")) == "Yes":
+while (Get @auction("Active")) == "Yes":
   let rc = Transaction:
-    let first = (pid == getvar @auction("Leader"))
+    let first = (pid == Get @auction("Leader"))
     if not first:
-      let price = getvar @auction("Price").int
+      let price = Get @auction("Price").int
       let raisedBy = rand(1..10)
       let newprice = price + raisedBy
-      setvar:
+      Set:
         @auction("Leader") = pid
         @auction("Price") = newprice
 ```
@@ -112,22 +118,22 @@ To handle this in the correct way the client transaction code needs to check for
 ```nim
 proc bizzTX(p0: pointer): cint {.cdecl.} =
   try:
-    let cnt = increment ^CNT("up")
+    let cnt = Increment ^CNT("up")
     ...
   except:
-      echo getCurrentExceptionMsg(), " # of restarts:", $(getvar $TRESTART)
+      echo getCurrentExceptionMsg(), " # of restarts:", $(Get $TRESTART)
       return YDB_TP_RESTART
   YDB_OK
 ```
-#### getvar
-- getvar now returns an empty string/int/float if no data in the database found.
-- getvar allows now to set a default value.
+#### Get
+- Get now returns an empty string/int/float if no Data in the database found.
+- Get allows now to set a default value.
 ```nim
-  let valdefault = getvar (^GBL(4711), default=4711)
-  let valint = getvar (^GBL(4711), default=4711).int
+  let valdefault = Get (^GBL(4711), default=4711)
+  let valint = Get (^GBL(4711), default=4711).int
   let gbl = "^GBL(4711)"
-  valindirekt = getvar (@gbl, default="test")
-  valindirekt = getvar (@gbl("Test"), default="test")
+  valindirekt = Get (@gbl, default="test")
+  valindirekt = Get (@gbl("Test"), default="test")
 ```
 
 # Changelog for version 0.3.1
@@ -135,42 +141,42 @@ proc bizzTX(p0: pointer): cint {.cdecl.} =
 It is now allowed to extend the index of a variable that is defined as @ indirection.
 ```nim
 var gbl = "^GBL"
-setvar: @gbl(1) = 1
-assert "1" == getvar @gbl(1)
+Set: @gbl(1) = 1
+assert "1" == Get @gbl(1)
 
-setvar: @gbl(1,"A") = "1A"
-assert "1A" == getvar @gbl(1, "A")
+Set: @gbl(1,"A") = "1A"
+assert "1A" == Get @gbl(1, "A")
 
 gbl = "^GBL(1,A)"
-assert "1A" == getvar @gbl
+assert "1A" == Get @gbl
 
 # ---- test with index in the variable ----
 gbl = "^GBL(123815)"
-setvar: @gbl = "123815"
-assert "123815" == getvar @gbl
+Set: @gbl = "123815"
+assert "123815" == Get @gbl
 
 # Index extended
-setvar: @gbl(1) = "123815,1" # -> ^GBL(123815,1)
-assert "123815,1" == getvar @gbl(1)
-setvar: @gbl("ABC") = "ABC" # -> ^GBL(123815, "ABC")
-assert "ABC" == getvar @gbl("ABC")
-setvar: @gbl(123, "ABC") = "123ABC" # -> ^GBL(123815, 123, "ABC")
-assert "123ABC" == getvar @gbl(123, "ABC")
+Set: @gbl(1) = "123815,1" # -> ^GBL(123815,1)
+assert "123815,1" == Get @gbl(1)
+Set: @gbl("ABC") = "ABC" # -> ^GBL(123815, "ABC")
+assert "ABC" == Get @gbl("ABC")
+Set: @gbl(123, "ABC") = "123ABC" # -> ^GBL(123815, 123, "ABC")
+assert "123ABC" == Get @gbl(123, "ABC")
 
 # With variable in the index
 let id = "4714"
-setvar: @gbl(id, "ABC") = "idABC"
-assert "idABC" == getvar @gbl(id, "ABC")
-setvar: @gbl(@["XYZ", id, "ABC"]) = "XYZABC"
-assert "XYZABC" == getvar @gbl("XYZ", id, "ABC")
+Set: @gbl(id, "ABC") = "idABC"
+assert "idABC" == Get @gbl(id, "ABC")
+Set: @gbl(@["XYZ", id, "ABC"]) = "XYZABC"
+assert "XYZABC" == Get @gbl("XYZ", id, "ABC")
 ```
-A simple example to show customers data:
+A simple example to show customers Data:
 ```nim
 echo "Iterate over all customers Indirection"
     var (rc, gbl) = nextsubscript @"^CUSTOMER"
     while rc == YDB_OK:
-      let name = getvar  @gbl("Name")
-      let email = getvar @gbl("Email")
+      let name = Get @gbl("Name")
+      let email = Get @gbl("Email")
       echo fmt"{gbl}: name: {name}, email:{email}"
       (rc, gbl) = nextsubscript @gbl
 ```
@@ -185,39 +191,39 @@ Iterate over all customers Indirection
 # Changelog for version 0.3.0
 
 ## Breaking Changes for version 0.3.0
-- DSL `delnode` has been renamed to `killnode`. It kills (removes) a single node independent of descendents.
-- DSL `deltree` has been renamed to `kill`. It removes the nodes and the descendents
+- DSL `delnode` has been renamed to `Killnode`. It kills (removes) a single node independent of descendents.
+- DSL `deltree` has been renamed to `Kill`. It removes the nodes and the descendents
 This is to bring nim-yottadb more close to M naming.
-Simply rename all `deltree` to `kill` and `delnode` to `killnode`.
+Simply rename all `deltree` to `Kill` and `delnode` to `Killnode`.
 
 - Utility functions are refactored `ydbutils` now. Rename `import utils` to `import ydbutils`.
 
-- deletevar has been replaced through `kill` which does exactly that.
+- deletevar has been replaced through `Kill` which does exactly that.
 
-- `get` has been renamed to `getvar` to be more consistent with setvar.
+- `get` has been renamed to `Get` to be more consistent with setvar.
 
 # Changelog for version 0.2.0
 ## DSL rewrite
 The code to implement the Domain Specific Language (DSL) has been rewritten. Most changes where related to `Indirection`.
 
 ## deletevar
-Instead of calling `deleteGlobal("^solver")`you can now use the DSL `kill: ^solver`
+Instead of calling `deleteGlobal("^solver")`you can now use the DSL `Kill: ^solver`
 
 ## Indirektion with @
 With the `@` (indirection) parameter you get now the full variablename with the key components `^global(1,A)`.
 With that you can access all DSL methods:
-killnode @gbl, getvar @gbl, setvar: @gbl, ...
+Killnode @gbl, Get @gbl, Set: @gbl, ...
 
 The following examples show a typical usage:
 ```nim
-proc getVars(): seq[string] =
+proc Gets(): seq[string] =
     var (rc, gbl) = nextnode: ^hello
     while rc == YDB_OK:
         result.add(gbl)
         (rc, gbl) = nextnode: @gbl
 
-for id in getVars():
-    let val = getvar @id
+for id in Gets():
+    let val = Get @id
 ```
  ## Tests
  Tests are now partially factored out to seperate files. Not yet complete.
@@ -232,14 +238,14 @@ If you need the old `seq[string]` form, you have to add `.keys`to the variable.
 ```nim
 var (rc: int, gbl: string) = nextnode: ^BENCHMARK2
 ```
-Returns `^BENCHMARK(1,A)`.  With that, you can now call any further DSL command, like `getvar @gbl``
+Returns `^BENCHMARK(1,A)`.  With that, you can now call any further DSL command, like `Get @gbl``
 ```nim
 var (rc: int, subs: seq[string]) = nextnode: ^BENCHMARK2().keys
 ```
 returns `@["1", "A"]`.
 
 ### getblob
-The `getblob` DSL no longer exists. Instead you can use `getvar` and add `.binary` at the end of the variable. This can read data > 1MB.
+The `getblob` DSL no longer exists. Instead you can use `Get` and add `.binary` at the end of the variable. This can read Data > 1MB.
 ```nim
-let img = getvar ^images(subs).binary
+let img = Get ^images(subs).binary
 ```

@@ -29,10 +29,10 @@ proc myTxnMT*(tptoken: uint64; buff: ptr ydb_buffer_t; param: pointer): cint  {.
     let fib = rand(30..38)
     fibonacci_recursive(fib) # do some cpu intense work
   try:  
-    # Increment a counter and save application data
+    # Increment a counter and save application Data
     let txid = ydb_increment("^CNT", @[THS], 1, tptoken)
     let data = fmt"restarts:{restarted}, fib:{fib} result:{fibresult} time:{ms}, tptoken:{tptoken}"
-    ydb_set(GLOBAL, @[$txid], $data, tptoken)
+    ydb_set(GLOBAL, @[$txid], $Data, tptoken)
   except:
     # Retry a aborted transaction one time, otherwise roll back
     if restarted == 0: return YDB_TP_RESTART else: return YDB_TP_ROLLBACK
@@ -51,8 +51,8 @@ let (ms, rc) = timed:
 
 let txid = ydb_get("^CNT", @[THS]) # get last transaction id
 var data = newYdbVar(GLOBAL, @[$txid])
-data[] = data.value & " overall-time:" & $ms # append overall
-echo "rc=", rc, " ", ms, "ms. txid:", txid, " data:", data
+Data[] = Data.value & " overall-time:" & $ms # append overall
+echo "rc=", rc, " ", ms, "ms. txid:", txid, " Data:", Data
 ```
 
 The following output is extracted from the journal. Command is *mupip journal -forward -extract -global="^TXM" yottadb.mjl*

@@ -42,9 +42,9 @@ src/serialization/binser_test
 src/serialization/clientser
 src/tests/binary
 src/tests/callin
-src/tests/data
+src/tests/Data
 src/tests/delete
-src/tests/delexcl
+src/tests/Delexcl
 src/tests/dsl2_test
 src/tests/dsl3_test
 src/tests/dsl4_test
@@ -52,7 +52,7 @@ src/tests/dsliterators
 src/tests/dsl_lock_test
 src/tests/dsl_test
 src/tests/dumptree
-src/tests/increment
+src/tests/Increment
 src/tests/iterator
 src/tests/locks
 src/tests/nextnode

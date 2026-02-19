@@ -8,50 +8,50 @@ const
     refKV = @["^hello(0)=0", "^hello(1)=1", "^hello(2)=2", "^hello(3)=3", "^hello(4)=4", "^hello(5)=5", "^hello(6)=6", "^hello(7)=7", "^hello(8)=8", "^hello(9)=9"]
 
 proc create() =
-    kill: ^hello
+    Kill: ^hello
     for id in 0..<ITER:
-        setvar: ^hello(id)=id
+        Set: ^hello(id)=id
 
 proc testIter() =
     var dbKeys: seq[string]
-    for key in queryItr ^hello:
+    for key in QueryItr ^hello:
         dbKeys.add(key)
     assert dbKeys == refKeys
 
 proc testIterFrom() =
     var dbKeys: seq[string]
-    for key in queryItr ^hello(5):
+    for key in QueryItr ^hello(5):
         dbKeys.add(key)
     assert dbKeys == refKeys[6..^1]
 
 proc testIterSeq() =
     var dbSubs: seq[seq[string]]
-    for subs in queryItr ^hello.keys:
+    for subs in QueryItr ^hello.keys:
         dbSubs.add(subs)
     assert dbSubs == refSubs
 
 proc testIterKV() =
     var dbKV: seq[string]
-    for (key, value) in queryItr ^hello.kv:
+    for (key, value) in QueryItr ^hello.kv:
         dbKV.add(key & "=" & value)
     assert dbKV == refKV
 
 proc singleKey() =
-    let key = query ^hello(5)
+    let key = Query ^hello(5)
     assert key == "^hello(6)"
 
 proc test() =
     var cnt = 0
-    var subs = query ^hello.keys
+    var subs = Query ^hello.keys
     while subs.len > 0:
         echo "subs=", subs
         inc cnt
-        subs = query ^hello(subs).keys
+        subs = Query ^hello(subs).keys
     assert cnt == 10
 
 proc testIterMacro() =
     var cnt = 0
-    for subs in queryItr ^hello.keys:
+    for subs in QueryItr ^hello.keys:
         inc cnt
         echo subs
     assert cnt == ITER
@@ -59,7 +59,7 @@ proc testIterMacro() =
 proc testIterMacroIndirect() =
     var cnt = 0
     let gblname = "^hello"
-    for gbl in queryItr @gblname:
+    for gbl in QueryItr @gblname:
         inc cnt
     assert cnt == ITER
 
@@ -67,7 +67,7 @@ proc testIterMacroIndirectStart() =
     var cnt = 0
     let gblname = "^hello"
     let half = ITER div 2
-    for gbl in queryItr @gblname(half):
+    for gbl in QueryItr @gblname(half):
         echo gbl
         inc cnt
     assert cnt == half - 1
@@ -76,28 +76,28 @@ proc testIterMacroIndirectStart() =
 
 proc getdata() =
     for id in 0..<ITER:
-        let val = getvar  ^hello(id)
+        let val = Get ^hello(id)
 
 proc delete() =
     for id in 0..<ITER:
-        killnode: ^hello(id)
+        Killnode: ^hello(id)
 
 proc collectGlobals(): seq[string] =
-    var gbl = query ^hello
+    var gbl = Query ^hello
     while gbl.len > 0:
         result.add(gbl)
-        gbl = query @gbl
+        gbl = Query @gbl
     assert ITER == result.len
 
 proc collectGlobalsWithIter(): seq[string] =
-    for gbl in queryItr ^hello:
+    for gbl in QueryItr ^hello:
         result.add(gbl)
     assert ITER == result.len
 
 proc getDataFromCollection() =
     var cnt = 0
     for id in collectGlobals():
-        let val = getvar @id
+        let val = Get @id
         echo "id=",id," val=", val, " cnt=", cnt
         assert $cnt == val
         inc cnt
@@ -105,7 +105,7 @@ proc getDataFromCollection() =
 proc getDataFromCollectionWithIter() =
     var cnt = 0
     for id in collectGlobalsWithIter():
-        let val = getvar @id
+        let val = Get @id
         assert $cnt == val
         inc cnt
 

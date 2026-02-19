@@ -6,7 +6,7 @@ import yottadb
 import ydbutils
 
 
-let pid = getvar $JOB
+let pid = Get $JOB
 const 
   STEPS = 1000
   CLIENTS = 10
@@ -17,20 +17,20 @@ const
 proc runClient() =
   for i in 1..STEPS:
     let rc = Transaction(pid):
-      var value = increment @cntUp
-      setvar: @cntData(value, pid) = value
+      var value = Increment @cntUp
+      Set: @cntData(value, pid) = value
       let pid = cast[cstring](param)
-      let restart = getvar $TRESTART.int
+      let restart = Get $TRESTART.int
       if restart > 0:
-        discard increment @cntRestart
+        discard Increment @cntRestart
       
-  setvar: ^Pids(pid) = pid # mark complete
+  Set: ^Pids(pid) = pid # mark complete
 
 
 if isMainModule:
     let params = commandLineParams()
     if params.len == 0:
-      kill: 
+      Kill: 
         ^CNT
         ^CNTDATA
         ^Pids 
@@ -41,20 +41,20 @@ if isMainModule:
 
       # Wait for client's
       while clients > 0:
-        for pid in queryItr ^Pids.val:
+        for pid in QueryItr ^Pids.val:
             closeJob(parseInt(pid))
-            killnode: ^Pids(pid)
+            Killnode: ^Pids(pid)
             dec clients
         nimSleep(100)
       echo "All clients have stoped"
 
       # Read Result
-      echo "^CNT(up)=", getvar @cntUp
-      assert (CLIENTS * STEPS) == getvar @cntUp.int
-      echo "^CNT(restart)=", getvar @cntRestart
+      echo "^CNT(up)=", Get @cntUp
+      assert (CLIENTS * STEPS) == Get @cntUp.int
+      echo "^CNT(restart)=", Get @cntRestart
 
       var cnt = 0
-      for keys in queryItr @cntData.keys:
+      for keys in QueryItr @cntData.keys:
         let txid = parseInt(keys[0])
         if txid - cnt == 1:
           cnt = txid

@@ -15,7 +15,7 @@ sudo ./ydbinstall.sh --verbose --utf8 --gui --octo
 ```
 The `--gui` option installs a management dashboard, `--octo` the SQL layer if you want also SQL access.
 
-The script has a plethora of installation options, which you will not use in the Acculturation Workshop. You can query it to list the options with the --help option, e.g., `./ydbinstall.sh --help`.
+The script has a plethora of installation options, which you will not use in the Acculturation Workshop. You can Query it to list the options with the --help option, e.g., `./ydbinstall.sh --help`.
 
 `ydb -version` provides a detailed report on the YottaDB build, e.g.,
 

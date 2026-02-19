@@ -49,7 +49,7 @@ const
     bidders = 30
     duration = 5  # Seconds
 
-let pid = getvar: $JOB
+let pid = Get: $JOB
 const auction = "^Auction(1)"
 
 # -----------------
@@ -57,8 +57,8 @@ const auction = "^Auction(1)"
 # -----------------
 
 proc Auction() =
-    kill: ^Auction
-    setvar:
+    Kill: ^Auction
+    Set:
         @auction = "R2D2"        # Astromech droid up for sale
         @auction("Active") = ""  # Begun, the auction has not
         @auction("Bidders") = 0  # No registered bidders
@@ -73,21 +73,21 @@ proc Auction() =
         discard job("./bidwars", @["Bidder"])
     
     echo "Waiting for bidder registration"
-    while (getvar @auction("Bidders").int) != bidders: nimSleep(50)
+    while (Get @auction("Bidders").int) != bidders: nimSleep(50)
     
     echo "Start Auction"
     let start = getTime()
-    setvar: @auction("Active") = "Yes"
+    Set: @auction("Active") = "Yes"
 
     for i in 0..duration*10: 
         setCursorPos(0,3)
-        echo "Bid:       ", getvar @auction("Total")
-        echo "Price:     ", getvar @auction("Price")
+        echo "Bid:       ", Get @auction("Total")
+        echo "Price:     ", Get @auction("Price")
 
         # show average bid time for all bidders
         var sum, avgcnt = 0
-        for pid in orderItr @auction("Bidders","Average",""):
-            let avg = getvar @auction("Bidders","Average",pid).int
+        for pid in OrderItr @auction("Bidders","Average",""):
+            let avg = Get @auction("Bidders","Average",pid).int
             if avg > 0:
                 inc avgcnt
                 inc(sum, avg)
@@ -98,9 +98,9 @@ proc Auction() =
 
     # Stop auction
     echo "Waiting for final bids"
-    setvar: @auction("Active") = "No"
+    Set: @auction("Active") = "No"
     var cnt = 10
-    while (getvar @auction("Bidders").int) > 0: 
+    while (Get @auction("Bidders").int) > 0: 
         nimSleep(100)
         dec cnt
         if cnt == 0: 
@@ -109,9 +109,9 @@ proc Auction() =
         
     # show results
     let millis = (getTime() - start).inMilliseconds
-    let total = getvar @auction("Total").int
+    let total = Get @auction("Total").int
     let bidsps = total / millis * 1000
-    echo fmt"{(getvar @auction)} sold to id={getvar @auction(""Leader"")} for {getvar @auction(""Price"")} galactic credits"
+    echo fmt"{(Get @auction)} sold to id={Get @auction(""Leader"")} for {Get @auction(""Price"")} galactic credits"
     echo fmt"We received {total} bids in {(millis / 1000):<.2f} seconds."
     echo fmt"That's an epic {bidsps.int} bids per second"
 
@@ -122,33 +122,33 @@ proc Auction() =
 
 proc Bidder() =
     var rc = Transaction:
-        setvar: @auction("Bidders", pid) = increment @auction("Bidders")
+        Set: @auction("Bidders", pid) = Increment @auction("Bidders")
 
     # Wait until auction is started
-    while ("Yes" != getvar @auction("Active")): nimSleep(50)
+    while ("Yes" != Get @auction("Active")): nimSleep(50)
 
     var count, avg = 0
     var then = getTime()
-    while (getvar @auction("Active")) == "Yes":
+    while (Get @auction("Active")) == "Yes":
         rc = Transaction: # place bid
-            if pid != getvar @auction("Leader"):
-                let price = getvar @auction("Price").int
+            if pid != Get @auction("Leader"):
+                let price = Get @auction("Price").int
                 let raisedBy = rand(1..10)
                 let newprice = price + raisedBy
-                setvar:
+                Set:
                     @auction("Leader") = pid
                     @auction("Price") = newprice
-            discard increment @auction("Total")
+            discard Increment @auction("Total")
 
         inc(count)
         let now = getTime()
         let duration = (now - then).inMicroseconds()
         avg = avg + ((duration - avg) div count)
-        setvar: @auction("Bidders", "Average", pid) = avg    
+        Set: @auction("Bidders", "Average", pid) = avg    
         then = now
 
     rc = Transaction:
-        discard increment (@auction("Bidders"), by=(-1))
+        discard Increment (@auction("Bidders"), by=(-1))
 
 if isMainModule:
     if commandLineParams().len == 0:

@@ -11,12 +11,12 @@ proc test_ydb_ci() =
     return
 
   let tm = getTime()
-  setvar: VAR1 = tm # pass this callm.m
+  Set: VAR1 = tm # pass this callm.m
   ydb_ci: "method1"
-  assert $tm == getvar RESULT # Read the YottaDB variable from the Callin
+  assert $tm == Get RESULT # Read the YottaDB variable from the Callin
 
   ydb_ci: "method2"
-  assert "TheResultFrom YDB" == getvar RESULT
+  assert "TheResultFrom YDB" == Get RESULT
   
 if isMainModule:
   test "ydb_ci": test_ydb_ci()

@@ -1,7 +1,7 @@
 ; Bid Wars - A New Hope
 
 	use $principal:(x=0:y=0:clear)
-	kill ^Auction
+	Kill ^Auction
 	set bidders=5                 ; Contention
 	set duration=5                ; Seconds
 	set ^Auction(1)="R2D2"        ; Astromech droid up for sale
@@ -26,8 +26,8 @@
 	. tstart ()
 	. set (avg,sum,count)=0
 	. set i=""
-	. for  set i=$order(^Auction(1,"Bidders",i)) quit:i=""  do
-	. . if $data(^Auction(1,"Bidders",i,"Average")) do
+	. for  set i=$Order(^Auction(1,"Bidders",i)) quit:i=""  do
+	. . if $Data(^Auction(1,"Bidders",i,"Average")) do
 	. . . set sum=sum+$get(^Auction(1,"Bidders",i,"Average"),0)
 	. . . set count=count+1
 	. set:count avg=sum/count
@@ -56,7 +56,7 @@
 	
 Bidder
 	tstart ()
-	set i=$increment(^Auction(1,"Bidders")) ; +1
+	set i=$Increment(^Auction(1,"Bidders")) ; +1
 	set ^Auction(1,"Bidders",$job)=i     	; Register linux process id
 	tcommit
 
@@ -73,12 +73,12 @@ Bidder
 	. . set raise=$random(10)+1				  ; Raise bid by a minimum of one
 	. . set ^Auction(1,"Leader")=$job		  ; Process becomes leader on commit
 	. . set ^Auction(1,"Price")=price+raise
-	. if $increment(^Auction(1,"Total"))
+	. if $Increment(^Auction(1,"Total"))
 	. set now=$zut
-	. set avg=avg+(((now-then)-avg)/$increment(count))
+	. set avg=avg+(((now-then)-avg)/$Increment(count))
 	. set ^Auction(1,"Bidders",$job,"Average")=avg
 	. tcommit
 	. set then=now
 
-	if $increment(^Auction(1,"Bidders"),-1)
+	if $Increment(^Auction(1,"Bidders"),-1)
 	quit

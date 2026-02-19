@@ -7,20 +7,20 @@ import yottadb
 
 # withlock:
 template withlock*(body: untyped): untyped =
-    ## Create a database lock named ^LOCKS(lockid) while executing the body
-    lock: {+^LOCKS(int.high)}
+    ## Create a database Lock named ^LOCKS(lockid) while executing the body
+    Lock: {+^LOCKS(int.high)}
     body
-    lock: {-^LOCKS(int.high)}
+    Lock: {-^LOCKS(int.high)}
 
 template withlock*(lockid: untyped, body: untyped): untyped =
-    ## Create a database lock named ^LOCKS(lockid) while executing the body
-    lock: {+^LOCKS(lockid)}
+    ## Create a database Lock named ^LOCKS(lockid) while executing the body
+    Lock: {+^LOCKS(lockid)}
     body
-    lock: {-^LOCKS(lockid)}
+    Lock: {-^LOCKS(lockid)}
 
 proc listVar*(name: string) =
   # List all entries for a variable with its value
-  for key, value in queryItr @name.kv:
+  for key, value in QueryItr @name.kv:
     echo fmt"{key}={value}"
 
 
@@ -71,15 +71,15 @@ proc getLockCountFromYottaDb*(all: bool = false): int =
   getLocksFromYottaDb(all).len
 
 
-proc isLocked*(lock: string): bool =
+proc isLocked*(Lock: string): bool =
   for line in getLocksFromYottaDb():
-    if line.contains("^LOCKS(") and line.contains(lock):
+    if line.contains("^LOCKS(") and line.contains(Lock):
       return true
   false
 
 
-proc isLocked*(lock: int | float): bool =
-  isLocked($lock)
+proc isLocked*(Lock: int | float): bool =
+  isLocked($Lock)
 
 
 # -----------------------

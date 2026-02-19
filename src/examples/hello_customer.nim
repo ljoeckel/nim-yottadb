@@ -2,9 +2,9 @@ import std/strformat
 import yottadb
 
 proc setup() =
-  kill: ^CUSTOMER
+  Kill: ^CUSTOMER
 
-  setvar:
+  Set:
     ^CUSTOMER(1, "Name")="John Doe"
     ^CUSTOMER(1, "Email")="john-doe.@gmail.com"
     ^CUSTOMER(2, "Name")="Jane Smith"
@@ -24,7 +24,7 @@ proc setup() =
 
   let profile3 = "^customer(3, profile)"
   let address3 = "^customer(3, address)"
-  setvar:
+  Set:
       @profile3("name") = "Lothar Joeckel"
       @profile3("dob") = 140762
       @profile3("email") = "lothar.joeckel@gmail.com"
@@ -35,69 +35,69 @@ proc setup() =
 
 proc showOrder() =
   block:
-    echo "\nIterate with order CUSTOMER"
-    var id = order: ^CUSTOMER("")
+    echo "\nIterate with Order CUSTOMER"
+    var id = Order: ^CUSTOMER("")
     while id.len > 0:
-      let name = getvar  ^CUSTOMER(id, "Name")
-      let email = getvar  ^CUSTOMER(id, "Email")
+      let name = Get ^CUSTOMER(id, "Name")
+      let email = Get ^CUSTOMER(id, "Email")
       echo fmt"Customer {id}: {name} <{email}>"
-      id = order: ^CUSTOMER(id) # Read next
+      id = Order: ^CUSTOMER(id) # Read next
 
   block:
-    echo "\nIterate with order CUSTOMER.keys"
-    var subs = order: ^CUSTOMER("").keys
+    echo "\nIterate with Order CUSTOMER.keys"
+    var subs = Order: ^CUSTOMER("").keys
     while subs.len > 0:
-      let name = getvar  ^CUSTOMER(subs, "Name")
-      let email = getvar  ^CUSTOMER(subs, "Email")
+      let name = Get ^CUSTOMER(subs, "Name")
+      let email = Get ^CUSTOMER(subs, "Email")
       echo fmt"Customer {subs[0]}: {name} <{email}>"
-      subs = order: ^CUSTOMER(subs).keys # Read next
+      subs = Order: ^CUSTOMER(subs).keys # Read next
 
 
   block:
     echo "\nIterate over all CUSTOMER Indirection"
-    var gbl = order ^CUSTOMER("").key
+    var gbl = Order ^CUSTOMER("").key
     while gbl.len > 0:
-      let name = getvar  @gbl("Name")
-      let email = getvar @gbl("Email")
+      let name = Get @gbl("Name")
+      let email = Get @gbl("Email")
       echo fmt"{gbl}: name: {name}, email:{email}"
-      gbl = order @gbl.key
+      gbl = Order @gbl.key
 
 proc showCustomer() =
-  for id in orderItr ^customer(""):
+  for id in OrderItr ^customer(""):
     echo id
-    for group in orderItr ^customer(id,""):
+    for group in OrderItr ^customer(id,""):
       echo "  ", group
-      for attribute in orderItr ^customer(id, group, ""):
+      for attribute in OrderItr ^customer(id, group, ""):
         echo "    ", attribute
   echo "--"
   echo "with @"
-  for id in orderItr ^customer:
+  for id in OrderItr ^customer:
     echo id
-    for group in orderItr ^customer(id,""):
+    for group in OrderItr ^customer(id,""):
       echo "  ", group
-      for attribute in orderItr ^customer(id, group, "").key:
-        echo "    ", attribute, "=", getvar @attribute
+      for attribute in OrderItr ^customer(id, group, "").key:
+        echo "    ", attribute, "=", Get @attribute
 
 
 proc showQuery() =
   # --------------
-  # queryItr
+  # QueryItr
   # --------------
-    echo "\nIterate over all nodes with queryItr"
-    for key in queryItr ^CUSTOMER:
-      let value = getvar @key
+    echo "\nIterate over all nodes with QueryItr"
+    for key in QueryItr ^CUSTOMER:
+      let value = Get @key
       echo key,"=",value
 
-    echo "\nIterate over all nodes with queryItr.kv"
-    for key, value in queryItr ^CUSTOMER.kv:
+    echo "\nIterate over all nodes with QueryItr.kv"
+    for key, value in QueryItr ^CUSTOMER.kv:
       echo fmt"Node {key} = {value}"
 
-    echo "\nIterate over all nodes with queryItr.val"
-    for value in queryItr ^CUSTOMER.val:
+    echo "\nIterate over all nodes with QueryItr.val"
+    for value in QueryItr ^CUSTOMER.val:
       echo value
 
-    echo "\nIterate over all nodes with queryItr.keys"
-    for value in queryItr ^CUSTOMER.keys:
+    echo "\nIterate over all nodes with QueryItr.keys"
+    for value in QueryItr ^CUSTOMER.keys:
       echo value
 
 

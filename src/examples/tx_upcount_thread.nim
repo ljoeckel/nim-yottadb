@@ -13,13 +13,13 @@ const
   ITERATIONS = 100000
   GLOBAL = "^CNT"
 
-kill: ^CNT
+Kill: ^CNT
 
 proc worker(tn: int, iterations: int) =
-  setvar: $ZMAXTPTIME = 1 # Set transaction timeout to 1 second
+  Set: $ZMAXTPTIME = 1 # Set transaction timeout to 1 second
 
   for cnt in 0..<ITERATIONS:
-    # Save data
+    # Save Data
     let rc = Transaction($tn):
       # Params set by YottaDB when calling the transaction callback
       # tptoken {.inject.} : uint64,
@@ -39,11 +39,11 @@ when isMainModule:
 
   echo "All threads finished"
 
-  assert NUM_OF_THREADS * ITERATIONS == getvar ^CNT("UPCOUNT").int
-  assert 0 == data ^CNT("RESTARTS")
+  assert NUM_OF_THREADS * ITERATIONS == Get ^CNT("UPCOUNT").int
+  assert 0 == Data ^CNT("RESTARTS")
 
   var cnt = 0
-  for key in orderItr ^CNT:
+  for key in OrderItr ^CNT:
     if key == "UPCOUNT": continue
     let txid = parseInt(key)
     if txid - cnt == 1:
@@ -52,7 +52,7 @@ when isMainModule:
       raise newException(YdbError, "Numbers are not in sequence")
 
   var tncnt: array[0..NUM_OF_THREADS-1, int]
-  for key in queryItr ^CNT.keys:
+  for key in QueryItr ^CNT.keys:
     if key[0] == "UPCOUNT": continue
     let tn = parseInt(key[1])
     inc(tncnt[tn])

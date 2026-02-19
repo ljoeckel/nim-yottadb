@@ -15,7 +15,7 @@ const
   counter = "^COUNTERS(cnt)"
 
 proc initDB() =
-  kill: @gbl
+  Kill: @gbl
 
 proc fibonacci_recursive(n: int): int =
   ## Simulate some CPU intense work
@@ -32,28 +32,28 @@ proc testIncrement(tn: int) =
   ## For each thread iterate to MAX and calculate the fibonacci and save in db
   for i in 0..<MAX:
     withlock(0):
-      discard increment: COUNTER(0)     # Increment thread shared counter
+      discard Increment: COUNTER(0)     # Increment thread shared counter
 
-    let result = increment @counter
+    let result = Increment @counter
     let sum = calcFibonacciSum()
-    setvar: @gbl($tn, $result) = sum
+    Set: @gbl($tn, $result) = sum
 
 proc validateCounters() =
-  # Validate if all data is correctly saved in the db
-  assert MAX * NUM_OF_THREADS == getvar @counter.int
+  # Validate if all Data is correctly saved in the db
+  assert MAX * NUM_OF_THREADS == Get @counter.int
 
   var results = initHashSet[int](MAX*NUM_OF_THREADS+20)
   var cntidx = 0
   let fibo = calcFibonacciSum()
 
-  for keys in queryItr(@gbl.keys):
+  for keys in QueryItr(@gbl.keys):
     if keys[0] == "cnt": continue
     inc cntidx
     results.incl(parseInt( keys[1])) # 0..max
   assert cntidx == MAX * NUM_OF_THREADS
 
   # check the number of results in the db
-  assert getvar(COUNTER(0).int) == cntidx
+  assert Get(COUNTER(0).int) == cntidx
 
   # Test if each number is found in the set
   for i in 1..<MAX*NUM_OF_THREADS - 1:
@@ -63,7 +63,7 @@ proc validateCounters() =
 
 proc fibonacciTest() =
   ## Main test that starts NUM_OF_THREADS to calculate and save result in db
-  setvar: COUNTER(0) = 0 # ydb local variable is visible for all threads, must be synchronized
+  Set: COUNTER(0) = 0 # ydb local variable is visible for all threads, must be synchronized
 
   var m = createMaster()
   m.awaitAll:

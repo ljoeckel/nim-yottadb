@@ -8,11 +8,11 @@ The combination of Nim's modern language features with YottaDB's battle-tested d
 
 ## Simple example showing the clean syntax
 ```nim
-setvar:
+Set:
   ^Users("john_doe", "profile", "name") = "John Doe"
   ^Users("john_doe", "profile", "email") = "john@example.com"
 
-let userName = getvar  ^Users("john_doe", "profile", "name")
+let userName = Get ^Users("john_doe", "profile", "name")
 echo "Hello, ", userName
 ```
 
@@ -29,14 +29,14 @@ In this post, I want to walk you through:
 YottaDB is a high-performance, schema-less, key-value database designed for extreme scalability and reliability, particularly in transaction-heavy environments. Its design philosophy is rooted in the M (or MUMPS) language and database, which has been battle-tested in critical systems for decades.
 
 #### Key-Value Data Model with a Hierarchical Twist:
-At its core, data is stored as sparse,multi-dimensional arrays. A variable (or "global") can have subscripts, creating a natural tree structure.
+At its core, Data is stored as sparse,multi-dimensional arrays. A variable (or "global") can have subscripts, creating a natural tree structure.
 ```
 ^Patients("Smith", "John", 2024, "Visit") = "Checkup"
 ```
-This model is incredibly flexible (schema-less) and allows for efficient hierarchical data access.
+This model is incredibly flexible (schema-less) and allows for efficient hierarchical Data access.
 
 #### Extreme Performance and Low Latency:
-YottaDB is an in-memory database with a transaction journal for durability. All data operations are performed directly in memory, making it exceptionally fast.
+YottaDB is an in-memory database with a transaction journal for durability. All Data operations are performed directly in memory, making it exceptionally fast.
 
 It uses a single, highly optimized database engine process per region, with application processes connecting to it. This eliminates per-connection overhead and resource contention.
 
@@ -46,16 +46,16 @@ It scales efficiently on multi-core servers. You can run multiple database engin
 It supports a "Application Multiplexing" architecture, allowing multiple application servers to access a single YottaDB database instance, which is a classic scale-out pattern.
 
 #### Rock-Solid Reliability and ACID Transactions:
-YottaDB is designed for environments where data loss is unacceptable (e.g., banks, hospitals).
+YottaDB is designed for environments where Data loss is unacceptable (e.g., banks, hospitals).
 
-It provides full ACID (Atomicity, Consistency, Isolation, Durability) compliance through a robust transaction processing system and write-ahead journaling. Database updates are first written to a journal file before being applied to the database, ensuring data can be recovered even after a crash.
+It provides full ACID (Atomicity, Consistency, Isolation, Durability) compliance through a robust transaction processing system and write-ahead journaling. Database updates are first written to a journal file before being applied to the database, ensuring Data can be recovered even after a crash.
 
 #### Tight Integration of Database and Programming Language:
 This is a hallmark of the M lineage. The database operations are intrinsic commands within the M (or MUMPS) language.
 
-There is no separate query language (like SQL) or connection string. A simple command like SET ^Customer(123)="John" both updates the variable in memory and commits the change to the database.
+There is no separate Query language (like SQL) or connection string. A simple command like SET ^Customer(123)="John" both updates the variable in memory and commits the change to the database.
 
-This eliminates object-relational mapping (ORM) overhead and makes the code very concise for data manipulation.
+This eliminates object-relational mapping (ORM) overhead and makes the code very concise for Data manipulation.
 
 #### Mature and Robust Codebase:
 The codebase has its roots in the 1960s MUMPS database. YottaDB itself is a direct descendant and has been hardened over decades of use in critical, high-availability systems.
@@ -144,7 +144,7 @@ Nim has a built-in async/await mechanism for writing highly scalable asynchronou
 
 
 ## What nim-yottadb provides
-Many environments use YottaDB already (e.g. legacy systems, M-based suites). By having a Nim binding, one can write new components or tooling in Nim that integrate with existing YottaDB data.
+Many environments use YottaDB already (e.g. legacy systems, M-based suites). By having a Nim binding, one can write new components or tooling in Nim that integrate with existing YottaDB Data.
 
 The flexibility of Nim’s metaprogramming (macros, templates) enables a nicer API and DSL wrapper over the more “raw” C interface. You can mask lower-level details, make code more expressive, and reduce boilerplate.
 
@@ -152,7 +152,7 @@ The flexibility of Nim’s metaprogramming (macros, templates) enables a nicer A
 
 The binding exposes a basic set of database operations, roughly mapping to YottaDB capabilities:
 
-- ydb_data — inspect node or subtree state (e.g. whether there is data, subtree, both or neither)
+- ydb_data — inspect node or subtree state (e.g. whether there is Data, subtree, both or neither)
 
 - ydb_delete — delete a node or an entire subtree
 
@@ -160,13 +160,13 @@ The binding exposes a basic set of database operations, roughly mapping to Yotta
 
 - ydb_get / ydb_set — read or assign the value of a local or global variable
 
-- ydb_incr — atomic increment (local or global)
+- ydb_incr — atomic Increment (local or global)
 
-- ydb_lock — lock one or more global variables
+- ydb_lock — Lock one or more global variables
 
-- ydb_lock_incr / ydb_lock_dec — manipulate a lock count
+- ydb_lock_incr / ydb_lock_dec — manipulate a Lock count
 
-- ydb_node_next / ydb_node_previous — traverse siblings or nodes in and out of order
+- ydb_node_next / ydb_node_previous — traverse siblings or nodes in and out of Order
 
 - ydb_subscript_next / ydb_subscript_previous — step through subscript ranges under a global
 
@@ -192,59 +192,59 @@ ydb_set("^building", @["Room", "1", "size"], "22.5")
 ```
 you can write
 ```nim
-setvar: ^building("Room", 1, "Window")=22.5
+Set: ^building("Room", 1, "Window")=22.5
 ```
 
 #### setvar / get / .binary
 ```nim
-setvar:
+Set:
     ^XX(1,2,3)=123
     ^XX("B",1)="AB"
-let var1 = getvar ^XX(1,2,3)
-let image = getvar ^images(4711).binary
+let var1 = Get ^XX(1,2,3)
+let image = Get ^images(4711).binary
 ```
 #### Support for mixed type subscripts
 ```nim
-setvar: ^X(id, 4711, "pi") = 3.1414
+Set: ^X(id, 4711, "pi") = 3.1414
 ```
-#### setvar: in a loop
+#### Set: in a loop
 ```nim
 for id in 0..<5:
-setvar:
+Set:
     ^CUST(id, "Timestamp") = cpuTime()
     ^CUST(id, "loop") = id
 ```
-#### increment ####
+#### Increment ####
 Increment a global in the database by 1 or 5
 ```nim
-let nexttxid1 = increment: ^CNT("TXID")
-let nexttxid5 = increment: ^CNT("TXID", by=5)
+let nexttxid1 = Increment: ^CNT("TXID")
+let nexttxid5 = Increment: ^CNT("TXID", by=5)
 ```
-#### data
+#### Data
 Test if a node or tree exists and has a subtree
 ```nim
-setvar:
+Set:
     ^X(5)="F"
     ^X(5,1)="D"
-dta = data: ^X(5)
+dta = Data: ^X(5)
 assert YdbData(dta) == YDB_DATA_VALUE_DESC
 ```
-#### killnode
+#### Killnode
 Delete a node. If all nodes of a global are removed, the global itself is removed.
 No descendents are removed.
 ```nim
-killnode: ^X(1) # delete node
+Killnode: ^X(1) # delete node
 ```
-#### kill
+#### Kill
 Delete a subtree of a global. If all nodes are removed, the global itself is removed.
 ```nim
-kill: ^X(1)
+Kill: ^X(1)
 ```
-#### lock
-Lock upto 35 Global variables. Other processes trying to lock one of the globals will wait until the lock is released. {} Have to be used if more than one global will be locked or an empty one to release all locks.
-If lock: is called again, the previous locks are automatically released first.
+#### Lock
+Lock upto 35 Global variables. Other processes trying to Lock one of the globals will wait until the Lock is released. {} Have to be used if more than one global will be locked or an empty one to release all locks.
+If Lock: is called again, the previous locks are automatically released first.
 ```nim
-lock:
+Lock:
   {
     ^LL("HAUS", "11"),
     ^LL("HAUS", "12"),
@@ -255,11 +255,11 @@ The template `withlock` simplifies the locking further:
 ```nim
 let amount = 1500.50
 withlock(4711):
-  setvar:
+  Set:
     ^custacct(4711, "amount") = amount
     ^booking(4711, "txnbr") = amount
 ```
-On leaving the withlock block, the lock is automatically released.
+On leaving the withlock block, the Lock is automatically released.
 
 #### nextnode / prevnode / nextsubscript / prevsubscript
 Traverse a global/subscript in the collating sequence.
@@ -270,10 +270,10 @@ Traverse a global/subscript in the collating sequence.
 (rc, subs) = prevsubscript: ^LL("HAUS", "FLAECHEN")
 ```
 #### 'get' with postfix
-It is possible to enforce a type when getting data from YottaDB. By using a 'postfix' a expected type can be defined and tested.
+It is possible to enforce a type when getting Data from YottaDB. By using a 'postfix' a expected type can be defined and tested.
 ```nim
-let i = getvar  ^global(1).int16
-let f = getvar  ^global(4711).float32
+let i = Get ^global(1).int16
+let f = Get ^global(4711).float32
 ```
 If the value from the db is greater or smaller than the range defined through the postfix, a `ValueError` exception is raised.
 
@@ -296,7 +296,7 @@ type
 let address = Address(street: "Bachstrasse 14", zip:6033, city:"Buchs", state:"AG")
 store(@["4711"], address)
 ```
-The data is stored as
+The Data is stored as
 ```nim
 ^Address(4711,"city")="Buchs"
 ^Address(4711,"state")="AG"
@@ -320,14 +320,14 @@ Comparing the nim-yottadb implementation with the official YottaDB Rust implemen
 With some memory management configurations, Nim outperforms Rust in this scenario. The practical implications may be minimal. The difference per iteration is extremly low.
 
 ## Conclusion
-The nim-yottadb binding successfully bridges two powerful technologies from different eras of computing. YottaDB brings decades of refinement in hierarchical data management and transaction processing, while Nim offers modern language features, metaprogramming capabilities, and performance characteristics that rival lower-level systems languages.
+The nim-yottadb binding successfully bridges two powerful technologies from different eras of computing. YottaDB brings decades of refinement in hierarchical Data management and transaction processing, while Nim offers modern language features, metaprogramming capabilities, and performance characteristics that rival lower-level systems languages.
 
-What makes this integration particularly compelling is how Nim's DSL capabilities and clean syntax make YottaDB's hierarchical data model feel natural and expressive. The ability to write database operations that look like native Nim code, while maintaining the performance and reliability of a battle-tested database engine, represents the best of both worlds.
+What makes this integration particularly compelling is how Nim's DSL capabilities and clean syntax make YottaDB's hierarchical Data model feel natural and expressive. The ability to write database operations that look like native Nim code, while maintaining the performance and reliability of a battle-tested database engine, represents the best of both worlds.
 
 The performance benchmarks demonstrate that this binding doesn't sacrifice speed for convenience—Nim applications can leverage YottaDB's capabilities with minimal overhead, making it suitable for the same high-performance, transaction-heavy use cases that YottaDB has traditionally served.
 
 For developers working with existing YottaDB systems, nim-yottadb provides a path to modernize tooling and develop new components without abandoning proven database infrastructure. For Nim developers, it opens access to a unique class of hierarchical database that excels in scenarios where relational databases might struggle.
 
-As the binding continues to evolve, it represents not just a technical achievement, but a practical solution for building robust, high-performance systems that need both modern development ergonomics and proven data reliability. Whether you're extending legacy M applications or building new systems from scratch, nim-yottadb offers a compelling combination of performance, reliability, and developer experience.
+As the binding continues to evolve, it represents not just a technical achievement, but a practical solution for building robust, high-performance systems that need both modern development ergonomics and proven Data reliability. Whether you're extending legacy M applications or building new systems from scratch, nim-yottadb offers a compelling combination of performance, reliability, and developer experience.
 
 The project is available on [github](https://github.com/ljoeckel/nim-yottadb) and welcomes contributions from both the Nim and YottaDB communities.

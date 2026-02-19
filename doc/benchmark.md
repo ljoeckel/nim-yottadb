@@ -35,7 +35,7 @@ Comparing the nim-yottadb implementation with the official YottaDB Rust implemen
 ```nim
 proc setSimple() =
   for id in 0..<10000000:
-    setvar: ^hello(id)=id
+    Set: ^hello(id)=id
 
 timed("set simple"): setSimple()
 ```

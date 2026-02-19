@@ -4,11 +4,11 @@ import yottadb
 const global = "^gbl"
 
 proc setup() =
-    kill: ^gbl
+    Kill: ^gbl
     for i in 1..5:
-        setvar: ^gbl(i) = i
-        setvar: local(i) = i
-    setvar:
+        Set: ^gbl(i) = i
+        Set: local(i) = i
+    Set:
         ^gbl(1,1)="1.1"
         ^gbl(2,2)="2.2"
         local(1,1)="1.1"
@@ -24,103 +24,103 @@ proc testQuery() =
 
   block:
     var subs: seq[string]
-    for sub in queryItr ^gbl:
+    for sub in QueryItr ^gbl:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr local:
+    for sub in QueryItr local:
       subs.add(sub)
     assert subs == reflocal
 
   block:
     var subs: seq[string]
-    for sub in queryItr ^gbl(2):
+    for sub in QueryItr ^gbl(2):
       subs.add(sub)
     assert subs == refdata2
 
   block:
     var subs: seq[string]
-    for sub in queryItr local(2):
+    for sub in QueryItr local(2):
       subs.add(sub)
     assert subs == reflocal2
 
   block:
     var subs: seq[string]
-    for sub in queryItr(^gbl):
+    for sub in QueryItr(^gbl):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr(local):
+    for sub in QueryItr(local):
       subs.add(sub)
     assert subs == reflocal
 
   block:
     var subs: seq[string]
-    for sub in queryItr(^gbl(2)):
+    for sub in QueryItr(^gbl(2)):
       subs.add(sub)
     assert subs == refdata2
 
   block:
     var subs: seq[string]
-    for sub in queryItr(local(2)):
+    for sub in QueryItr(local(2)):
       subs.add(sub)
     assert subs == reflocal2
 
   block:
     var subs: seq[string]
-    for sub in queryItr @global:
+    for sub in QueryItr @global:
       subs.add(sub)
     assert subs == refdata
 
   # block: TODO: Implement indirection on locals?
   #   var subs: seq[string]
-  #   for sub in queryItr @local:
+  #   for sub in QueryItr @local:
   #     subs.add(sub)
   #   assert subs == reflocal
 
   block:
     var subs: seq[string]
-    for sub in queryItr @global(2):
+    for sub in QueryItr @global(2):
       subs.add(sub)
     assert subs == refdata2
 
   block:
     var subs: seq[string]
-    for sub in queryItr(@global):
+    for sub in QueryItr(@global):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr(@global(2)):
+    for sub in QueryItr(@global(2)):
       subs.add(sub)
     assert subs == refdata2
 
   block:
     var subs: seq[string]
-    for sub in queryItr "^gbl":
+    for sub in QueryItr "^gbl":
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr local:
+    for sub in QueryItr local:
       subs.add(sub)
     assert subs == reflocal
 
   block:
     var subs: seq[string]
-    for sub in queryItr "^gbl(2)":
+    for sub in QueryItr "^gbl(2)":
       subs.add(sub)
     assert subs == refdata2
 
   block:
     var subs: seq[string]
-    for sub in queryItr("^gbl"):
+    for sub in QueryItr("^gbl"):
       subs.add(sub)
     assert subs == refdata
 
@@ -130,37 +130,37 @@ proc testQueryReverse() =
 
   block:
     var subs: seq[string]
-    for sub in queryItr ^gbl.reverse:
+    for sub in QueryItr ^gbl.reverse:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr(^gbl.reverse):
+    for sub in QueryItr(^gbl.reverse):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr @global.reverse:
+    for sub in QueryItr @global.reverse:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr(@global.reverse):
+    for sub in QueryItr(@global.reverse):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr "^gbl".reverse:
+    for sub in QueryItr "^gbl".reverse:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr("^gbl".reverse):
+    for sub in QueryItr("^gbl".reverse):
       subs.add(sub)
     assert subs == refdata
 
@@ -170,37 +170,37 @@ proc testQueryValue() =
   let refdata = @["1", "1.1", "2", "2.2", "3", "4","5"]
   block:
     var subs: seq[string]
-    for sub in queryItr ^gbl.val:
+    for sub in QueryItr ^gbl.val:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr(^gbl.val):
+    for sub in QueryItr(^gbl.val):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr @global.val:
+    for sub in QueryItr @global.val:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr(@global.val):
+    for sub in QueryItr(@global.val):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr "^gbl".val:
+    for sub in QueryItr "^gbl".val:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr("^gbl".val):
+    for sub in QueryItr("^gbl".val):
       subs.add(sub)
     assert subs == refdata
 
@@ -208,37 +208,37 @@ proc testQueryValueReverse() =
   let refdata = @["5","4","3","2.2","2","1.1","1"]
   block:
     var subs: seq[string]
-    for sub in queryItr ^gbl.val.reverse:
+    for sub in QueryItr ^gbl.val.reverse:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr(^gbl.val.reverse):
+    for sub in QueryItr(^gbl.val.reverse):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr @global.val.reverse:
+    for sub in QueryItr @global.val.reverse:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr(@global.val.reverse):
+    for sub in QueryItr(@global.val.reverse):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr "^gbl".val.reverse:
+    for sub in QueryItr "^gbl".val.reverse:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in queryItr("^gbl".val.reverse):
+    for sub in QueryItr("^gbl".val.reverse):
       subs.add(sub)
     assert subs == refdata
 
@@ -250,7 +250,7 @@ proc testQueryKv() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in queryItr ^gbl.kv:
+    for (key, value) in QueryItr ^gbl.kv:
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -259,7 +259,7 @@ proc testQueryKv() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in queryItr(^gbl.kv):
+    for (key, value) in QueryItr(^gbl.kv):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -268,7 +268,7 @@ proc testQueryKv() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in queryItr @global.kv:
+    for (key, value) in QueryItr @global.kv:
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -277,7 +277,7 @@ proc testQueryKv() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in queryItr(@global.kv):
+    for (key, value) in QueryItr(@global.kv):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -286,7 +286,7 @@ proc testQueryKv() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in queryItr "^gbl".kv:
+    for (key, value) in QueryItr "^gbl".kv:
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -295,7 +295,7 @@ proc testQueryKv() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in queryItr("^gbl".kv):
+    for (key, value) in QueryItr("^gbl".kv):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -308,7 +308,7 @@ proc testQueryKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in queryItr ^gbl.kv.reverse:
+    for (key, value) in QueryItr ^gbl.kv.reverse:
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -317,7 +317,7 @@ proc testQueryKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in queryItr(^gbl.kv.reverse):
+    for (key, value) in QueryItr(^gbl.kv.reverse):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -326,7 +326,7 @@ proc testQueryKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in queryItr @global.kv.reverse:
+    for (key, value) in QueryItr @global.kv.reverse:
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -335,7 +335,7 @@ proc testQueryKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in queryItr(@global.kv.reverse):
+    for (key, value) in QueryItr(@global.kv.reverse):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -344,7 +344,7 @@ proc testQueryKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in queryItr "^gbl".kv.reverse:
+    for (key, value) in QueryItr "^gbl".kv.reverse:
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -353,7 +353,7 @@ proc testQueryKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in queryItr("^gbl".kv.reverse):
+    for (key, value) in QueryItr("^gbl".kv.reverse):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -365,43 +365,43 @@ proc testQueryKeys() =
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr ^gbl.keys:
+    for sub in QueryItr ^gbl.keys:
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr(^gbl.keys):
+    for sub in QueryItr(^gbl.keys):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr @global.keys:
+    for sub in QueryItr @global.keys:
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr(@global.keys):
+    for sub in QueryItr(@global.keys):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr "^gbl".keys:
+    for sub in QueryItr "^gbl".keys:
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr("^gbl".keys):
+    for sub in QueryItr("^gbl".keys):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr ^gbl.keys:
+    for sub in QueryItr ^gbl.keys:
       subs.add(sub)
     assert refdata == subs
 
@@ -410,43 +410,43 @@ proc testQueryKeysReverse() =
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr ^gbl.keys.reverse:
+    for sub in QueryItr ^gbl.keys.reverse:
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr(^gbl.keys.reverse):
+    for sub in QueryItr(^gbl.keys.reverse):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr @global.keys.reverse:
+    for sub in QueryItr @global.keys.reverse:
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr(@global.keys.reverse):
+    for sub in QueryItr(@global.keys.reverse):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr "^gbl".keys.reverse:
+    for sub in QueryItr "^gbl".keys.reverse:
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr("^gbl".keys.reverse):
+    for sub in QueryItr("^gbl".keys.reverse):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in queryItr ^gbl.keys.reverse:
+    for sub in QueryItr ^gbl.keys.reverse:
       subs.add(sub)
     assert refdata == subs
 
@@ -455,31 +455,31 @@ proc testQueryCount() =
   let refdata = 7
 
   block:
-    for count in queryItr ^gbl.count:
+    for count in QueryItr ^gbl.count:
       assert refdata == count
 
   block:
-    for count in queryItr(^gbl.count):
+    for count in QueryItr(^gbl.count):
       assert refdata == count
 
   block:
-    for count in queryItr @global.count:
+    for count in QueryItr @global.count:
       assert refdata == count
 
   block:
-    for count in queryItr(@global.count):
+    for count in QueryItr(@global.count):
       assert refdata == count
 
   block:
-    for count in queryItr "^gbl".count:
+    for count in QueryItr "^gbl".count:
       assert refdata == count
 
   block:
-    for count in queryItr("^gbl".count):
+    for count in QueryItr("^gbl".count):
       assert refdata == count
 
   block:
-    for count in queryItr ^gbl.count:
+    for count in QueryItr ^gbl.count:
       assert refdata == count
 
 
@@ -487,36 +487,36 @@ proc testQueryCountReverse() =
   let refdata = 7
 
   block:
-    for count in queryItr ^gbl.count.reverse:
+    for count in QueryItr ^gbl.count.reverse:
       assert refdata == count
 
   block:
-    for count in queryItr(^gbl.count.reverse):
+    for count in QueryItr(^gbl.count.reverse):
       assert refdata == count
 
   block:
-    for count in queryItr @global.count.reverse:
+    for count in QueryItr @global.count.reverse:
       assert refdata == count
 
   block:
-    for count in queryItr(@global.count.reverse):
+    for count in QueryItr(@global.count.reverse):
       assert refdata == count
 
   block:
-    for count in queryItr "^gbl".count.reverse:
+    for count in QueryItr "^gbl".count.reverse:
       assert refdata == count
 
   block:
-    for count in queryItr("^gbl".count.reverse):
+    for count in QueryItr("^gbl".count.reverse):
       assert refdata == count
 
   block:
-    for count in queryItr ^gbl.count.reverse:
+    for count in QueryItr ^gbl.count.reverse:
       assert refdata == count
 
 
 # -----------------
-# order
+# Order
 # -----------------
 
 proc testOrder() =
@@ -524,37 +524,37 @@ proc testOrder() =
 
   block:
     var subs: seq[string]
-    for sub in orderItr ^gbl:
+    for sub in OrderItr ^gbl:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr(^gbl):
+    for sub in OrderItr(^gbl):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr @global:
+    for sub in OrderItr @global:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr(@global):
+    for sub in OrderItr(@global):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr "^gbl":
+    for sub in OrderItr "^gbl":
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr("^gbl"):
+    for sub in OrderItr("^gbl"):
       subs.add(sub)
     assert subs == refdata
 
@@ -563,37 +563,37 @@ proc testOrderReverse() =
 
   block:
     var subs: seq[string]
-    for sub in orderItr ^gbl.reverse:
+    for sub in OrderItr ^gbl.reverse:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr(^gbl.reverse):
+    for sub in OrderItr(^gbl.reverse):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr @global.reverse:
+    for sub in OrderItr @global.reverse:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr(@global.reverse):
+    for sub in OrderItr(@global.reverse):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr "^gbl".reverse:
+    for sub in OrderItr "^gbl".reverse:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr("^gbl".reverse):
+    for sub in OrderItr("^gbl".reverse):
       subs.add(sub)
     assert subs == refdata
 
@@ -602,37 +602,37 @@ proc testOrderValue() =
   let refdata = @["1", "2", "3", "4", "5"]
   block:
     var subs: seq[string]
-    for sub in orderItr ^gbl.val:
+    for sub in OrderItr ^gbl.val:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr(^gbl.val):
+    for sub in OrderItr(^gbl.val):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr @global.val:
+    for sub in OrderItr @global.val:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr(@global.val):
+    for sub in OrderItr(@global.val):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr "^gbl".val:
+    for sub in OrderItr "^gbl".val:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr("^gbl".val):
+    for sub in OrderItr("^gbl".val):
       subs.add(sub)
     assert subs == refdata
 
@@ -640,37 +640,37 @@ proc testOrderValueReverse() =
   let refdata = @["5", "4", "3", "2", "1"]
   block:
     var subs: seq[string]
-    for sub in orderItr ^gbl.val.reverse:
+    for sub in OrderItr ^gbl.val.reverse:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr(^gbl.val.reverse):
+    for sub in OrderItr(^gbl.val.reverse):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr @global.val.reverse:
+    for sub in OrderItr @global.val.reverse:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr(@global.val.reverse):
+    for sub in OrderItr(@global.val.reverse):
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr "^gbl".val.reverse:
+    for sub in OrderItr "^gbl".val.reverse:
       subs.add(sub)
     assert subs == refdata
 
   block:
     var subs: seq[string]
-    for sub in orderItr("^gbl".val.reverse):
+    for sub in OrderItr("^gbl".val.reverse):
       subs.add(sub)
     assert subs == refdata
 
@@ -682,7 +682,7 @@ proc testOrderKv() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in orderItr ^gbl.kv:
+    for (key, value) in OrderItr ^gbl.kv:
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -691,7 +691,7 @@ proc testOrderKv() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in orderItr(^gbl.kv):
+    for (key, value) in OrderItr(^gbl.kv):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -700,7 +700,7 @@ proc testOrderKv() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in orderItr @global.kv:
+    for (key, value) in OrderItr @global.kv:
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -709,7 +709,7 @@ proc testOrderKv() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in orderItr(@global.kv):
+    for (key, value) in OrderItr(@global.kv):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -718,7 +718,7 @@ proc testOrderKv() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in orderItr "^gbl".kv:
+    for (key, value) in OrderItr "^gbl".kv:
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -727,7 +727,7 @@ proc testOrderKv() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in orderItr("^gbl".kv):
+    for (key, value) in OrderItr("^gbl".kv):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -740,7 +740,7 @@ proc testOrderKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in orderItr ^gbl.kv.reverse:
+    for (key, value) in OrderItr ^gbl.kv.reverse:
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -749,7 +749,7 @@ proc testOrderKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in orderItr(^gbl.kv.reverse):
+    for (key, value) in OrderItr(^gbl.kv.reverse):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -758,7 +758,7 @@ proc testOrderKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in orderItr @global.kv.reverse:
+    for (key, value) in OrderItr @global.kv.reverse:
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -767,7 +767,7 @@ proc testOrderKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in orderItr(@global.kv.reverse):
+    for (key, value) in OrderItr(@global.kv.reverse):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -776,7 +776,7 @@ proc testOrderKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in orderItr "^gbl".kv.reverse:
+    for (key, value) in OrderItr "^gbl".kv.reverse:
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -785,7 +785,7 @@ proc testOrderKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
-    for (key, value) in orderItr("^gbl".kv.reverse):
+    for (key, value) in OrderItr("^gbl".kv.reverse):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -797,43 +797,43 @@ proc testOrderKeys() =
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr ^gbl.keys:
+    for sub in OrderItr ^gbl.keys:
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr(^gbl.keys):
+    for sub in OrderItr(^gbl.keys):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr @global.keys:
+    for sub in OrderItr @global.keys:
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr(@global.keys):
+    for sub in OrderItr(@global.keys):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr "^gbl".keys:
+    for sub in OrderItr "^gbl".keys:
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr("^gbl".keys):
+    for sub in OrderItr("^gbl".keys):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr ^gbl.keys:
+    for sub in OrderItr ^gbl.keys:
       subs.add(sub)
     assert refdata == subs
 
@@ -842,43 +842,43 @@ proc testOrderKeysReverse() =
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr ^gbl.keys.reverse:
+    for sub in OrderItr ^gbl.keys.reverse:
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr(^gbl.keys.reverse):
+    for sub in OrderItr(^gbl.keys.reverse):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr @global.keys.reverse:
+    for sub in OrderItr @global.keys.reverse:
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr(@global.keys.reverse):
+    for sub in OrderItr(@global.keys.reverse):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr "^gbl".keys.reverse:
+    for sub in OrderItr "^gbl".keys.reverse:
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr("^gbl".keys.reverse):
+    for sub in OrderItr("^gbl".keys.reverse):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
-    for sub in orderItr ^gbl.keys.reverse:
+    for sub in OrderItr ^gbl.keys.reverse:
       subs.add(sub)
     assert refdata == subs
 
@@ -887,85 +887,85 @@ proc testOrderCount() =
   let refdata = 5
 
   block:
-    for count in orderItr ^gbl.count:
+    for count in OrderItr ^gbl.count:
       assert refdata == count
 
   block:
-    for count in orderItr(^gbl.count):
+    for count in OrderItr(^gbl.count):
       assert refdata == count
 
   block:
-    for count in orderItr @global.count:
+    for count in OrderItr @global.count:
       assert refdata == count
 
   block:
-    for count in orderItr(@global.count):
+    for count in OrderItr(@global.count):
       assert refdata == count
 
   block:
-    for count in orderItr "^gbl".count:
+    for count in OrderItr "^gbl".count:
       assert refdata == count
 
   block:
-    for count in orderItr("^gbl".count):
+    for count in OrderItr("^gbl".count):
       assert refdata == count
 
   block:
-    for count in orderItr ^gbl.count:
+    for count in OrderItr ^gbl.count:
       assert refdata == count
 
 proc testOrderCountReverse() =
   let refdata = 5
 
   block:
-    for count in orderItr ^gbl.count.reverse:
+    for count in OrderItr ^gbl.count.reverse:
       assert refdata == count
 
   block:
-    for count in orderItr(^gbl.count.reverse):
+    for count in OrderItr(^gbl.count.reverse):
       assert refdata == count
 
   block:
-    for count in orderItr @global.count.reverse:
+    for count in OrderItr @global.count.reverse:
       assert refdata == count
 
   block:
-    for count in orderItr(@global.count.reverse):
+    for count in OrderItr(@global.count.reverse):
       assert refdata == count
 
   block:
-    for count in orderItr "^gbl".count.reverse:
+    for count in OrderItr "^gbl".count.reverse:
       assert refdata == count
 
   block:
-    for count in orderItr("^gbl".count.reverse):
+    for count in OrderItr("^gbl".count.reverse):
       assert refdata == count
 
   block:
-    for count in orderItr ^gbl.count.reverse:
+    for count in OrderItr ^gbl.count.reverse:
       assert refdata == count
 
 
 if isMainModule:
   setup()
-  test "query": testQuery()
-  test "query reverse": testQueryReverse()
-  test "query value": testQueryValue()
-  test "query value reverse": testQueryValueReverse()  
-  test "query kv": testQueryKv()
-  test "query kv reverse": testQueryKvReverse()  
-  test "query keys": testQueryKeys()
-  test "query keys reverse": testQueryKeysReverse()
-  test "query count": testQueryCount()
-  test "query count reverse": testQueryCountReverse()  
+  test "Query": testQuery()
+  test "Query reverse": testQueryReverse()
+  test "Query value": testQueryValue()
+  test "Query value reverse": testQueryValueReverse()  
+  test "Query kv": testQueryKv()
+  test "Query kv reverse": testQueryKvReverse()  
+  test "Query keys": testQueryKeys()
+  test "Query keys reverse": testQueryKeysReverse()
+  test "Query count": testQueryCount()
+  test "Query count reverse": testQueryCountReverse()  
 
-  test "order": testOrder()
-  test "order reverse": testOrderReverse()
-  test "order value": testOrderValue()
-  test "order value reverse": testOrderValueReverse()  
-  test "order kv": testOrderKv()
-  test "order kv reverse": testOrderKvReverse()  
-  test "order keys": testOrderKeys()
-  test "order keys reverse": testOrderKeysReverse()
-  test "order count": testOrderCount()
-  test "order count reverse": testOrderCountReverse()
+  test "Order": testOrder()
+  test "Order reverse": testOrderReverse()
+  test "Order value": testOrderValue()
+  test "Order value reverse": testOrderValueReverse()  
+  test "Order kv": testOrderKv()
+  test "Order kv reverse": testOrderKvReverse()  
+  test "Order keys": testOrderKeys()
+  test "Order keys reverse": testOrderKeysReverse()
+  test "Order count": testOrderCount()
+  test "Order count reverse": testOrderCountReverse()

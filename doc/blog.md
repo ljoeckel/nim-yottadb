@@ -13,7 +13,7 @@ Here are some of the highlights:
 1. **Simple API**  
    Core YottaDB operations are exposed, including:
    - `ydb_get` / `ydb_set` — read and write values
-   - `ydb_data` — check if a node or subtree has data
+   - `ydb_data` — check if a node or subtree has Data
    - `ydb_delete` / `ydb_delete_excl` — remove nodes or subtrees
    - `ydb_incr` — atomic increments
    - Navigation: `ydb_node_next`, `ydb_node_previous`, `ydb_subscript_next`, etc.
@@ -31,8 +31,8 @@ Here are some of the highlights:
    - A `YdbVar` type with operator overloads and iterators makes code expressive and readable.
    - Example DSL syntax:
      ```nim
-     setvar: ^Customer(4711,"Name") = "John Doe"
-     let name = getvar  ^Customer(4711,"Name")
+     Set: ^Customer(4711,"Name") = "John Doe"
+     let name = Get ^Customer(4711,"Name")
      ```
    Postfix extensions
    .int/float, binary, OrderedSet
@@ -52,16 +52,16 @@ import yottadb
 
 # Set a value
 let id = 4711
-setvar: ^Customer(id, "Name") = "John Doe"
-let name = getvar  ^Customer(id, "Name") # Get the value back
-let txCount = getvar  ^CNT("TXID").int # Get as a typed value
+Set: ^Customer(id, "Name") = "John Doe"
+let name = Get ^Customer(id, "Name") # Get the value back
+let txCount = Get ^CNT("TXID").int # Get as a typed value
 echo fmt"Customers Name: {name} txCount: {txCount}"
 ```
 ### Example 2: Traversal & Deletion
 ```nim
 import yottadb
 
-setvar:
+Set:
     ^LL("HAUS")=""
     ^LL("HAUS", "ELEKTRIK", "DOSEN")=""
     ^LL("HAUS", "ELEKTRIK", "KABEL")=""
@@ -83,8 +83,8 @@ proc traverse(start: Subscripts = @[]) =
 traverse()
 traverse(@["HAUS", "ELEKT.."])
 traverse(@["HAUS", "ELEKTRIK", ""])
-killnode: ^LL("HAUS", "FLAECHEN", "RAUM1") # Delete a node [HAUS, FLAECHEN] remains
-kill: ^LL("HAUS", "ELEKTRIK") # Delete an entire subtree
+Killnode: ^LL("HAUS", "FLAECHEN", "RAUM1") # Delete a node [HAUS, FLAECHEN] remains
+Kill: ^LL("HAUS", "ELEKTRIK") # Delete an entire subtree
 traverse(@["HAUS",""])
 ```
 Produces the following output:

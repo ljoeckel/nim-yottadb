@@ -4,21 +4,21 @@ import malebolgia
 
 proc demoUpdate1(cnt: int, tn: int) =
     withlock 4711:
-        discard increment: ^CNT(4711)
-        discard increment: ^CNT(4711, tn)
+        discard Increment: ^CNT(4711)
+        discard Increment: ^CNT(4711, tn)
         withlock "4711,1":
-            discard increment: ^CNT("TEMPLATE_TEST")
-            discard increment: ^CNT(4711.1)
-            discard increment: ^CNT(4711.1, tn)
+            discard Increment: ^CNT("TEMPLATE_TEST")
+            discard Increment: ^CNT(4711.1)
+            discard Increment: ^CNT(4711.1, tn)
 
 proc demoUpdate2(cnt: int, tn: int) =
     withlock "4711,1":
-        discard increment: ^CNT(4711.1)
-        discard increment: ^CNT(4711.1, tn)
+        discard Increment: ^CNT(4711.1)
+        discard Increment: ^CNT(4711.1, tn)
         withlock 4711:
-            discard increment: ^CNT("TEMPLATE_TEST")
-            discard increment: ^CNT(4711)
-            discard increment: ^CNT(4711, tn)
+            discard Increment: ^CNT("TEMPLATE_TEST")
+            discard Increment: ^CNT(4711)
+            discard Increment: ^CNT(4711, tn)
 
 
 proc createThreads(cnt: int, numOfThreads: int) =
@@ -36,10 +36,10 @@ proc tryToCreateDeadlock() =
     let numOfThreads = 8
     const maxCount = 1000
 
-    kill:
+    Kill:
         ^CNT(4711)
         ^CNT(4711.1)
-    killnode:
+    Killnode:
         ^CNT("TEMPLATE_TEST")
     
     let ms = timed_ms:
@@ -50,19 +50,19 @@ proc tryToCreateDeadlock() =
 
     # Test totals
     let iterations = maxCount * numOfThreads
-    var v = getvar  ^CNT(4711).int
+    var v = Get ^CNT(4711).int
     assert v == iterations
-    v = getvar  ^CNT("4711.1").int
+    v = Get ^CNT("4711.1").int
     assert v == iterations
-    v = getvar  ^CNT("TEMPLATE_TEST").int
+    v = Get ^CNT("TEMPLATE_TEST").int
     assert v == iterations
     echo "Number of Threads: ", numOfThreads, ", Total iterations:", iterations, ", Time per iteration: ", ms.float64 / v.float64, " ms."
 
     # Test numbers for each thread
     for tn in 0..<numOfThreads:
-        v = getvar  ^CNT(4711, tn).int
+        v = Get ^CNT(4711, tn).int
         assert v == maxCount
-        v = getvar  ^CNT(4711.1, tn).int
+        v = Get ^CNT(4711.1, tn).int
         assert v == maxCount
 
 

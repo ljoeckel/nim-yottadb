@@ -18,9 +18,9 @@ proc saveImagesToDb(basedir: string): uint =
     for image in walk(basedir):
         let image_data = readFile(image)
         echo fmt"Save image {image} ({image_data.len} bytes) to db"
-        let id = increment @ID
+        let id = Increment @ID
         let gbl = fmt"^images({id})"
-        setvar:
+        Set:
             @gbl = image_data
             @gbl("path") = image
             @gbl("created") = now()
@@ -37,20 +37,20 @@ proc saveImageToFilesystem(target:  string, path: string, img: string) =
 
 proc readImagesFromDb(target: string): uint =
     var totalBytes: uint
-    for key in orderItr ^images.key:
-        let img     = getvar @key.binary
-        let path    = getvar @key("path")
+    for key in OrderItr ^images.key:
+        let img     = Get @key.binary
+        let path    = Get @key("path")
         echo fmt"Read image {path} ({img.len} bytes)"
         saveImageToFilesystem(target, path, img)
         inc(totalBytes, img.len)
     return totalBytes
 
 if isMainModule:
-    kill:
+    Kill:
         ^images
         @ID
 
     var totalBytesWritten = saveImagesToDb("./images") # read from the folder and save in db
     var totalBytesRead = readImagesFromDb("./images_fromdb") # read from db and save under this folder
-    echo "written=", totalBytesWritten, " read=", totalBytesRead, " images:", getvar @ID
+    echo "written=", totalBytesWritten, " read=", totalBytesRead, " images:", Get @ID
     assert totalBytesRead == totalBytesWritten

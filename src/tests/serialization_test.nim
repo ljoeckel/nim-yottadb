@@ -63,21 +63,21 @@ proc testCompositionSerialization() =
   assert customer2 == customer
 
   # Add new attribute in db to simulation class change
-  setvar: ^Customer("4711", "Employment") = "TheCompany"
+  Set: ^Customer("4711", "Employment") = "TheCompany"
   var customer3: Customer
   load(@["4711"], customer3)
   # should work, but no "Employment" attribute because we have old type definition
   assert customer3 == customer
 
   # Remvoe attribute in db to simulation class change
-  killnode: ^Customer("4711", "name")
+  Killnode: ^Customer("4711", "name")
   load(@["4711"], customer2)
   assert customer2.name == ""
   assert customer.id == 4711
 
 
 proc testBinarySerialization() =
-  kill: ^Customer
+  Kill: ^Customer
 
   for i in 0..10:
     let data = Responder(id: i, name: "John Smith", gender: male, occupation: "student", age: 18,

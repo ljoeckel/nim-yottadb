@@ -16,14 +16,14 @@ const
   THS = "M"
   GLOBAL = "^TX" & THS
 
-kill: @GLOBAL
-kill: ^CNT
+Kill: @GLOBAL
+Kill: ^CNT
 
 let minFibonacci = calcFibonacciValueFor1000ms(10)
 let maxFibonacci = calcFibonacciValueFor1000ms(300)
 
 proc worker(tn: int, iterations: int) =
-  setvar: $ZMAXTPTIME = 1 # Set transaction timeout to 1 second
+  Set: $ZMAXTPTIME = 1 # Set transaction timeout to 1 second
 
   for cnt in 0..<ITERATIONS:
     # Do cpu intense work
@@ -31,7 +31,7 @@ proc worker(tn: int, iterations: int) =
       let fib = rand(minFibonacci .. maxFibonacci)
       fibonacci_recursive(fib) # do some cpu intense work
 
-    # Save data
+    # Save Data
     let info = $tn & "," & $fibresult & "," & $ms
     let rc = Transaction(info):
       let info = $cast[cstring](param)
@@ -68,8 +68,8 @@ when isMainModule:
   
   # test results
   for i in 0..<NUM_OF_THREADS:
-    let txs = getvar ^CNT("M", i).int
+    let txs = Get ^CNT("M", i).int
     assert txs == ITERATIONS
   for i in 1..ITERATIONS:
     for tn in 0..<NUM_OF_THREADS:
-      assert 1 == data ^TXM(i, tn)
+      assert 1 == Data ^TXM(i, tn)

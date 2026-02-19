@@ -2,10 +2,10 @@ import std/unittest
 import yottadb
 
 proc setup() =
-    kill:
+    Kill:
         ^tmp2
         ^images
-    setvar:
+    Set:
         ^tmp2(1)=0
         ^tmp2(1,1)=1
         ^tmp2(1,2,"a","b")=2
@@ -15,74 +15,74 @@ proc stringAndSequence() =
     let refdata1 = @[@["1"], @["1", "1"], @["1", "2", "a", "b"], @["a", "b"]]
     var dbdata: seq[seq[string]]
 
-    for subs in queryItr ^tmp2.keys:
+    for subs in QueryItr ^tmp2.keys:
       assert type(subs) is seq[string]
       dbdata.add(subs)
     assert dbdata.len == 4
     assert dbdata == refdata1
 
     for idx, sub in dbdata:
-        let val = getvar ^tmp2(sub).int
+        let val = Get ^tmp2(sub).int
         assert idx == val
 
     # With indirektion
     let refdata2 = @["^tmp2(1)", "^tmp2(1,1)", "^tmp2(1,2,a,b)", "^tmp2(a,b)"]
     var dbdata2: seq[string]
     var gbl = "^tmp2"
-    for gbl in queryItr @gbl:
+    for gbl in QueryItr @gbl:
       dbdata2.add(gbl)
     assert dbdata2.len == 4
     assert dbdata2 == refdata2
 
     for idx, v in dbdata2:
-        let val = getvar @v.int
+        let val = Get @v.int
         assert idx == val
-        assert idx == getvar @v.int
+        assert idx == Get @v.int
 
 
 proc setNextPrevTest() =
   let (id1, id2, id3) = ("users", "43", "name")
   var sub0:Subscripts = @["users", "46", "name"]
-  setvar:
+  Set:
     ^test("users", "42", "name") = "Alice"
     ^test(id1, id2, id3) = "Bob"
     ^test("users", 45, "name") = "Lothar"
     ^test(sub0) = "Martina"
   
-  assert "Alice" == getvar ^test("users", "42", "name")
-  assert "Bob" == getvar ^test(id1, id2, id3)
-  assert (getvar ^test("users", "43", "name")) == "Bob"
-  assert "Lothar" == getvar ^test("users", 45, "name")
-  assert "Martina" == getvar ^test(sub0)
+  assert "Alice" == Get ^test("users", "42", "name")
+  assert "Bob" == Get ^test(id1, id2, id3)
+  assert (Get ^test("users", "43", "name")) == "Bob"
+  assert "Lothar" == Get ^test("users", 45, "name")
+  assert "Martina" == Get ^test(sub0)
 
   # NEXTSUB / PREVSUB example
-  var subs = order ^test("users", "42").keys
+  var subs = Order ^test("users", "42").keys
   assert @["users", "43"] == subs
-  subs = order ^test(subs).keys.reverse
+  subs = Order ^test(subs).keys.reverse
   assert @["users", "42"] == subs
 
   # NEXTNODE / PREVNODE example
-  for subs in queryItr ^test("users").keys:
+  for subs in QueryItr ^test("users").keys:
     assert @["users", "42", "name"] == subs
     break
 
-  subs = order ^test("users").keys.reverse
+  subs = Order ^test("users").keys.reverse
   assert subs.len == 0
 
-  # query from beginning
-  subs = query ^test().keys
+  # Query from beginning
+  subs = Query ^test().keys
   assert subs.len > 0
-  subs = query ^test("xxxxxxxx").keys
+  subs = Query ^test("xxxxxxxx").keys
   assert subs.len == 0
 
   # prevnode from end
-  subs = order ^test().keys.reverse
+  subs = Order ^test().keys.reverse
   assert subs.len > 0
   assert @["users"] == subs
 
 proc readnext() =
-  kill: ^hello
-  setvar:
+  Kill: ^hello
+  Set:
     ^hello("a") = "a"
     ^hello(1) = 1
     ^hello(1.5) = 1.5
@@ -92,7 +92,7 @@ proc readnext() =
     @["1"], @["1.5"], @["a"], @["a", "1", "b"]
   ]
   var dbdata :seq[Subscripts]
-  for subs in queryItr ^hello().keys:
+  for subs in QueryItr ^hello().keys:
     dbdata.add(subs)
   assert dbdata == refdata
 

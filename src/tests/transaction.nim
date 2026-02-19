@@ -6,17 +6,17 @@ when compileOption("threads"):
     proc testTransactionMT =
         var rc = Transaction:
             ydb_set("^AAA", @["100"], "noparam tptoken="  & $tptoken, tptoken)
-        assert 1 == data ^AAA(100)
+        assert 1 == Data ^AAA(100)
 
         rc = Transaction("ABC"):
             let dta = $cast[cstring](param)
             ydb_set("^AAA", @["101", dta], "cstring tptoken="  & $tptoken, tptoken)
-        assert 1 == data ^AAA(101, "ABC")
+        assert 1 == Data ^AAA(101, "ABC")
 
         rc = Transaction(4712):
             let dta = $cast[cint](param)
             ydb_set("^AAA", @["102", dta], "cint tptoken="  & $tptoken, tptoken)
-        assert 1 == data ^AAA(102, 4712)
+        assert 1 == Data ^AAA(102, 4712)
 
         # Try invalid globalname -> should rollback after 4 tries
         rc = Transaction:
@@ -32,38 +32,38 @@ else:
         var rc = Transaction:
             ydb_set("^AAA", @["1"], "noparam")
         assert rc == YDB_OK
-        assert 1 == data ^AAA(1)
+        assert 1 == Data ^AAA(1)
 
         rc = Transaction:
-            setvar: ^AAA(2) = "noparam"
+            Set: ^AAA(2) = "noparam"
         assert rc == YDB_OK
-        assert 1 == data ^AAA(2)
+        assert 1 == Data ^AAA(2)
 
         rc = Transaction:
             let gbl = "^AAA"
-            setvar: @gbl(4) = "noparam"
+            Set: @gbl(4) = "noparam"
         assert rc == YDB_OK
-        assert 1 == data ^AAA(4)
+        assert 1 == Data ^AAA(4)
 
         rc = Transaction:
             let gbl = "^AAA(5)"
-            setvar: @gbl = "noparam"
+            Set: @gbl = "noparam"
         assert rc == YDB_OK
-        assert 1 == data ^AAA(5)
+        assert 1 == Data ^AAA(5)
 
         rc = Transaction("ABC"):
             let dta = $cast[cstring](param)
             assert dta == "ABC"
             ydb_set("^AAA", @["2", dta], "cstring")
         assert rc == YDB_OK            
-        assert 1 == data ^AAA(2, "ABC")
+        assert 1 == Data ^AAA(2, "ABC")
 
         rc = Transaction(4712):
             let dta = cast[cint](param)
             assert dta == 4712
             ydb_set("^AAA", @["3", $dta], "cint")
         assert rc == YDB_OK            
-        assert 1 == data ^AAA(3, 4712)
+        assert 1 == Data ^AAA(3, 4712)
 
         # Try invalid globalname -> should rollback after 4 tries
         rc = Transaction:
@@ -77,10 +77,10 @@ else:
             assert rc2 == YDB_OK
             ydb_set("^AAA", @["5"], "noparam")
         assert rc == YDB_OK           
-        assert 1 == data ^AAA(4)   
-        assert 1 == data ^AAA(5)
+        assert 1 == Data ^AAA(4)   
+        assert 1 == Data ^AAA(5)
 
-        kill: ^AAA
+        Kill: ^AAA
         rc = Transaction:
             # Nested transaction with rollback
             var rc2 = Transaction:
@@ -89,8 +89,8 @@ else:
             assert rc2 == YDB_TP_ROLLBACK
             ydb_set("^AAA", @["5"], "noparam")
         assert rc == YDB_OK           
-        assert 0 == data ^AAA(4)   
-        assert 1 == data ^AAA(5)
+        assert 0 == Data ^AAA(4)   
+        assert 1 == Data ^AAA(5)
 
 
     test "transaction": testTransaction()

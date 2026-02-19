@@ -34,7 +34,7 @@ proc ydb_get_s*(varname: ptr ydb_buffer_t; subs_used: cint;
                 subsarray: ptr ydb_buffer_t; ret_value: ptr ydb_buffer_t): cint {.cdecl, importc: "ydb_get_s".}
 
 proc ydb_incr_s*(varname: ptr ydb_buffer_t; subs_used: cint;
-                 subsarray: ptr ydb_buffer_t; increment: ptr ydb_buffer_t;
+                 subsarray: ptr ydb_buffer_t; Increment: ptr ydb_buffer_t;
                  ret_value: ptr ydb_buffer_t): cint {.cdecl, importc: "ydb_incr_s".}
 
 proc ydb_lock_s*(timeout_nsec: culonglong; namecount: cint): cint {.cdecl, varargs, importc: "ydb_lock_s".}
@@ -86,7 +86,7 @@ proc ydb_get_st*(tptoken: uint64; errstr: ptr ydb_buffer_t;
 
 proc ydb_incr_st*(tptoken: uint64; errstr: ptr ydb_buffer_t;
                   varname: ptr ydb_buffer_t; subs_used: cint;
-                  subsarray: ptr ydb_buffer_t; increment: ptr ydb_buffer_t;
+                  subsarray: ptr ydb_buffer_t; Increment: ptr ydb_buffer_t;
                   ret_value: ptr ydb_buffer_t): cint {.cdecl, importc: "ydb_incr_st".}
 
 proc ydb_lock_st*(tptoken: uint64; errstr: ptr ydb_buffer_t;

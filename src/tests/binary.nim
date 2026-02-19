@@ -5,7 +5,7 @@ import yottadb
 import ydbutils
 
 proc setup() =
-    kill:
+    Kill:
       ^tmp
       ^images
 
@@ -25,33 +25,33 @@ proc createBinData(kb: int): string =
 
 
 proc testBinaryPostfix() =
-  setvar: ^tmp("binary") = createBinData(1)
-  let dbval = getvar ^tmp("binary").binary
+  Set: ^tmp("binary") = createBinData(1)
+  let dbval = Get ^tmp("binary").binary
   assert dbval == createBinData(1)
 
-  # Create binary data upto 1MB
+  # Create binary Data upto 1MB
   for i in 4095 .. 4096:
-    setvar: ^tmp("binary", i) = createBinData(i)
+    Set: ^tmp("binary", i) = createBinData(i)
 
   # Read back an compare
   for i in 4095 .. 4096:
-    let dbval = getvar ^tmp("binary", i).binary
+    let dbval = Get ^tmp("binary", i).binary
     assert dbval == createBinData(i)
 
 
 proc testBinaryPostfixHugeWrite(): int =
-  kill: ^tmphuge
+  Kill: ^tmphuge
   var totalBytes = 0
   for size in BLOCKSIZES:
     let data = createBinData(size)
     inc(totalBytes, data.len)
-    setvar: ^tmphuge(size) = data
+    Set: ^tmphuge(size) = data
   return totalBytes
 
 proc testBinaryPostfixHugeRead(): int =
   var totalBytes = 0
   for size in BLOCKSIZES:
-    let data = getvar ^tmphuge(size).binary
+    let data = Get ^tmphuge(size).binary
     inc(totalBytes, data.len)
   return totalBytes
 
@@ -59,7 +59,7 @@ proc testBinaryPostfixHugeVerify(): int =
   var totalBytes = 0
   for size in BLOCKSIZES:
     let data = createBinData(size)
-    let dbval = getvar ^tmphuge(size).binary
+    let dbval = Get ^tmphuge(size).binary
     inc(totalBytes, dbval.len)
     assert data == dbval
   return totalBytes
@@ -70,43 +70,43 @@ proc testOrderedSetPostfix() =
     os.incl(i)
   
   # os: {0, 1, 2, 3, 4, ...}
-  setvar: ^tmp("set1") = os
-  let dbset = getvar ^tmp("set1")
+  Set: ^tmp("set1") = os
+  let dbset = Get ^tmp("set1")
   assert dbset == $os
-  let osdb = getvar ^tmp("set1").OrderedSet
+  let osdb = Get ^tmp("set1").OrderedSet
   assert $type(osdb) == $type(OrderedSet[int])
   assert osdb == os
 
   # os 0,1,2,3,...
   var str = ($os)[1..^2] # remove {}
-  setvar: ^tmp("set2") = str.replace(" ","") # trim spaces
-  let osdb2 = getvar  ^tmp("set2").OrderedSet
+  Set: ^tmp("set2") = str.replace(" ","") # trim spaces
+  let osdb2 = Get ^tmp("set2").OrderedSet
   assert $type(osdb2) == $type(OrderedSet[int])
   assert osdb2 == os
   
 
 
 proc testGetFast(iterations: int) =
-  setvar: ^tmp(4711)="01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+  Set: ^tmp(4711)="01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
   echo "Using 'get.binary' with ", iterations, " iterations."
   timed:
     for i in 0 .. iterations:
-      discard getvar ^tmp(4711).binary
+      discard Get ^tmp(4711).binary
 
   echo "Using 'get' with ", iterations, " iterations."
   timed:
     for i in 0 .. iterations:
-      discard getvar ^tmp(4711)
+      discard Get ^tmp(4711)
   
 
 proc testGetWithException() =
   var maxlen = 1024*1024 - 1
-  setvar: ^tmp(4711) = repeat(".", maxlen)
-  var val = getvar ^tmp(4711)
+  Set: ^tmp(4711) = repeat(".", maxlen)
+  var val = Get ^tmp(4711)
   assert val.len == maxlen
 
-  setvar: ^tmp(4712) = repeat(".", maxlen+1)
-  doAssertRaises(YdbError): val = getvar ^tmp(4712)
+  Set: ^tmp(4712) = repeat(".", maxlen+1)
+  doAssertRaises(YdbError): val = Get ^tmp(4712)
 
 if isMainModule:
   test "binary": testBinaryPostfix()

@@ -82,8 +82,8 @@ proc ydb_delete_excl*(names: seq[string] = @[], tptoken: uint64 = 0) =
   ydb_delete_excl_db(names, tptoken)
 
 
-proc ydb_increment*(name: string, keys: Subscripts, increment: int = 1, tptoken: uint64 = 0): int =
-  ydb_increment_db(name, keys, increment, tptoken)
+proc ydb_increment*(name: string, keys: Subscripts, Increment: int = 1, tptoken: uint64 = 0): int =
+  ydb_increment_db(name, keys, Increment, tptoken)
 
 
 proc ydb_tp_mt*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string = "", transid: string = ""): int =
@@ -198,7 +198,7 @@ proc serializeToDb*[T](obj: T, idargs: varargs[string], tptoken: uint64 = 0) =
   # let data = Responder(id: 4711, name: "John Smith", gender: male, occupation: "student", age: 18,
   #           siblings: @[Sibling(sex: female, birthYear: 1991, relation: biological, alive: true),
   #           Sibling(sex: male, birthYear: 1989, relation: step, alive: true)])
-  # serializeToDb(data, $id)
+  # serializeToDb(Data, $id)
 
   let dta = serialize(obj)
 
@@ -214,7 +214,7 @@ proc deleteGlobal*(global: string) =
   # test if really empty
   var (rc, subs) = ydb_node_next(global, @[])
   if rc != YDB_ERR_NODEEND:
-    raise newException(YdbError, "Data exists after deleteGlobal '" & global & "' but should not. data=" & $subs)
+    raise newException(YdbError, "Data exists after deleteGlobal '" & global & "' but should not. Data=" & $subs)
 
 
 proc subscriptsToValue*(global: string, subscript: Subscripts): string =
