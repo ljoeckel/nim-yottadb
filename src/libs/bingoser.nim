@@ -1,4 +1,4 @@
-import macros, strutils, options, tables, sets
+import macros, strutils, options, tables, sets, json
 import ydbapi
 
 # Public API
@@ -124,6 +124,30 @@ proc updateIndex[T](o: T, updateMode: UpdateMode) =
         ydb_set(gblname, @[field.value, field.idValue], "")
       else:
         ydb_delete_node(gblname, @[field.value, field.idValue])  
+
+#----------------------------
+# Field management
+#----------------------------
+macro fillFrom*(obj: var auto, data: JsonNode) =
+  ## Iteriert über alle Felder des Objekts und sucht den passenden Key im JSON.
+  let objType = obj.getTypeImpl()
+  result = newStmtList()
+  
+  # Wir holen uns die Felder des Objekts (Typ-Definition)
+  # Bei 'object of RootObj' liegen die Felder oft tiefer im AST
+  let fields = if objType[2].kind == nnkRecList: objType[2] else: objType[2][1]
+
+  for field in fields:
+    let name = field[0].strVal
+    let nameIdent = field[0]
+    result.add quote do:
+      if `data`.hasKey(`name`):
+        when `obj`.`nameIdent` is int:
+          `obj`.`nameIdent` = `data`[`name`].getInt()
+        elif `obj`.`nameIdent` is string:
+          `obj`.`nameIdent` = `data`[`name`].getStr()
+        elif `obj`.`nameIdent` is bool:
+          `obj`.`nameIdent` = `data`[`name`].getBool()
 
 
 #-----------------------------
