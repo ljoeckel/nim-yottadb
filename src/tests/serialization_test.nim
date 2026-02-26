@@ -58,22 +58,20 @@ proc testCompositionSerialization() =
   let customer = newCustomer(4711)
   saveObject(@[$customer.id], customer)
 
-  var customer2: Customer
-  loadObject(@["4711"], customer2)
+  let customer2 = loadObject[Customer](@["4711"])
   assert customer2 == customer
 
   # Add new attribute in db to simulation class change
   Set: ^Customer("4711", "Employment") = "TheCompany"
-  var customer3: Customer
-  loadObject(@["4711"], customer3)
+  let customer3 = loadObject[Customer](@["4711"])
   # should work, but no "Employment" attribute because we have old type definition
   assert customer3 == customer
 
   # Remvoe attribute in db to simulation class change
   Killnode: ^Customer("4711", "name")
-  loadObject(@["4711"], customer2)
-  assert customer2.name == ""
-  assert customer.id == 4711
+  let customer4 = loadObject[Customer](@["4711"])
+  assert customer4.name == ""
+  assert customer4.id == 4711
 
 
 when isMainModule:

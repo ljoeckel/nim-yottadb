@@ -112,8 +112,7 @@ when isMainModule:
     save(newResponder(i))
 
   for i in 1..1:
-    var customer: Customer
-    loadObject(@[$i], customer)
+    let customer = loadObject[Customer](@[$i])
     echo "---------------------- Customer ----------------------"
     echo "customer      id:", customer.id, " name:", customer.name, " first_name:", customer.first_name, " dob:", customer.dob, " ct:", $customer.ct, " isGoodCustomer:", customer.isGoodCustomer
     echo "address   street:", customer.address.street, " zip:", customer.address.zip, " city:", customer.address.city, " state:", customer.address.state
@@ -131,8 +130,7 @@ when isMainModule:
     echo "float32F        :", customer.float32F
     echo "charX           :", customer.charX
 
-    var responder: Responder
-    loadObject(@[$i], responder)
+    let responder = loadObject[Responder](@[$i])
     echo "---------------------- Responder ----------------------" 
     #echo "responder:", responder
     echo "responder      id:", responder.id, " name:", responder.name
