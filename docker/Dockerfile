@@ -31,7 +31,6 @@ RUN wget https://codeberg.org/janAkali/grabnim/raw/branch/master/misc/install.sh
 # install the nim environment
 RUN grabnim && \
     nimble install nimlangserver && \
-    nimble install bingo && \
     nimble install malebolgia
 
 # Clone the nim-yottadb repo
