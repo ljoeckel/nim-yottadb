@@ -1,29 +1,23 @@
 # Object Serialization
-There are two methods available to serialize Nim objects to the database
-- by decomposition
-- by binary stream
-Both are based on the [`bingo`](https://github.com/planetis-m/bingo) framework.
+You can serialize a object tree to the database.
+The code uses parts from the the [`bingo`](https://github.com/planetis-m/bingo) framework but is not dependent on.
 
-## Serialization with decomposition
-The method `decomposition` allows to save each object class in a own global variable with the class attributes. Object's which contains other classes
-are then saved in a separate global with the same id as the main object. 
-To save the object, simply pass the id and the object to the `store` proc.
+Serialization allows to save each object class in a own global variable with the class attributes. Object's which contains other classes are then saved in a separate global with the same id as the main object. 
+
+To save the object, simply pass the id and the object to the `saveObject` proc.
 The id can be build using seq:[string].
 ```nim
-store(@[$id], obj)
+saveObject(@[$id], obj)
 ````
-To load the object back simply call the `load` proc with the id.
+To load the object back simply call the `loadObject` proc with the id.
 ```nim
-var responder: Responder
-load(@[$id], responder)
+var customer = loadObject[Customer](@[$id])
 ```
-
-Because the load(..) methods have a modifiable object in the proc signature, it is important to create always a new empty instance of such object before calling load(..). Otherwise it's possible that more values are added to sets or sequences. Single variables are overwritten.
-
+To delete a object call
 ```nim
-proc load*[T: var object](subs: seq[string]; o: var T) =
+deleteObject[Customer](@[$id])
 ```
-
+### Supported Datatypes
 Currently the following Data-types are supported:
 ... list of types ....
 - string
@@ -36,7 +30,41 @@ Currently the following Data-types are supported:
 - seq of simple and complex types
 - set's
 
-Example:
+## Indexing
+Fields of a type can be indexed by adding the `.INDEX.` pragma where the parameter (g.E. 'id') references the id field.
+
+The index(es) are automatically created, modified or deleted by the saveObject and deleteObject methods.
+
+If a field changes then saveObject also handles the proper update to the index.
+
+```nim
+Registration = object of RootObj
+        id: int = -1
+        formId: string = "form"
+        name: string
+        password: string
+        email {.INDEX: "id".} : string
+        message: string
+        country {.INDEX: "id".} : string
+        plan: string = "starter"
+        terms : bool
+        status: string
+        time: string
+```
+For each index a separate global is created. The field value and the primary key are part of the subscript.
+```
+List ^RegistrationEMAIL
+^RegistrationEMAIL("lothar.joeckel@gmail.com",1)=""
+^RegistrationEMAIL("lothar.joeckel@web.de",3)=""
+^RegistrationEMAIL("lothar@web.de2",4)=""
+
+List ^RegistrationCOUNTRY
+^RegistrationCOUNTRY("Spain",1)=""
+^RegistrationCOUNTRY("Switzerland",3)=""
+^RegistrationCOUNTRY("Switzerland",4)=""
+```     
+
+### Example:
 ```nim
 type 
   Address* = object of RootObj
@@ -187,23 +215,4 @@ List ^Sibling
 ^Sibling(1,0,"setEnum",0)=0
 ...
 ```
-## Binary Stream
-The second method `binary stream` allows to save the object with it's hierarchy in the pure binary serialized form. The object exists as one byte array in the database. This can be useful to persist the state of a model and restore quickly.
-To save / restore simply use `serializeToDb` and `deserializeFromDb`.
-Currently the maximum size of the object is limited to 1MB. But this will be removed with the next release.
-Due to the nature of binary serialization, the structure of the object(s), g.e. adding new attributes or removing one, may not changed. In such a case a migration strategy must be used to convert old saved format to the new one.
 
-```nim
-let responder = Responder(id: i, name: "John Smith", gender: male,
-    occupation: "student", age: 18,
-    siblings: 
-      @[
-        Sibling(sex: female, birthYear: 1991, relation: biological, alive: true),
-        Sibling(sex: male, birthYear: 1989, relation: step, alive: true)]
-    )
-
-# save to db
-serializeToDb(responder, $id)
-# load from db
-let responder2 = deserializeFromDb[Responder]($id)
-```

@@ -63,7 +63,7 @@ nimble install nimlangserver
 
 Now install the required packages for `nimyottadb``
 ```bash
-nimble install bingo malebolgia chronicles
+nimble install malebolgia
 ```
 Now you can start development with VisualStudio Code
 Install the following extensions:
@@ -79,7 +79,6 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/yottadb/r202
 #### Install nimyottadb
 ```nim
 nimble install malebolgia
-nimble install bingo
 nimble install nimyottadb
 ```
 

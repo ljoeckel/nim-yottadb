@@ -22,7 +22,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------------
 
-One Part of the serialization, 'serialization/bingo' is based on work from Antonis Geralis.
+One Part of the serialization, 'bingo' is based on work from Antonis Geralis.
 
   MIT License
   bingo -- Binary serialization framework for Nim

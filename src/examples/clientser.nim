@@ -103,7 +103,7 @@ proc newResponder(id: int): Responder =
         )
 
 proc save[T](t: T) =
-  store(@[$t.id], t)
+  saveObject(@[$t.id], t)
   
 
 when isMainModule:
@@ -113,7 +113,7 @@ when isMainModule:
 
   for i in 1..1:
     var customer: Customer
-    load(@[$i], customer)
+    loadObject(@[$i], customer)
     echo "---------------------- Customer ----------------------"
     echo "customer      id:", customer.id, " name:", customer.name, " first_name:", customer.first_name, " dob:", customer.dob, " ct:", $customer.ct, " isGoodCustomer:", customer.isGoodCustomer
     echo "address   street:", customer.address.street, " zip:", customer.address.zip, " city:", customer.address.city, " state:", customer.address.state
@@ -132,7 +132,7 @@ when isMainModule:
     echo "charX           :", customer.charX
 
     var responder: Responder
-    load(@[$i], responder)
+    loadObject(@[$i], responder)
     echo "---------------------- Responder ----------------------" 
     #echo "responder:", responder
     echo "responder      id:", responder.id, " name:", responder.name

@@ -1,9 +1,7 @@
-import std/[os, osproc, streams, strutils]
-import pegs
+import std/[strutils]
 import ydbtypes
 import ydbimpl
 import libydb
-import bingo
 
 proc keysToString*(global: string, subs: Subscripts): string {.inline.} =
   result = global
@@ -167,46 +165,6 @@ proc `[]=`*(v: var YdbVar; val: string) =
   ydb_set(v.name, v.subscripts, val, v.tptoken)
   v.value = val
 
-
-# ------- Binary Object Stream ----------------
-
-proc serialize[T](obj: T): string =
-  let fs = newStringStream()
-  defer:
-      fs.close()
-  storeBin(fs, obj)
-  fs.setPosition(0)
-  return fs.readAll()
-
-proc deserializeFromDb*[T](idargs: varargs[string], tptoken: uint64 = 0): T =
-  # Deserialize a object T from the database
-  # let responder = deserializeFromDb[Responder]($id)
-
-  let global = "^" & $typeof(T)
-  var subs: Subscripts
-  for arg in idargs:
-    subs.add(arg)
-
-  let bindata = ydb_getbinary_db(global, subs, tptoken)
-  let fs = newStringStream(bindata)
-  defer:
-      fs.close()
-  loadBin(fs, result)
-
-proc serializeToDb*[T](obj: T, idargs: varargs[string], tptoken: uint64 = 0) =
-  # Serialize a Object to the Database in binary form
-  # let data = Responder(id: 4711, name: "John Smith", gender: male, occupation: "student", age: 18,
-  #           siblings: @[Sibling(sex: female, birthYear: 1991, relation: biological, alive: true),
-  #           Sibling(sex: male, birthYear: 1989, relation: step, alive: true)])
-  # serializeToDb(Data, $id)
-
-  let dta = serialize(obj)
-
-  let global = "^" & $typeof(obj)
-  var subs: Subscripts
-  for arg in idargs:
-    subs.add(arg)
-  ydb_set(global, subs, dta, tptoken)
 
 
 proc deleteGlobal*(global: string) =

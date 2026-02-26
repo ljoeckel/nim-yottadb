@@ -9,7 +9,6 @@ requires "nim >= 2.2.4"
 
 # Dependencies
 requires "malebolgia"
-requires "bingo"
 
 task test, "Run nimyottadb unittests":
   echo "binary"
@@ -74,7 +73,7 @@ task test, "Run nimyottadb unittests":
 
 task examples, "Compile the example apps":
   exec "nim c -r -d:release -d:danger --hints:off --verbosity:0 --threads:off src/examples/benchmark"
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/serialization/clientser"
+  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/clientser"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/hello_customer"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/tx"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:on src/examples/dsl_lock_test"

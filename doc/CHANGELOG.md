@@ -1,3 +1,9 @@
+# Changelog for version 0.4.5
+- Serialization now supports an .INDEX. pragma on data fields. The index is automatically created, modified or deleted for each field.
+## Breaking Changes
+- Serialization does not longer support "Binary object stream". Only by 'decomposition' is available
+- Use saveObject, loadObject, deleteObject for serialization
+
 # Changelog for version 0.4.4
 ## Breaking Changes
 - The DSL names have been renamed with a `ydb` prefix to avoit namespace problems (g.E. Kill is also used in std/os)
