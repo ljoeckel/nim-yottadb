@@ -276,9 +276,15 @@ proc load(global: string, subs: seq[string], k: string; x: var string) =
 proc load[T: var SomeNumber](global: string, subs: seq[string], k: string; x: var T) =
   let s = loadFromYdb(global, subs, k)
   when T is SomeInteger:
-    x = parseInt(s).T
+    if s.len == 0:
+      x = 0
+    else:
+      x = parseInt(s).T
   else:
-    x = parseFloat(s).T
+    if s.len == 0:
+      x = 0.0
+    else:
+      x = parseFloat(s).T
 
 # ENUM
 proc load[T: enum](global: string, subs: seq[string], k: string; x: var T) =

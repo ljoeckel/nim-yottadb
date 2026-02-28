@@ -7,7 +7,7 @@ import yottadb
 
 # withlock:
 template withlock*(body: untyped): untyped =
-    ## Create a database Lock named ^LOCKS(lockid) while executing the body
+    ## Create a database Lock named ^LOCKS(int.high) while executing the body
     Lock: {+^LOCKS(int.high)}
     body
     Lock: {-^LOCKS(int.high)}
