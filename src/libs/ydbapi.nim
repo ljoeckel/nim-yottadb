@@ -185,3 +185,10 @@ proc subscriptsToValue*(global: string, subscript: Subscripts): string =
     result = keysToString(global, subscript)
   else:
     result = keysToString(global, subscript) & "=" & value
+
+
+proc trimString*(s: string): string =
+  if s.len >= 2 and s[0] == '"' and s[^1] == '"':
+    s[1..^2]
+  else:
+    s

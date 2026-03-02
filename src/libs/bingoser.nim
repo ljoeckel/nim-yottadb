@@ -374,6 +374,8 @@ proc load[T: var object](gbl: string, subs: seq[string]; o: var T) =
 
 proc loadObject*[T](subs: seq[string]): T =
   let gbl = "^" & $T
+  # Test for empty id
+  if subs.len == 0 or (subs.len >= 1 and subs[0] == ""): return T()
   load(gbl, subs, result)
 
 
