@@ -254,6 +254,12 @@ proc saveObject*[T: object](subs: seq[string]; o: T) =
     store(gbl, subs, fn, fv)
   updateIndex(o, Update)
 
+proc saveObject*[T: object](id: string, o: T) =
+  saveObject(@[id], o)
+
+proc saveObject*[T: object](id: int, o: T) =
+  saveObject(@[$id], o)
+
 
 #-----------------------------
 # Object Deserialisation
@@ -378,6 +384,12 @@ proc loadObject*[T](subs: seq[string]): T =
   if subs.len == 0 or (subs.len >= 1 and subs[0] == ""): return T()
   load(gbl, subs, result)
 
+proc loadObject*[T](id: int): T =
+  loadObject[T](@[$id])
+  
+proc loadObject*[T](id: string): T =
+  loadObject[T](@[id])
+
 
 #----------------------
 # Delete Object
@@ -417,3 +429,9 @@ proc deleteObject*[T](subs: seq[string]) =
   updateIndex(obj, Delete)
   # Delete the basic object tree (TODO: recursive scan)
   ydb_delete_tree(gbl, subs)
+
+proc deleteObject*[T](id: int) =
+  deleteObject[T](@[$id])
+
+proc deleteObject*[T](id: string) =
+  deleteObject[T](@[id])
