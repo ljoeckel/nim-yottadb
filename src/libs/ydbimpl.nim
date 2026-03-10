@@ -14,9 +14,8 @@ const
 
 
 # create a seq that hold the highest possible key
-var LAST_INDEX:seq[string]
-for i in 0..<31:
-  LAST_INDEX.add(repeat(EMPTY_STRING & '\xff', 10))
+const rpt = repeat('\xff', 5)
+const LAST_INDEX = @[rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt]
 
 
 # Thread-local buffers to avoid re-allocating buffers on every call and keep state per-thread.
