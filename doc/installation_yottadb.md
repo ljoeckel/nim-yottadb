@@ -1,5 +1,10 @@
 ## Install on x86 Architecture
 - Create a temporary directory and change to it, e.g.: mkdir /tmp/tmp ; cd /tmp/tmp
+- Install Prerequisites:
+sudo apt update
+sudo apt install binutils build-essential bison flex pkg-config libelf-dev
+     libicu-dev libgpgme11-dev libconfig-dev libssl-dev cmake
+     libcurl4-openssl-dev libreadline-dev
 
 - Get the YottaDB install script: 
 ```bash

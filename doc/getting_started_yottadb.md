@@ -1,5 +1,5 @@
 # Install
-#### Install Nim:
+#### Install Nim (Official Nim way):
 ```bash
 curl -sSf https://nim-lang.org/choosenim/init.sh | sh
 ```
