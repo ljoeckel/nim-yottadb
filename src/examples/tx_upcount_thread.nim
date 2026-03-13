@@ -10,7 +10,7 @@ import malebolgia
 
 const
   NUM_OF_THREADS = 10
-  ITERATIONS = 100000
+  ITERATIONS = 100
   GLOBAL = "^CNT"
 
 Kill: ^CNT
@@ -28,7 +28,7 @@ proc worker(tn: int, iterations: int) =
       let tn = $cast[cstring](param)
       let txid = ydb_increment("^CNT", @["UPCOUNT"], 1, tptoken)
       ydb_set("^CNT", @[$txid, tn], $txid & "-" & $tptoken, tptoken)
-      if txid mod 100000 == 0:
+      if txid mod 100 == 0:
         echo "txid=", txid, " tptoken:", tptoken
 
 when isMainModule:
