@@ -214,7 +214,19 @@ proc testQueryValueReverse() =
 
   block:
     var subs: seq[string]
+    for sub in QueryItr ^gbl.reverse.val:
+      subs.add(sub)
+    assert subs == refdata
+
+  block:
+    var subs: seq[string]
     for sub in QueryItr(^gbl.val.reverse):
+      subs.add(sub)
+    assert subs == refdata
+
+  block:
+    var subs: seq[string]
+    for sub in QueryItr(^gbl.reverse.val):
       subs.add(sub)
     assert subs == refdata
 
@@ -226,7 +238,19 @@ proc testQueryValueReverse() =
 
   block:
     var subs: seq[string]
+    for sub in QueryItr @global.reverse.val:
+      subs.add(sub)
+    assert subs == refdata
+
+  block:
+    var subs: seq[string]
     for sub in QueryItr(@global.val.reverse):
+      subs.add(sub)
+    assert subs == refdata
+
+  block:
+    var subs: seq[string]
+    for sub in QueryItr(@global.reverse.val):
       subs.add(sub)
     assert subs == refdata
 
@@ -238,7 +262,19 @@ proc testQueryValueReverse() =
 
   block:
     var subs: seq[string]
+    for sub in QueryItr "^gbl".reverse.val:
+      subs.add(sub)
+    assert subs == refdata
+
+  block:
+    var subs: seq[string]
     for sub in QueryItr("^gbl".val.reverse):
+      subs.add(sub)
+    assert subs == refdata
+
+  block:
+    var subs: seq[string]
+    for sub in QueryItr("^gbl".reverse.val):
       subs.add(sub)
     assert subs == refdata
 
@@ -317,7 +353,25 @@ proc testQueryKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
+    for (key, value) in QueryItr ^gbl.reverse.kv:
+      keys.add(key)
+      values.add(value)
+    assert refdataKeys == keys
+    assert refdataValues == values
+
+  block:
+    var keys: seq[string]
+    var values: seq[string]
     for (key, value) in QueryItr(^gbl.kv.reverse):
+      keys.add(key)
+      values.add(value)
+    assert refdataKeys == keys
+    assert refdataValues == values
+
+  block:
+    var keys: seq[string]
+    var values: seq[string]
+    for (key, value) in QueryItr(^gbl.reverse.kv):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -335,7 +389,25 @@ proc testQueryKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
+    for (key, value) in QueryItr @global.reverse.kv:
+      keys.add(key)
+      values.add(value)
+    assert refdataKeys == keys
+    assert refdataValues == values
+
+  block:
+    var keys: seq[string]
+    var values: seq[string]
     for (key, value) in QueryItr(@global.kv.reverse):
+      keys.add(key)
+      values.add(value)
+    assert refdataKeys == keys
+    assert refdataValues == values
+
+  block:
+    var keys: seq[string]
+    var values: seq[string]
+    for (key, value) in QueryItr(@global.reverse.kv):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -353,7 +425,25 @@ proc testQueryKvReverse() =
   block:
     var keys: seq[string]
     var values: seq[string]
+    for (key, value) in QueryItr "^gbl".reverse.kv:
+      keys.add(key)
+      values.add(value)
+    assert refdataKeys == keys
+    assert refdataValues == values
+
+  block:
+    var keys: seq[string]
+    var values: seq[string]
     for (key, value) in QueryItr("^gbl".kv.reverse):
+      keys.add(key)
+      values.add(value)
+    assert refdataKeys == keys
+    assert refdataValues == values
+
+  block:
+    var keys: seq[string]
+    var values: seq[string]
+    for (key, value) in QueryItr("^gbl".reverse.kv):
       keys.add(key)
       values.add(value)
     assert refdataKeys == keys
@@ -416,7 +506,25 @@ proc testQueryKeysReverse() =
 
   block:
     var subs: seq[seq[string]]
+    for sub in QueryItr ^gbl.reverse.keys:
+      subs.add(sub)
+    assert refdata == subs
+
+  block:
+    var subs: seq[seq[string]]
+    for sub in QueryItr ^gbl.reverse.keys:
+      subs.add(sub)
+    assert refdata == subs
+
+  block:
+    var subs: seq[seq[string]]
     for sub in QueryItr(^gbl.keys.reverse):
+      subs.add(sub)
+    assert refdata == subs
+
+  block:
+    var subs: seq[seq[string]]
+    for sub in QueryItr(^gbl.reverse.keys):
       subs.add(sub)
     assert refdata == subs
 
@@ -428,7 +536,19 @@ proc testQueryKeysReverse() =
 
   block:
     var subs: seq[seq[string]]
+    for sub in QueryItr @global.reverse.keys:
+      subs.add(sub)
+    assert refdata == subs
+
+  block:
+    var subs: seq[seq[string]]
     for sub in QueryItr(@global.keys.reverse):
+      subs.add(sub)
+    assert refdata == subs
+
+  block:
+    var subs: seq[seq[string]]
+    for sub in QueryItr(@global.reverse.keys):
       subs.add(sub)
     assert refdata == subs
 
@@ -440,13 +560,31 @@ proc testQueryKeysReverse() =
 
   block:
     var subs: seq[seq[string]]
+    for sub in QueryItr "^gbl".reverse.keys:
+      subs.add(sub)
+    assert refdata == subs
+
+  block:
+    var subs: seq[seq[string]]
     for sub in QueryItr("^gbl".keys.reverse):
       subs.add(sub)
     assert refdata == subs
 
   block:
     var subs: seq[seq[string]]
+    for sub in QueryItr("^gbl".reverse.keys):
+      subs.add(sub)
+    assert refdata == subs
+
+  block:
+    var subs: seq[seq[string]]
     for sub in QueryItr ^gbl.keys.reverse:
+      subs.add(sub)
+    assert refdata == subs
+
+  block:
+    var subs: seq[seq[string]]
+    for sub in QueryItr ^gbl.reverse.keys:
       subs.add(sub)
     assert refdata == subs
 
@@ -491,7 +629,15 @@ proc testQueryCountReverse() =
       assert refdata == count
 
   block:
+    for count in QueryItr ^gbl.reverse.count:
+      assert refdata == count
+
+  block:
     for count in QueryItr(^gbl.count.reverse):
+      assert refdata == count
+
+  block:
+    for count in QueryItr(^gbl.reverse.count):
       assert refdata == count
 
   block:
@@ -499,7 +645,15 @@ proc testQueryCountReverse() =
       assert refdata == count
 
   block:
+    for count in QueryItr @global.reverse.count:
+      assert refdata == count
+
+  block:
     for count in QueryItr(@global.count.reverse):
+      assert refdata == count
+
+  block:
+    for count in QueryItr(@global.reverse.count):
       assert refdata == count
 
   block:
@@ -507,11 +661,23 @@ proc testQueryCountReverse() =
       assert refdata == count
 
   block:
+    for count in QueryItr "^gbl".reverse.count:
+      assert refdata == count
+
+  block:
     for count in QueryItr("^gbl".count.reverse):
       assert refdata == count
 
   block:
+    for count in QueryItr("^gbl".reverse.count):
+      assert refdata == count
+
+  block:
     for count in QueryItr ^gbl.count.reverse:
+      assert refdata == count
+
+  block:
+    for count in QueryItr ^gbl.reverse.count:
       assert refdata == count
 
 

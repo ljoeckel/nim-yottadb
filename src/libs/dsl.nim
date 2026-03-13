@@ -21,12 +21,12 @@ const
     EMPTY_KEYS = @[]
     EMPTY_STRING = ""
     # Postfixes for Query/prevnode/.. iterators
-    COUNT = "count"
-    KEY = "key"
-    KEYS = "keys"
-    KV = "kv"
-    REVERSE = "reverse"
-    VALUE = "val"
+    COUNT = "COUNT"
+    KEY = "KEY"
+    KEYS = "KEYS"
+    KV = "KV"
+    REVERSE = "REVERSE"
+    VAL = "VAL"
 
 const
   MAX_RESTARTS = 4
@@ -132,42 +132,17 @@ template processStmtList(body: NimNode) =
 
 
 func getApiName(basename: string, args: var seq[NimNode]): string =
-  var keys, key, kv, count, reverse, value: bool
+  var reverse: bool
+  result = basename & "x"
   while args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
-    case  args[^1][1].strVal
-    of KEY:
-      key = true
-      args = args[0..^3]
-    of KEYS:
-      keys = true
-      args = args[0..^3]
-    of KV:
-      kv = true
-      args = args[0..^3]
-    of REVERSE:
-      reverse = true
-      args = args[0..^3]
-    of COUNT:
-      count = true
-      args = args[0..^3]
-    of VALUE:
-      value = true
-      args = args[0..^3]
-    else:
-      raise newException(YdbError, "Unsupported postfix '" & args[^1][1].strVal & "'")
-
-  if (kv and keys) or (kv and value) or (keys and value):
-      raise newException(YdbError, "Either 'keys' or 'kv' or 'value'")
-  if count and (kv or keys or value):
-      raise newException(YdbError, "No 'kv', 'keys' or 'value' when 'count'")
-
-  if key:     result = basename & "xKey"
-  elif keys:  result = basename & "xKeys"
-  elif kv:    result = basename & "xKv"
-  elif count: result = basename & "xCount"
-  elif value: result = basename & "xValue"
-  else:       result = basename & "x"
-  if reverse: result.add("Reverse")
+    let arg = args[^1][1].strVal.toUpper()
+    case  arg
+    of REVERSE: reverse = true
+    of KEY, KEYS, KV, COUNT, VAL: result.add(arg)
+    else: raise newException(YdbError, fmt"Unsupported postfix '{arg}'")
+    args = args[0..^3]
+   
+  if reverse: result.add(REVERSE)
 
 # ------------------
 # Macros
@@ -585,42 +560,42 @@ iterator QueryItrx*(args: varargs[string]): string =
   walkNodes(ydb_node_next):
     yield keysToString(ydbvar.name, subs)
 
-iterator QueryItrxReverse*(args: varargs[string]): string =
+iterator QueryItrxREVERSE*(args: varargs[string]): string =
   walkNodes(ydb_node_previous):
     yield keysToString(ydbvar.name, subs)
 
 # returns @["1"], @["2"], ...
-iterator QueryItrxKeys*(args: varargs[string]): seq[string] =
+iterator QueryItrxKEYS*(args: varargs[string]): seq[string] =
   walkNodes(ydb_node_next):
     yield subs
 
-iterator QueryItrxKeysReverse*(args: varargs[string]): seq[string] =
+iterator QueryItrxKEYSREVERSE*(args: varargs[string]): seq[string] =
   walkNodes(ydb_node_previous):
     yield subs
 
-iterator QueryItrxKv*(args: varargs[string]): (string, string) =
+iterator QueryItrxKV*(args: varargs[string]): (string, string) =
   walkNodes(ydb_node_next):
     yield (keysToString(ydbvar.name, subs), ydb_get(ydbvar.name, subs))
 
-iterator QueryItrxKvReverse*(args: varargs[string]): (string, string) =
+iterator QueryItrxKVREVERSE*(args: varargs[string]): (string, string) =
   walkNodes(ydb_node_previous):
     yield (keysToString(ydbvar.name, subs), ydb_get(ydbvar.name, subs))
 
-iterator QueryItrxValue*(args: varargs[string]): string =
+iterator QueryItrxVAL*(args: varargs[string]): string =
   walkNodes(ydb_node_next):
     yield ydb_get(ydbvar.name, subs)
 
-iterator QueryItrxValueReverse*(args: varargs[string]): string =
+iterator QueryItrxVALREVERSE*(args: varargs[string]): string =
   walkNodes(ydb_node_previous):
     yield ydb_get(ydbvar.name, subs)
 
-iterator QueryItrxCount*(args: varargs[string]): int =
+iterator QueryItrxCOUNT*(args: varargs[string]): int =
   var cnt = 0
   walkNodes(ydb_node_next):
     inc cnt
   yield cnt
 
-iterator QueryItrxCountReverse*(args: varargs[string]): int =
+iterator QueryItrxCOUNTREVERSE*(args: varargs[string]): int =
   var cnt = 0
   walkNodes(ydb_node_previous):
     inc cnt
@@ -645,49 +620,49 @@ iterator OrderItrx*(args: varargs[string]): string =
   walkOrderNodes(ydb_subscript_next):
     yield key
 
-iterator OrderItrxReverse*(args: varargs[string]): string =
+iterator OrderItrxREVERSE*(args: varargs[string]): string =
   walkOrderNodes(ydb_subscript_previous):
     yield key
 
-iterator OrderItrxKeys*(args: varargs[string]): seq[string] =
+iterator OrderItrxKEYS*(args: varargs[string]): seq[string] =
   walkOrderNodes(ydb_subscript_next):
     yield subs
 
-iterator OrderItrxKeysReverse*(args: varargs[string]): seq[string] =
+iterator OrderItrxKEYSREVERSE*(args: varargs[string]): seq[string] =
   walkOrderNodes(ydb_subscript_previous):
     yield subs
 
-iterator OrderItrxValue*(args: varargs[string]): string =
+iterator OrderItrxVAL*(args: varargs[string]): string =
   walkOrderNodes(ydb_subscript_next):
     yield ydb_get(ydbvar.name, subs)
 
-iterator OrderItrxValueReverse*(args: varargs[string]): string =
+iterator OrderItrxVALREVERSE*(args: varargs[string]): string =
   walkOrderNodes(ydb_subscript_previous):
     yield ydb_get(ydbvar.name, subs)
 
-iterator OrderItrxKv*(args: varargs[string]): (string, string) =
+iterator OrderItrxKV*(args: varargs[string]): (string, string) =
   walkOrderNodes(ydb_subscript_next):
     yield (key, ydb_get(ydbvar.name, subs))
 
-iterator OrderItrxKvReverse*(args: varargs[string]): (string, string) =
+iterator OrderItrxKVREVERSE*(args: varargs[string]): (string, string) =
   walkOrderNodes(ydb_subscript_previous):
     yield (key, ydb_get(ydbvar.name, subs))
 
-iterator OrderItrxKey*(args: varargs[string]): string =
+iterator OrderItrxKEY*(args: varargs[string]): string =
   walkOrderNodes(ydb_subscript_next):
     yield keysToString(ydbvar.name, subs)
 
-iterator OrderItrxKeyReverse*(args: varargs[string]): string =
+iterator OrderItrxKEYREVERSE*(args: varargs[string]): string =
   walkOrderNodes(ydb_subscript_previous):
     yield keysToString(ydbvar.name, subs)
 
-iterator OrderItrxCount*(args: varargs[string]): int =
+iterator OrderItrxCOUNT*(args: varargs[string]): int =
   var cnt = 0
   walkOrderNodes(ydb_subscript_next):
     inc cnt
   yield cnt
 
-iterator OrderItrxCountReverse*(args: varargs[string]): int =
+iterator OrderItrxCOUNTREVERSE*(args: varargs[string]): int =
   var cnt = 0
   walkOrderNodes(ydb_subscript_previous):
     inc cnt
@@ -745,31 +720,31 @@ template walkQ[T](qt: static QueryType, args: varargs[string], nodeProc: untyped
 proc Queryx*(args: varargs[string]): string =
     walkQ[string](qtNext, args, ydb_node_next)
 
-proc QueryxReverse*(args: varargs[string]): string =
+proc QueryxREVERSE*(args: varargs[string]): string =
     walkQ[string](qtPrevious, args, ydb_node_previous)
 
-proc QueryxCount*(args: varargs[string]): int =
+proc QueryxCOUNT*(args: varargs[string]): int =
     walkQ[int](qtCount, args, ydb_node_next)
 
-proc QueryxCountReverse*(args: varargs[string]): int =
+proc QueryxCOUNTREVERSE*(args: varargs[string]): int =
     walkQ[int](qtCount, args, ydb_node_previous)
 
-proc QueryxKeys*(args: varargs[string]): seq[string] =
+proc QueryxKEYS*(args: varargs[string]): seq[string] =
     walkQ[seq[string]](qtKeys, args, ydb_node_next)
 
-proc QueryxKeysReverse*(args: varargs[string]): seq[string] =
+proc QueryxKEYSREVERSE*(args: varargs[string]): seq[string] =
     walkQ[seq[string]](qtKeysReverse, args, ydb_node_previous)
 
-proc QueryxValue*(args: varargs[string]): string =
+proc QueryxVAL*(args: varargs[string]): string =
     walkQ[string](qtValue, args, ydb_node_next)
 
-proc QueryxValueReverse*(args: varargs[string]): string =
+proc QueryxVALREVERSE*(args: varargs[string]): string =
     walkQ[string](qtValueReverse, args, ydb_node_previous)
 
-proc QueryxKv*(args: varargs[string]): (string, string) =
+proc QueryxKV*(args: varargs[string]): (string, string) =
     walkQ[(string, string)](qtKv, args, ydb_node_next)
 
-proc QueryxKvReverse*(args: varargs[string]): (string, string) =
+proc QueryxKVREVERSE*(args: varargs[string]): (string, string) =
     walkQ[(string, string)](qtKvReverse, args, ydb_node_previous)
 
 
@@ -821,31 +796,31 @@ template walkO[T](qt: static QueryType, args: varargs[string], nodeProc: untyped
 proc Orderx*(args: varargs[string]): string =
     walkO[string](qtNext, args, ydb_subscript_next)
 
-proc OrderxReverse*(args: varargs[string]): string =
+proc OrderxREVERSE*(args: varargs[string]): string =
     walkO[string](qtPrevious, args, ydb_subscript_previous)
 
-proc OrderxCount*(args: varargs[string]): int =
+proc OrderxCOUNT*(args: varargs[string]): int =
     walkO[int](qtCount, args, ydb_subscript_next)
 
-proc OrderxCountReverse*(args: varargs[string]): int =
+proc OrderxCOUNTREVERSE*(args: varargs[string]): int =
     walkO[int](qtCount, args, ydb_subscript_previous)
 
-proc OrderxKeys*(args: varargs[string]): seq[string] =
+proc OrderxKEYS*(args: varargs[string]): seq[string] =
     walkO[seq[string]](qtKeys, args, ydb_subscript_next)
 
-proc OrderxKeysReverse*(args: varargs[string]): seq[string] =
+proc OrderxKEYSREVERSE*(args: varargs[string]): seq[string] =
     walkO[seq[string]](qtKeys, args, ydb_subscript_previous)
 
-proc OrderxKey*(args: varargs[string]): string =
+proc OrderxKEY*(args: varargs[string]): string =
     walkO[string](qtKey, args, ydb_subscript_next)
 
-proc OrderxKeyReverse*(args: varargs[string]): string =
+proc OrderxKEYREVERSE*(args: varargs[string]): string =
     walkO[string](qtKeyReverse, args, ydb_subscript_previous)
 
-proc OrderxKv*(args: varargs[string]): (string, string) =
+proc OrderxKV*(args: varargs[string]): (string, string) =
     walkO[(string,string)](qtKv, args, ydb_subscript_next)
 
-proc OrderxKvReverse*(args: varargs[string]): (string, string) =
+proc OrderxKVREVERSE*(args: varargs[string]): (string, string) =
     walkO[(string,string)](qtKvReverse, args, ydb_subscript_previous)
 
 
@@ -863,9 +838,7 @@ proc forbidRedeclare(body: NimNode; names: openArray[string]) =
 
 
 macro transactionImpl(param: untyped, body: untyped): untyped =
-  var isMT:bool
-  when compileOption("threads"): isMT = true
-
+  let isMT = when compileOption("threads"): true else: false
   let fn = genSym(nskProc, "tx")
 
   # Symbols visible inside body
