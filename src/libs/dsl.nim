@@ -407,7 +407,11 @@ func getTimeout(arg: string): int =
 # ----------------------------------------
 # macros call's one of this for each macro
 # ----------------------------------------
-
+when compileOption("threads"):
+    proc datax*(token: uint64 = 0, args: varargs[string]): int =
+        echo "datax token=", token, " args:", args
+        let ydbvar = seqToYdbVar(args)
+        ydb_data(ydbvar.name, ydbvar.subscripts, tptoken=token)
 proc datax*(args: varargs[string]): int =
     let ydbvar = seqToYdbVar(args)
     ydb_data(ydbvar.name, ydbvar.subscripts)
@@ -538,10 +542,13 @@ proc lockx*(args: varargs[string]) =
         lockdecrx(timeout, decvars)
 
 
+when compileOption("threads"):
+    proc setx*(token: uint64, args: varargs[string]) =
+        for ydbvar in seqToYdbVars(args):
+            ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value, tptoken=token)
 proc setx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
-
 
 # --------------------
 # Query Iterators
@@ -837,6 +844,40 @@ proc forbidRedeclare(body: NimNode; names: openArray[string]) =
     forbidRedeclare(n, names)
 
 
+macro SetInternal*(token: uint64, body: untyped): untyped =
+  var args: seq[NimNode] 
+  processStmtList(body) 
+  result = newCall(ident("setx"), token)
+  for arg in args: result.add arg
+
+macro DataInternal*(token: uint64, body: untyped): untyped =
+  var args: seq[NimNode] 
+  transform(body, args)
+  result = newCall(ident("datax"), token)
+  for arg in args: result.add arg
+
+
+
+proc injectToken(node: NimNode, tokenIdent: NimNode): NimNode =
+  if (node.kind in {nnkCall, nnkCommand}):
+    if node[0].eqIdent("Set"):
+        result = newCall(ident("SetInternal"), tokenIdent) # replace call
+        # copy remaining args from [1..]
+        for i in 1 ..< node.len: result.add node[i]
+    elif node[0].eqIdent("Data"):
+        result = newCall(ident("DataInternal"), tokenIdent) # replace call
+        for i in 1 ..< node.len: result.add node[i]
+    else:
+        # other items from body where nothing must be replaced
+        result = node.copyNimNode()
+        for child in node: result.add injectToken(child, tokenIdent)
+  else:
+    # other items from body where nothing must be replaced
+    result = node.copyNimNode()
+    for child in node: result.add injectToken(child, tokenIdent)
+
+# ---------------------------------------------------------------------------------------------------
+
 macro transactionImpl(param: untyped, body: untyped): untyped =
   let isMT = when compileOption("threads"): true else: false
   let fn = genSym(nskProc, "tx")
@@ -851,6 +892,10 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
   forbidRedeclare(body, forbidden)
 
   if isMT:
+
+    let tptokenIdent = ident("tptoken") # Referenz für den Transformer
+    let rewrittenBody = injectToken(body, tptokenIdent)
+
     result = quote do:
       proc `fn`(
         tptoken {.inject.}: uint64,
@@ -858,7 +903,7 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
         param   {.inject.}: pointer
       ): cint {.cdecl, gcsafe, raises: [].} =
         try:
-            `body`
+            `rewrittenBody`
         except:
             if getCurrentException() of TpRestart: discard
             else: echo "Exception in transaction:", getCurrentExceptionMsg()
@@ -903,3 +948,50 @@ template Transaction*(body: untyped): int =
 
 template Transaction*(param: untyped, body: untyped): int =
   transactionImpl(param, body)
+
+
+
+
+
+
+
+macro txImpl(param: untyped, body: untyped): untyped =
+    let fn = genSym(nskProc, "tx")
+    
+    let tptokenIdent = ident("tptoken") # Referenz für den Transformer
+    let rewrittenBody = injectToken(body, tptokenIdent)
+
+    result = quote do:
+        # This is the callback with 'tptoken' set will be called from YottaDB
+        proc `fn`(
+            tptoken {.inject.}: uint64,
+            errstr  {.inject.}: ptr struct_ydb_buffer_t,
+            param   {.inject.}: pointer
+            ): cint {.cdecl, gcsafe, raises: [].} =
+            try:
+                echo "tptoken in fn:", tptoken
+                `rewrittenBody`
+            except:
+                if getCurrentException() of TpRestart: discard
+                else: echo "Exception in transaction:", getCurrentExceptionMsg()
+                
+                try:
+                    let restarted = parseInt(ydb_get("$TRESTART", tptoken=tptoken)) # How many times the proc was called from yottadb
+                    if restarted >= MAX_RESTARTS: 
+                        echo "Too many transaction restarts, Rolling back.", getCurrentExceptionMsg()
+                        return YDB_TP_ROLLBACK
+                except:
+                    echo "Exception while getting $TRESTART", getCurrentExceptionMsg()
+                    return YDB_TP_ROLLBACK
+                return YDB_TP_RESTART
+
+        ydb_tp_mt(`fn`, `param`) # -> This initiates that YottaDB calls `fn`
+    
+# template TX*(param: untyped, body: untyped): int =
+#   txImpl(param, body)
+
+template TX*(body: untyped): int =
+  txImpl("", body)
+
+template TX*(param: untyped, body: untyped): int =
+  txImpl(param, body)
