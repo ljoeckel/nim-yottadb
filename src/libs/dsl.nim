@@ -29,7 +29,7 @@ const
     VAL = "VAL"
 
 const
-  MAX_RESTARTS = 4
+  MAX_RESTARTS = 2
 
 
 # ------------------
@@ -57,7 +57,7 @@ template transformCallNode(node: NimNode) =
         raise newException(Exception, "transformCallNode: node.kind:" & $node.kind & " not supported! node=" & repr(node))
 
 
-func transform(node: NimNode, args: var seq[NimNode], attributes: seq[string] = @[]) =
+proc transform(node: NimNode, args: var seq[NimNode], attributes: seq[string] = @[]) =
     case node.kind
     of nnkStmtList, nnkTupleConstr:
         for i in 0..<node.len:
@@ -144,6 +144,20 @@ func getApiName(basename: string, args: var seq[NimNode]): string =
    
   if reverse: result.add(REVERSE)
 
+proc getApiName2(basename: string, args: var seq[NimNode]): (string, bool) =
+  var reverse: bool
+  var apiName = basename & "x"
+  while args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
+    let arg = args[^1][1].strVal.toUpper()
+    case  arg
+    of REVERSE: reverse = true
+    of KEY, KEYS, KV, COUNT, VAL: apiName.add(arg)
+    else: raise newException(YdbError, fmt"Unsupported postfix '{arg}'")
+    args = args[0..^3]
+   
+  return (apiName, reverse)
+
+
 # ------------------
 # Macros
 # ------------------
@@ -157,41 +171,6 @@ macro Get*(body: untyped): untyped =
         args = args[0..^3] # remove TD,int
     return newCall(ident(typename), args)
 
-macro Data*(body: untyped): untyped =
-    var args: seq[NimNode]
-    transform(body, args)
-    newCall(ident"datax", args)    
-
-macro Killnode*(body: untyped): untyped =
-    var args: seq[NimNode]
-    processStmtList(body)
-    return newCall(ident"killnodex", args)
-
-macro Kill*(body: untyped): untyped =
-    var args: seq[NimNode]
-    processStmtList(body)
-    return newCall(ident"killx", args)
-
-macro Delexcl*(body: untyped): untyped =
-    var args: seq[NimNode]
-    processStmtList(body)
-    return newCall(ident"delexclx", args)
-
-macro Increment*(body: untyped): untyped =
-    var args: seq[NimNode]
-    transform(body, args, @[BY])
-    return newCall(ident"incrementx", args)
-
-macro Lock*(body: untyped): untyped =
-    var args: seq[NimNode]
-    processStmtList(body)
-    return newCall(ident"lockx", args)
-
-macro Query*(body: untyped): untyped =
-    var args: seq[NimNode]
-    transform(body, args)
-    let apiName = getApiName("Query", args)
-    return newCall(ident(apiName), args)
         
 macro QueryItr*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -205,16 +184,6 @@ macro OrderItr*(body: untyped): untyped =
     let apiName = getApiName("OrderItr", args)
     return newCall(ident(apiName), args)
 
-macro Order*(body: untyped): untyped =
-    var args: seq[NimNode]
-    transform(body, args)
-    let apiName = getApiName("Order", args)
-    return newCall(ident(apiName), args)
-
-macro Set*(body: untyped): untyped =
-    var args: seq[NimNode]
-    processStmtList(body)
-    return newCall(ident"setx", args)
 
 # ----------------------------
 # proc related helper proc's
@@ -407,29 +376,97 @@ func getTimeout(arg: string): int =
 # ----------------------------------------
 # macros call's one of this for each macro
 # ----------------------------------------
+
+#================
+# Data
+#================
 when compileOption("threads"):
-    proc datax*(token: uint64 = 0, args: varargs[string]): int =
-        echo "datax token=", token, " args:", args
+    proc datax*(token: uint64, args: varargs[string]): int =
         let ydbvar = seqToYdbVar(args)
         ydb_data(ydbvar.name, ydbvar.subscripts, tptoken=token)
+
+    macro dataxPrepare*(token: uint64, body: untyped): untyped =
+        var args: seq[NimNode] 
+        transform(body, args)
+        result = newCall(ident("datax"), token)
+        for arg in args: result.add arg
+
 proc datax*(args: varargs[string]): int =
     let ydbvar = seqToYdbVar(args)
     ydb_data(ydbvar.name, ydbvar.subscripts)
+
+macro Data*(body: untyped): untyped =
+    var args: seq[NimNode]
+    transform(body, args)
+    newCall(ident"datax", args)    
+
+
+#================
+# Killnode
+#================
+when compileOption("threads"):
+    proc killnodex*(token: uint64, args: varargs[string]) =
+        for ydbvar in seqToYdbVars(args):
+            ydb_delete_node(ydbvar.name, ydbvar.subscripts, tptoken=token)
+
+    macro killnodexPrepare*(token: uint64, body: untyped): untyped =
+        var args: seq[NimNode] 
+        processStmtList(body) 
+        result = newCall(ident("killnodex"), token)
+        for arg in args: result.add arg
 
 proc killnodex*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_delete_node(ydbvar.name, ydbvar.subscripts)
 
+macro Killnode*(body: untyped): untyped =
+    var args: seq[NimNode]
+    processStmtList(body)
+    return newCall(ident"killnodex", args)
+
+
+#================
+# Kill
+#================
+when compileOption("threads"):
+    proc killx*(token: uint64, args: varargs[string]) =
+        for ydbvar in seqToYdbVars(args):
+            ydb_delete_tree(ydbvar.name, ydbvar.subscripts, tptoken=token)
+
+    macro killxPrepare*(token: uint64, body: untyped): untyped =
+        var args: seq[NimNode] 
+        processStmtList(body) 
+        result = newCall(ident("killx"), token)
+        for arg in args: result.add arg
+
+proc killx*(args: varargs[string]) =
+    for ydbvar in seqToYdbVars(args):
+        ydb_delete_tree(ydbvar.name, ydbvar.subscripts)
+
+macro Kill*(body: untyped): untyped =
+    var args: seq[NimNode]
+    processStmtList(body)
+    return newCall(ident"killx", args)
+
+
+#================
+# Delexcl
+#================
 proc delexclx*(args: varargs[string]) =
     var names: seq[string]
     for ydbvar in seqToYdbVars(args):
         names.add(ydbvar.name)
     ydb_delete_excl(names)
 
-proc killx*(args: varargs[string]) =
-    for ydbvar in seqToYdbVars(args):
-        ydb_delete_tree(ydbvar.name, ydbvar.subscripts)
+macro Delexcl*(body: untyped): untyped =
+    var args: seq[NimNode]
+    processStmtList(body)
+    return newCall(ident"delexclx", args)
 
+
+#================
+# Get
+#================
 proc getx*(args: varargs[string]): string =
   var ydbvar: YdbVar
   if args.len == 1:  # "^gbl(1,2,..), Localname, "
@@ -481,6 +518,24 @@ proc getxOrderedSet*(args: varargs[string]): OrderedSet[int] =
         for s in split(str, ","):
             result.incl(parseInt(strip(s)))
 
+
+#================
+# Increment
+#================
+when compileOption("threads"):
+    proc incrementx*(token: uint64, args: varargs[string]): int =
+        let ydbvar = seqToYdbVar(args)
+        if ydbvar.value.len == 0:
+            ydb_increment(ydbvar.name, ydbvar.subscripts, 1, tptoken=token)
+        else:
+            ydb_increment(ydbvar.name, ydbvar.subscripts, parseInt(ydbvar.value), tptoken=token)
+
+    macro incrementxPrepare*(token: uint64, body: untyped): untyped =
+        var args: seq[NimNode] 
+        transform(body, args, @[BY])
+        result = newCall(ident("incrementx"), token)
+        for arg in args: result.add arg
+
 proc incrementx*(args: varargs[string]): int =
     let ydbvar = seqToYdbVar(args)
     if ydbvar.value.len == 0:
@@ -488,6 +543,15 @@ proc incrementx*(args: varargs[string]): int =
     else:
         ydb_increment(ydbvar.name, ydbvar.subscripts, parseInt(ydbvar.value))
 
+macro Increment*(body: untyped): untyped =
+    var args: seq[NimNode]
+    transform(body, args, @[BY])
+    return newCall(ident"incrementx", args)
+
+
+#================
+# Lockdecr
+#================
 proc lockdecrx(timeout: int, ydbvars: seq[YdbVar]) =
     # Decrement Lock count for variable
     for ydbvar in ydbvars:
@@ -498,6 +562,10 @@ proc lockincrx(timeout: int, ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
         ydb_lock_incr(timeout, ydbvar.name, ydbvar.subscripts)
 
+
+#================
+# Lock
+#================
 proc lockx*(args: varargs[string]) =
     # timeout from Lock: { ^GBL, timeout=12345 }
     var timeout = YDB_LOCK_TIMEOUT
@@ -541,14 +609,35 @@ proc lockx*(args: varargs[string]) =
     if decvars.len > 0:
         lockdecrx(timeout, decvars)
 
+macro Lock*(body: untyped): untyped =
+    var args: seq[NimNode]
+    processStmtList(body)
+    return newCall(ident"lockx", args)
 
+
+#================
+# Set:
+#================
 when compileOption("threads"):
     proc setx*(token: uint64, args: varargs[string]) =
         for ydbvar in seqToYdbVars(args):
             ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value, tptoken=token)
+
+    macro setxPrepare*(token: uint64, body: untyped): untyped =
+        var args: seq[NimNode] 
+        processStmtList(body) 
+        result = newCall(ident("setx"), token)
+        for arg in args: result.add arg
+
 proc setx*(args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
         ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
+
+macro Set*(body: untyped): untyped =
+    var args: seq[NimNode]
+    processStmtList(body)
+    return newCall(ident"setx", args)
+
 
 # --------------------
 # Query Iterators
@@ -681,106 +770,70 @@ iterator OrderItrxCOUNTREVERSE*(args: varargs[string]): int =
 # ---------------------------------- 
 type QueryType = enum
     qtNext,
-    qtPrevious,
     qtCount,
-    qtCountReverse,
     qtKey,
-    qtKeyReverse,
     qtKeys,
-    qtKeysReverse
     qtKv,
-    qtKvReverse
-    qtValue,
-    qtValueReverse
+    qtValue
 
-template walkQ[T](qt: static QueryType, args: varargs[string], nodeProc: untyped): T =
+template walkQ[T](token: uint64, qt: static QueryType, args: varargs[string], nodeProc: untyped): T =
     let ydbvar = seqToYdbVar(args)
-    when qt in {qtnext, qtPrevious}:
-        let (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts)
+    when qt == qtnext:
+        let (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts, tptoken=token)
         if rc == YDB_OK: keysToString(ydbvar.name, subs)
         else: EMPTY_STRING
-    elif qt in {qtCount, qtCountReverse}:
+    elif qt  == qtCount:
         var cnt = 0
-        var (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts)
+        var (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts, tptoken=token)
         while rc == YDB_OK:
             inc cnt
-            (rc, subs) = nodeProc(ydbvar.name, subs)
+            (rc, subs) = nodeProc(ydbvar.name, subs, tptoken=token)
         cnt
-    elif qt in {qtKeys, qtKeysReverse}:
-        let (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts)
+    elif qt == qtKeys:
+        let (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts, tptoken=token)
         if rc == YDB_OK: subs
         else: EMPTY_KEYS
-    elif qt in {qtKv, qtKvReverse}:
-        let (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts)
+    elif qt == qtKv:
+        let (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts, tptoken=token)
         if rc == YDB_OK:
-            let value = ydb_get(ydbvar.name, subs)
+            let value = ydb_get(ydbvar.name, subs, tptoken=token)
             (keysToString(ydbvar.name, subs), value)
         else:
             (EMPTY_STRING, EMPTY_STRING)
-    elif qt in {qtValue, qtValueReverse}:
-        let (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts)
-        if rc == YDB_OK: ydb_get(ydbvar.name, subs)
+    elif qt == qtValue:
+        let (rc, subs) = nodeProc(ydbvar.name, ydbvar.subscripts, tptoken=token)
+        if rc == YDB_OK: ydb_get(ydbvar.name, subs, tptoken=token)
         else: EMPTY_STRING
     else:
         default(T)
-
-proc Queryx*(args: varargs[string]): string =
-    walkQ[string](qtNext, args, ydb_node_next)
-
-proc QueryxREVERSE*(args: varargs[string]): string =
-    walkQ[string](qtPrevious, args, ydb_node_previous)
-
-proc QueryxCOUNT*(args: varargs[string]): int =
-    walkQ[int](qtCount, args, ydb_node_next)
-
-proc QueryxCOUNTREVERSE*(args: varargs[string]): int =
-    walkQ[int](qtCount, args, ydb_node_previous)
-
-proc QueryxKEYS*(args: varargs[string]): seq[string] =
-    walkQ[seq[string]](qtKeys, args, ydb_node_next)
-
-proc QueryxKEYSREVERSE*(args: varargs[string]): seq[string] =
-    walkQ[seq[string]](qtKeysReverse, args, ydb_node_previous)
-
-proc QueryxVAL*(args: varargs[string]): string =
-    walkQ[string](qtValue, args, ydb_node_next)
-
-proc QueryxVALREVERSE*(args: varargs[string]): string =
-    walkQ[string](qtValueReverse, args, ydb_node_previous)
-
-proc QueryxKV*(args: varargs[string]): (string, string) =
-    walkQ[(string, string)](qtKv, args, ydb_node_next)
-
-proc QueryxKVREVERSE*(args: varargs[string]): (string, string) =
-    walkQ[(string, string)](qtKvReverse, args, ydb_node_previous)
 
 
 # ----------------------------------
 # Order template and procs
 # ---------------------------------- 
-template walkO[T](qt: static QueryType, args: varargs[string], nodeProc: untyped): T =
+template walkO[T](token: uint64, qt: static QueryType, args: varargs[string], nodeProc: untyped): T =
     var ydbvar = seqToYdbVar(args)
-    when qt in {qtnext, qtPrevious}:
-        nodeProc(ydbvar.name, ydbvar.subscripts)
-    elif qt in {qtCount, qtCountReverse}:
+    when qt == qtnext:
+        nodeProc(ydbvar.name, ydbvar.subscripts, tptoken=token)
+    elif qt == qtCount:
         var subs = ydbvar.subscripts
-        var key = nodeProc(ydbvar.name, subs)
+        var key = nodeProc(ydbvar.name, subs, tptoken=token)
         while key.len > 0:
           inc result
           if subs.len > 0: subs[^1] = key
           else: subs.add(key)
-          key = ydb_subscript_next(ydbvar.name, subs)
+          key = ydb_subscript_next(ydbvar.name, subs, tptoken=token)
         result
-    elif qt in {qtKeys, qtKeysReverse}:
-        let key = nodeProc(ydbvar.name, ydbvar.subscripts)
+    elif qt == qtKeys:
+        let key = nodeProc(ydbvar.name, ydbvar.subscripts, tptoken=token)
         if key.len == 0: return @[]
         if ydbvar.subscripts.len > 0:
             ydbvar.subscripts[^1] = key
         else:
             ydbvar.subscripts.add(key)
         ydbvar.subscripts
-    elif qt in {qtKey, qtKeyReverse}:
-        let key = nodeProc(ydbvar.name, ydbvar.subscripts)
+    elif qt == qtKey:
+        let key = nodeProc(ydbvar.name, ydbvar.subscripts, tptoken=token)
         if key.len > 0:
             if ydbvar.subscripts.len > 0:
               ydbvar.subscripts[^1] = key
@@ -789,46 +842,130 @@ template walkO[T](qt: static QueryType, args: varargs[string], nodeProc: untyped
             keysToString(ydbvar.name, ydbvar.subscripts)
         else:
             EMPTY_STRING
-    elif qt in {qtKv, qtKvReverse}:
-            let key = nodeProc(ydbvar.name, ydbvar.subscripts)
+    elif qt == qtKv:
+            let key = nodeProc(ydbvar.name, ydbvar.subscripts, tptoken=token)
             if ydbvar.subscripts.len > 0:
                 ydbvar.subscripts[^1] = key
             else:
                 ydbvar.subscripts.add(key)
-            let value = ydb_get(ydbvar.name, ydbvar.subscripts)
+            let value = ydb_get(ydbvar.name, ydbvar.subscripts, tptoken=token)
             (key, value)
     else:
         default(T)
 
-proc Orderx*(args: varargs[string]): string =
-    walkO[string](qtNext, args, ydb_subscript_next)
 
-proc OrderxREVERSE*(args: varargs[string]): string =
-    walkO[string](qtPrevious, args, ydb_subscript_previous)
+#================
+# Query:
+#================
+proc Queryx*(token: uint64, isReverse: bool, args: varargs[string]): string =
+    let procedure = if isReverse: ydb_node_previous else: ydb_node_next
+    walkQ[string](token, qtNext, args, procedure)
 
-proc OrderxCOUNT*(args: varargs[string]): int =
-    walkO[int](qtCount, args, ydb_subscript_next)
+proc Queryx*(isReverse: bool, args: varargs[string]): string =
+    Queryx(0, isReverse, args)
 
-proc OrderxCOUNTREVERSE*(args: varargs[string]): int =
-    walkO[int](qtCount, args, ydb_subscript_previous)
+proc QueryxKEYS*(token: uint64, isReverse: bool, args: varargs[string]): seq[string] =
+  let procedure = if isReverse: ydb_node_previous else: ydb_node_next
+  walkQ[seq[string]](token, qtKeys, args, procedure)
 
-proc OrderxKEYS*(args: varargs[string]): seq[string] =
-    walkO[seq[string]](qtKeys, args, ydb_subscript_next)
+proc QueryxKEYS*(isReverse: bool, args: varargs[string]): seq[string] =
+    QueryxKEYS(0, isReverse, args)
 
-proc OrderxKEYSREVERSE*(args: varargs[string]): seq[string] =
-    walkO[seq[string]](qtKeys, args, ydb_subscript_previous)
+proc QueryxKV*(token: uint64, isReverse: bool, args: varargs[string]): (string, string) =
+  let procedure = if isReverse: ydb_node_previous else: ydb_node_next
+  walkQ[(string, string)](token, qtKv, args, procedure)
 
-proc OrderxKEY*(args: varargs[string]): string =
-    walkO[string](qtKey, args, ydb_subscript_next)
+proc QueryxKV*(isReverse: bool, args: varargs[string]): (string, string) =
+    QueryxKV(0, isReverse, args)
 
-proc OrderxKEYREVERSE*(args: varargs[string]): string =
-    walkO[string](qtKeyReverse, args, ydb_subscript_previous)
+proc QueryxVAL*(token: uint64, isReverse: bool, args: varargs[string]): string =
+  let procedure = if isReverse: ydb_node_previous else: ydb_node_next
+  walkQ[string](token, qtValue, args, procedure)
 
-proc OrderxKV*(args: varargs[string]): (string, string) =
-    walkO[(string,string)](qtKv, args, ydb_subscript_next)
+proc QueryxVAL*(isReverse: bool, args: varargs[string]): string =
+    QueryxVAL(0, isReverse, args)
 
-proc OrderxKVREVERSE*(args: varargs[string]): (string, string) =
-    walkO[(string,string)](qtKvReverse, args, ydb_subscript_previous)
+proc QueryxCOUNT*(token: uint64, isReverse: bool, args: varargs[string]): int =
+  let procedure = if isReverse: ydb_node_previous else: ydb_node_next
+  walkQ[int](token, qtCount, args, procedure)
+
+proc QueryxCOUNT*(isReverse: bool, args: varargs[string]): int =
+    QueryxCOUNT(0, isReverse, args)
+
+macro QueryxPrepare*(token: uint64, body: untyped): untyped =
+    var args: seq[NimNode]
+    transform(body, args)
+    let (apiName, reverse) = getApiName2("Query", args)
+    result = newCall(ident(apiName), token, newLit(reverse))
+    for arg in args: result.add arg
+
+macro Query*(body: untyped): untyped =
+    var args: seq[NimNode]
+    transform(body, args)
+    let (apiName, reverse) = getApiName2("Query", args)
+    result = newCall(ident(apiName), newLit(reverse))
+    for arg in args: result.add arg
+
+
+#================
+# Order:
+#================
+proc Orderx*(token: uint64, isReverse: bool, args: varargs[string]): string =
+    let procedure = if isReverse: ydb_subscript_previous else: ydb_subscript_next
+    walkO[string](token, qtNext, args, procedure)
+
+proc Orderx*(isReverse: bool, args: varargs[string]): string =
+    Orderx(0, isReverse, args)
+
+proc OrderxKEY*(token: uint64, isReverse: bool, args: varargs[string]): string =
+  let procedure = if isReverse: ydb_subscript_previous else: ydb_subscript_next
+  walkO[string](token, qtKey, args, procedure)
+
+proc OrderxKEY*(isReverse: bool, args: varargs[string]): string =
+    OrderxKEY(0, isReverse, args)
+
+proc OrderxKEYS*(token: uint64, isReverse: bool, args: varargs[string]): seq[string] =
+  let procedure = if isReverse: ydb_subscript_previous else: ydb_subscript_next
+  walkO[seq[string]](token, qtKeys, args, procedure)
+
+proc OrderxKEYS*(isReverse: bool, args: varargs[string]): seq[string] =
+    OrderxKEYS(0, isReverse, args)
+
+proc OrderxKV*(token: uint64, isReverse: bool, args: varargs[string]): (string, string) =
+  let procedure = if isReverse: ydb_subscript_previous else: ydb_subscript_next
+  walkO[(string, string)](token, qtKv, args, procedure)
+
+proc OrderxKV*(isReverse: bool, args: varargs[string]): (string, string) =
+    OrderxKV(0, isReverse, args)
+
+proc OrderxVAL*(token: uint64, isReverse: bool, args: varargs[string]): string =
+  let procedure = if isReverse: ydb_subscript_previous else: ydb_subscript_next
+  walkO[string](token, qtValue, args, procedure)
+
+proc OrderxVAL*(isReverse: bool, args: varargs[string]): string =
+    OrderxVAL(0, isReverse, args)
+
+proc OrderxCOUNT*(token: uint64, isReverse: bool, args: varargs[string]): int =
+  let procedure = if isReverse: ydb_subscript_previous else: ydb_subscript_next
+  walkO[int](token, qtCount, args, procedure)
+
+proc OrderxCOUNT*(isReverse: bool, args: varargs[string]): int =
+    OrderxCOUNT(0, isReverse, args)
+
+macro OrderxPrepare*(token: uint64, body: untyped): untyped =
+    var args: seq[NimNode]
+    transform(body, args)
+    let (apiName, reverse) = getApiName2("Order", args)
+    result = newCall(ident(apiName), token, newLit(reverse))
+    for arg in args: result.add arg
+
+macro Order*(body: untyped): untyped =
+    var args: seq[NimNode]
+    transform(body, args)
+    let (apiName, reverse) = getApiName2("Order", args)
+    result = newCall(ident(apiName), newLit(reverse))
+    for arg in args: result.add arg
+
 
 
 # --------------------------------
@@ -844,33 +981,25 @@ proc forbidRedeclare(body: NimNode; names: openArray[string]) =
     forbidRedeclare(n, names)
 
 
-macro SetInternal*(token: uint64, body: untyped): untyped =
-  var args: seq[NimNode] 
-  processStmtList(body) 
-  result = newCall(ident("setx"), token)
-  for arg in args: result.add arg
-
-macro DataInternal*(token: uint64, body: untyped): untyped =
-  var args: seq[NimNode] 
-  transform(body, args)
-  result = newCall(ident("datax"), token)
-  for arg in args: result.add arg
-
-
-
 proc injectToken(node: NimNode, tokenIdent: NimNode): NimNode =
+  var prepare: string
   if (node.kind in {nnkCall, nnkCommand}):
-    if node[0].eqIdent("Set"):
-        result = newCall(ident("SetInternal"), tokenIdent) # replace call
-        # copy remaining args from [1..]
-        for i in 1 ..< node.len: result.add node[i]
-    elif node[0].eqIdent("Data"):
-        result = newCall(ident("DataInternal"), tokenIdent) # replace call
+    if node[0].eqIdent("Set"): prepare = "setx" # -> Set -> setxPrepare
+    elif node[0].eqIdent("Data"): prepare = "datax"
+    elif node[0].eqIdent("Increment"): prepare = "incrementx"
+    elif node[0].eqIdent("Kill"): prepare = "killx"
+    elif node[0].eqIdent("Killnode"): prepare = "killnodex"
+    elif node[0].eqIdent("Query"): prepare = "Queryx"
+    elif node[0].eqIdent("Order"): prepare = "Orderx"
+        
+    if prepare.len > 0:
+        result = newCall(ident(prepare & "Prepare"), tokenIdent)
         for i in 1 ..< node.len: result.add node[i]
     else:
         # other items from body where nothing must be replaced
         result = node.copyNimNode()
         for child in node: result.add injectToken(child, tokenIdent)
+
   else:
     # other items from body where nothing must be replaced
     result = node.copyNimNode()
@@ -892,7 +1021,6 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
   forbidRedeclare(body, forbidden)
 
   if isMT:
-
     let tptokenIdent = ident("tptoken") # Referenz für den Transformer
     let rewrittenBody = injectToken(body, tptokenIdent)
 
@@ -919,9 +1047,7 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
             return YDB_TP_RESTART
 
       ydb_tp_mt(`fn`, `param`)
-    
   else:
-
     result = quote do:
       proc `fn`(param {.inject.}: pointer): cint {.cdecl, gcsafe, raises: [].} =
         try:
@@ -948,50 +1074,3 @@ template Transaction*(body: untyped): int =
 
 template Transaction*(param: untyped, body: untyped): int =
   transactionImpl(param, body)
-
-
-
-
-
-
-
-macro txImpl(param: untyped, body: untyped): untyped =
-    let fn = genSym(nskProc, "tx")
-    
-    let tptokenIdent = ident("tptoken") # Referenz für den Transformer
-    let rewrittenBody = injectToken(body, tptokenIdent)
-
-    result = quote do:
-        # This is the callback with 'tptoken' set will be called from YottaDB
-        proc `fn`(
-            tptoken {.inject.}: uint64,
-            errstr  {.inject.}: ptr struct_ydb_buffer_t,
-            param   {.inject.}: pointer
-            ): cint {.cdecl, gcsafe, raises: [].} =
-            try:
-                echo "tptoken in fn:", tptoken
-                `rewrittenBody`
-            except:
-                if getCurrentException() of TpRestart: discard
-                else: echo "Exception in transaction:", getCurrentExceptionMsg()
-                
-                try:
-                    let restarted = parseInt(ydb_get("$TRESTART", tptoken=tptoken)) # How many times the proc was called from yottadb
-                    if restarted >= MAX_RESTARTS: 
-                        echo "Too many transaction restarts, Rolling back.", getCurrentExceptionMsg()
-                        return YDB_TP_ROLLBACK
-                except:
-                    echo "Exception while getting $TRESTART", getCurrentExceptionMsg()
-                    return YDB_TP_ROLLBACK
-                return YDB_TP_RESTART
-
-        ydb_tp_mt(`fn`, `param`) # -> This initiates that YottaDB calls `fn`
-    
-# template TX*(param: untyped, body: untyped): int =
-#   txImpl(param, body)
-
-template TX*(body: untyped): int =
-  txImpl("", body)
-
-template TX*(param: untyped, body: untyped): int =
-  txImpl(param, body)
