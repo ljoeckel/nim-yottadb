@@ -161,15 +161,15 @@ proc getApiName2(basename: string, args: var seq[NimNode]): (string, bool) =
 # ------------------
 # Macros
 # ------------------
-macro Get*(body: untyped): untyped =
-    var args: seq[NimNode]
-    transform(body, args, @[DEFAULT])
-    # check for type conversion
-    var typename = "getx"
-    if args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
-        typename.add(args[^1][1].strVal)
-        args = args[0..^3] # remove TD,int
-    return newCall(ident(typename), args)
+# macro Get*(body: untyped): untyped =
+#     var args: seq[NimNode]
+#     transform(body, args, @[DEFAULT])
+#     # check for type conversion
+#     var typename = "getx"
+#     if args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
+#         typename.add(args[^1][1].strVal)
+#         args = args[0..^3] # remove TD,int
+#     return newCall(ident(typename), args)
 
         
 macro QueryItr*(body: untyped): untyped =
@@ -400,6 +400,50 @@ macro Data*(body: untyped): untyped =
     transform(body, args)
     newCall(ident"datax", args)    
 
+#================
+# Get
+#================
+when compileOption("threads"):
+    proc getx*(token: uint64, args: varargs[string]): string =
+        var ydbvar: YdbVar
+        if args.len == 1:  # "^gbl(1,2,..), Localname, "
+            ydbvar = stringToYdbVar(args[0])
+        else:
+            ydbvar = seqToYdbVar(args)
+        result = ydb_get(ydbvar.name, ydbvar.subscripts, tptoken=token)
+        if result.len == 0 and ydbvar.value.len > 0:
+            return ydbvar.value
+
+    macro getxPrepare*(token: uint64, body: untyped): untyped =
+        var args: seq[NimNode] 
+        transform(body, args)
+        result = newCall(ident("getx"), token)
+        for arg in args: result.add arg
+
+proc getx*(args: varargs[string]): string =
+  var ydbvar: YdbVar
+  if args.len == 1:  # "^gbl(1,2,..), Localname, "
+    ydbvar = stringToYdbVar(args[0])
+  else:
+    ydbvar = seqToYdbVar(args)
+  result = ydb_get(ydbvar.name, ydbvar.subscripts)
+  if result.len == 0 and ydbvar.value.len > 0:
+      return ydbvar.value
+
+proc getxbinary*(args: varargs[string]): string =
+    let ydbvar = seqToYdbVar(args)
+    ydb_getbinary(ydbvar.name, ydbvar.subscripts)
+
+macro Get*(body: untyped): untyped =
+    var args: seq[NimNode]
+    transform(body, args, @[DEFAULT])
+    # check for type conversion
+    var typename = "getx"
+    if args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
+        typename.add(args[^1][1].strVal)
+        args = args[0..^3] # remove TD,int
+    return newCall(ident(typename), args)
+
 
 #================
 # Killnode
@@ -464,22 +508,22 @@ macro Delexcl*(body: untyped): untyped =
     return newCall(ident"delexclx", args)
 
 
-#================
-# Get
-#================
-proc getx*(args: varargs[string]): string =
-  var ydbvar: YdbVar
-  if args.len == 1:  # "^gbl(1,2,..), Localname, "
-    ydbvar = stringToYdbVar(args[0])
-  else:
-    ydbvar = seqToYdbVar(args)
-  result = ydb_get(ydbvar.name, ydbvar.subscripts)
-  if result.len == 0 and ydbvar.value.len > 0:
-      return ydbvar.value
+# #================
+# # Get
+# #================
+# proc getx*(args: varargs[string]): string =
+#   var ydbvar: YdbVar
+#   if args.len == 1:  # "^gbl(1,2,..), Localname, "
+#     ydbvar = stringToYdbVar(args[0])
+#   else:
+#     ydbvar = seqToYdbVar(args)
+#   result = ydb_get(ydbvar.name, ydbvar.subscripts)
+#   if result.len == 0 and ydbvar.value.len > 0:
+#       return ydbvar.value
 
-proc getxbinary*(args: varargs[string]): string =
-    let ydbvar = seqToYdbVar(args)
-    ydb_getbinary(ydbvar.name, ydbvar.subscripts)
+# proc getxbinary*(args: varargs[string]): string =
+#     let ydbvar = seqToYdbVar(args)
+#     ydb_getbinary(ydbvar.name, ydbvar.subscripts)
 
 # -------------------------------
 # Int / Uint / Float conversions
@@ -984,13 +1028,15 @@ proc forbidRedeclare(body: NimNode; names: openArray[string]) =
 proc injectToken(node: NimNode, tokenIdent: NimNode): NimNode =
   var prepare: string
   if (node.kind in {nnkCall, nnkCommand}):
-    if node[0].eqIdent("Set"): prepare = "setx" # -> Set -> setxPrepare
-    elif node[0].eqIdent("Data"): prepare = "datax"
-    elif node[0].eqIdent("Increment"): prepare = "incrementx"
-    elif node[0].eqIdent("Kill"): prepare = "killx"
-    elif node[0].eqIdent("Killnode"): prepare = "killnodex"
-    elif node[0].eqIdent("Query"): prepare = "Queryx"
-    elif node[0].eqIdent("Order"): prepare = "Orderx"
+    let n = node[0]
+    if n.eqIdent("Set"): prepare = "setx" # -> Set -> setxPrepare
+    if n.eqIdent("Get"): prepare = "getx" # -> Set -> setxPrepare
+    elif n.eqIdent("Data"): prepare = "datax"
+    elif n.eqIdent("Increment"): prepare = "incrementx"
+    elif n.eqIdent("Kill"): prepare = "killx"
+    elif n.eqIdent("Killnode"): prepare = "killnodex"
+    elif n.eqIdent("Query"): prepare = "Queryx"
+    elif n.eqIdent("Order"): prepare = "Orderx"
         
     if prepare.len > 0:
         result = newCall(ident(prepare & "Prepare"), tokenIdent)
