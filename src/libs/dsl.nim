@@ -130,61 +130,6 @@ template processStmtList(body: NimNode) =
         transform(body[i], args)
         if i < body.len-1: args.add(newLit(FIELDMARK))
 
-
-func getApiName(basename: string, args: var seq[NimNode]): string =
-  var reverse: bool
-  result = basename & "x"
-  while args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
-    let arg = args[^1][1].strVal.toUpper()
-    case  arg
-    of REVERSE: reverse = true
-    of KEY, KEYS, KV, COUNT, VAL: result.add(arg)
-    else: raise newException(YdbError, fmt"Unsupported postfix '{arg}'")
-    args = args[0..^3]
-   
-  if reverse: result.add(REVERSE)
-
-proc getApiName2(basename: string, args: var seq[NimNode]): (string, bool) =
-  var reverse: bool
-  var apiName = basename & "x"
-  while args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
-    let arg = args[^1][1].strVal.toUpper()
-    case  arg
-    of REVERSE: reverse = true
-    of KEY, KEYS, KV, COUNT, VAL: apiName.add(arg)
-    else: raise newException(YdbError, fmt"Unsupported postfix '{arg}'")
-    args = args[0..^3]
-   
-  return (apiName, reverse)
-
-
-# ------------------
-# Macros
-# ------------------
-# macro Get*(body: untyped): untyped =
-#     var args: seq[NimNode]
-#     transform(body, args, @[DEFAULT])
-#     # check for type conversion
-#     var typename = "getx"
-#     if args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
-#         typename.add(args[^1][1].strVal)
-#         args = args[0..^3] # remove TD,int
-#     return newCall(ident(typename), args)
-
-        
-macro QueryItr*(body: untyped): untyped =
-    var args: seq[NimNode]
-    transform(body, args)
-    let apiName = getApiName("QueryItr", args)
-    return newCall(ident(apiName), args)
-
-macro OrderItr*(body: untyped): untyped =
-    var args: seq[NimNode]
-    transform(body, args)
-    let apiName = getApiName("OrderItr", args)
-    return newCall(ident(apiName), args)
-
-
 # ----------------------------
 # proc related helper proc's
 # ----------------------------
@@ -444,6 +389,33 @@ macro Get*(body: untyped): untyped =
         args = args[0..^3] # remove TD,int
     return newCall(ident(typename), args)
 
+# -------------------------------
+# Int / Uint / Float conversions
+# -------------------------------
+template defineGetX(typeName, parseFunc: untyped) =
+  proc `getx typeName`*(args: varargs[string]): typeName =
+    let s = getx(args)
+    if s.len == 0: return cast[typeName](0)
+    let tmpvar = parseFunc(s)
+    if tmpvar < low(typeName) or tmpvar > high(typeName):
+      raise newException(RangeDefect, "Illegal number. Must be in range " & $low(typeName) & ".." & $high(typeName))
+    else:
+      result = cast[typeName](tmpvar)
+
+defineGetX(int, parseInt)
+defineGetX(int8, parseInt)
+defineGetX(int16, parseInt)
+defineGetX(int32, parseInt)
+defineGetX(int64, parseInt)
+defineGetX(uint, parseUInt)
+defineGetX(uint8, parseUInt)
+defineGetX(uint16, parseUInt)
+defineGetX(uint32, parseUInt)
+defineGetX(uint64, parseUInt)
+defineGetX(float, parseFloat)
+#defineGetX(float32, parseFloat) #TODO: cast gives strange results
+defineGetX(float64, parseFloat)
+
 
 #================
 # Killnode
@@ -507,50 +479,6 @@ macro Delexcl*(body: untyped): untyped =
     processStmtList(body)
     return newCall(ident"delexclx", args)
 
-
-# #================
-# # Get
-# #================
-# proc getx*(args: varargs[string]): string =
-#   var ydbvar: YdbVar
-#   if args.len == 1:  # "^gbl(1,2,..), Localname, "
-#     ydbvar = stringToYdbVar(args[0])
-#   else:
-#     ydbvar = seqToYdbVar(args)
-#   result = ydb_get(ydbvar.name, ydbvar.subscripts)
-#   if result.len == 0 and ydbvar.value.len > 0:
-#       return ydbvar.value
-
-# proc getxbinary*(args: varargs[string]): string =
-#     let ydbvar = seqToYdbVar(args)
-#     ydb_getbinary(ydbvar.name, ydbvar.subscripts)
-
-# -------------------------------
-# Int / Uint / Float conversions
-# -------------------------------
-template defineGetX(typeName, parseFunc: untyped) =
-  proc `getx typeName`*(args: varargs[string]): typeName =
-    let s = getx(args)
-    if s.len == 0: return cast[typeName](0)
-    let tmpvar = parseFunc(s)
-    if tmpvar < low(typeName) or tmpvar > high(typeName):
-      raise newException(RangeDefect, "Illegal number. Must be in range " & $low(typeName) & ".." & $high(typeName))
-    else:
-      result = cast[typeName](tmpvar)
-
-defineGetX(int, parseInt)
-defineGetX(int8, parseInt)
-defineGetX(int16, parseInt)
-defineGetX(int32, parseInt)
-defineGetX(int64, parseInt)
-defineGetX(uint, parseUInt)
-defineGetX(uint8, parseUInt)
-defineGetX(uint16, parseUInt)
-defineGetX(uint32, parseUInt)
-defineGetX(uint64, parseUInt)
-defineGetX(float, parseFloat)
-#defineGetX(float32, parseFloat) #TODO: cast gives strange results
-defineGetX(float64, parseFloat)
 
 proc getxOrderedSet*(args: varargs[string]): OrderedSet[int] =
     let str = getx(args)
@@ -686,58 +614,41 @@ macro Set*(body: untyped): untyped =
 # --------------------
 # Query Iterators
 # --------------------
-template walkNodes(nextProc: untyped, body: untyped) =
+template walkNodes(token: uint64, nextProc: untyped, body: untyped) =
   let ydbvar {.inject.} = seqToYdbVar(args)
   var rc {.inject.}: int
   var subs {.inject.}: seq[string]
-  (rc, subs) = nextProc(ydbvar.name, ydbvar.subscripts)
+  (rc, subs) = nextProc(ydbvar.name, ydbvar.subscripts, tptoken=token)
   while rc == YDB_OK:
     body
-    (rc, subs) = nextProc(ydbvar.name, subs)
+    (rc, subs) = nextProc(ydbvar.name, subs, tptoken=token)
 
 # returns ^global(key,..)
-iterator QueryItrx*(args: varargs[string]): string =
-  walkNodes(ydb_node_next):
-    yield keysToString(ydbvar.name, subs)
-
-iterator QueryItrxREVERSE*(args: varargs[string]): string =
-  walkNodes(ydb_node_previous):
+iterator QueryItrx*(token: uint64, reverse: bool, args: varargs[string]): string =
+  let procedure = if reverse: ydb_node_previous else: ydb_node_next
+  walkNodes(token, procedure):
     yield keysToString(ydbvar.name, subs)
 
 # returns @["1"], @["2"], ...
-iterator QueryItrxKEYS*(args: varargs[string]): seq[string] =
-  walkNodes(ydb_node_next):
+iterator QueryItrxKEYS*(token: uint64, reverse: bool, args: varargs[string]): seq[string] =
+  let procedure = if reverse: ydb_node_previous else: ydb_node_next    
+  walkNodes(token, procedure):
     yield subs
 
-iterator QueryItrxKEYSREVERSE*(args: varargs[string]): seq[string] =
-  walkNodes(ydb_node_previous):
-    yield subs
+iterator QueryItrxKV*(token: uint64, reverse: bool, args: varargs[string]): (string, string) =
+  let procedure = if reverse: ydb_node_previous else: ydb_node_next        
+  walkNodes(token, procedure):
+    yield (keysToString(ydbvar.name, subs), ydb_get(ydbvar.name, subs, tptoken=token))
 
-iterator QueryItrxKV*(args: varargs[string]): (string, string) =
-  walkNodes(ydb_node_next):
-    yield (keysToString(ydbvar.name, subs), ydb_get(ydbvar.name, subs))
+iterator QueryItrxVAL*(token: uint64, reverse: bool, args: varargs[string]): string =
+  let procedure = if reverse: ydb_node_previous else: ydb_node_next        
+  walkNodes(token, procedure):
+    yield ydb_get(ydbvar.name, subs, tptoken=token)
 
-iterator QueryItrxKVREVERSE*(args: varargs[string]): (string, string) =
-  walkNodes(ydb_node_previous):
-    yield (keysToString(ydbvar.name, subs), ydb_get(ydbvar.name, subs))
-
-iterator QueryItrxVAL*(args: varargs[string]): string =
-  walkNodes(ydb_node_next):
-    yield ydb_get(ydbvar.name, subs)
-
-iterator QueryItrxVALREVERSE*(args: varargs[string]): string =
-  walkNodes(ydb_node_previous):
-    yield ydb_get(ydbvar.name, subs)
-
-iterator QueryItrxCOUNT*(args: varargs[string]): int =
+iterator QueryItrxCOUNT*(token: uint64, reverse: bool, args: varargs[string]): int =
+  let procedure = if reverse: ydb_node_previous else: ydb_node_next        
   var cnt = 0
-  walkNodes(ydb_node_next):
-    inc cnt
-  yield cnt
-
-iterator QueryItrxCOUNTREVERSE*(args: varargs[string]): int =
-  var cnt = 0
-  walkNodes(ydb_node_previous):
+  walkNodes(token, procedure):
     inc cnt
   yield cnt
 
@@ -745,66 +656,46 @@ iterator QueryItrxCOUNTREVERSE*(args: varargs[string]): int =
 # --------------------
 # Order Iterators
 # --------------------
-template walkOrderNodes(nextProc: untyped, body: untyped) =
+template walkOrderNodes(token: uint64, nextProc: untyped, body: untyped) =
   let ydbvar {.inject.} = seqToYdbVar(args)
   var subs {.inject.} = ydbvar.subscripts
-  var key {.inject.} = nextProc(ydbvar.name, ydbvar.subscripts)
+  var key {.inject.} = nextProc(ydbvar.name, ydbvar.subscripts, tptoken=token)
   while key.len > 0:
     if subs.len > 0: subs[^1] = key
     else: subs.add(key)
     body
-    key = nextProc(ydbvar.name, subs)
+    key = nextProc(ydbvar.name, subs, tptoken=token)
 
 # returns ^global(key,..)
-iterator OrderItrx*(args: varargs[string]): string =
-  walkOrderNodes(ydb_subscript_next):
+iterator OrderItrx*(token: uint64, reverse: bool, args: varargs[string]): string =
+  let procedure = if reverse: ydb_subscript_previous else: ydb_subscript_next        
+  walkOrderNodes(token, procedure):
     yield key
 
-iterator OrderItrxREVERSE*(args: varargs[string]): string =
-  walkOrderNodes(ydb_subscript_previous):
-    yield key
-
-iterator OrderItrxKEYS*(args: varargs[string]): seq[string] =
-  walkOrderNodes(ydb_subscript_next):
+iterator OrderItrxKEYS*(token: uint64, reverse: bool, args: varargs[string]): seq[string] =
+  let procedure = if reverse: ydb_subscript_previous else: ydb_subscript_next            
+  walkOrderNodes(token, procedure):
     yield subs
 
-iterator OrderItrxKEYSREVERSE*(args: varargs[string]): seq[string] =
-  walkOrderNodes(ydb_subscript_previous):
-    yield subs
+iterator OrderItrxVAL*(token: uint64, reverse: bool, args: varargs[string]): string =
+  let procedure = if reverse: ydb_subscript_previous else: ydb_subscript_next        
+  walkOrderNodes(token, procedure):
+    yield ydb_get(ydbvar.name, subs, tptoken=token)
 
-iterator OrderItrxVAL*(args: varargs[string]): string =
-  walkOrderNodes(ydb_subscript_next):
-    yield ydb_get(ydbvar.name, subs)
+iterator OrderItrxKV*(token: uint64, reverse: bool, args: varargs[string]): (string, string) =
+  let procedure = if reverse: ydb_subscript_previous else: ydb_subscript_next        
+  walkOrderNodes(token, procedure):
+    yield (key, ydb_get(ydbvar.name, subs, tptoken=token))
 
-iterator OrderItrxVALREVERSE*(args: varargs[string]): string =
-  walkOrderNodes(ydb_subscript_previous):
-    yield ydb_get(ydbvar.name, subs)
-
-iterator OrderItrxKV*(args: varargs[string]): (string, string) =
-  walkOrderNodes(ydb_subscript_next):
-    yield (key, ydb_get(ydbvar.name, subs))
-
-iterator OrderItrxKVREVERSE*(args: varargs[string]): (string, string) =
-  walkOrderNodes(ydb_subscript_previous):
-    yield (key, ydb_get(ydbvar.name, subs))
-
-iterator OrderItrxKEY*(args: varargs[string]): string =
-  walkOrderNodes(ydb_subscript_next):
+iterator OrderItrxKEY*(token: uint64, reverse: bool, args: varargs[string]): string =
+  let procedure = if reverse: ydb_subscript_previous else: ydb_subscript_next            
+  walkOrderNodes(token, procedure):
     yield keysToString(ydbvar.name, subs)
 
-iterator OrderItrxKEYREVERSE*(args: varargs[string]): string =
-  walkOrderNodes(ydb_subscript_previous):
-    yield keysToString(ydbvar.name, subs)
-
-iterator OrderItrxCOUNT*(args: varargs[string]): int =
+iterator OrderItrxCOUNT*(token: uint64, reverse: bool, args: varargs[string]): int =
+  let procedure = if reverse: ydb_subscript_previous else: ydb_subscript_next            
   var cnt = 0
-  walkOrderNodes(ydb_subscript_next):
-    inc cnt
-  yield cnt
-
-iterator OrderItrxCOUNTREVERSE*(args: varargs[string]): int =
-  var cnt = 0
-  walkOrderNodes(ydb_subscript_previous):
+  walkOrderNodes(token, procedure):
     inc cnt
   yield cnt
 
@@ -897,6 +788,18 @@ template walkO[T](token: uint64, qt: static QueryType, args: varargs[string], no
     else:
         default(T)
 
+proc getApiName(basename: string, args: var seq[NimNode]): (string, bool) =
+  var reverse: bool
+  var apiName = basename & "x"
+  while args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
+    let arg = args[^1][1].strVal.toUpper()
+    case  arg
+    of REVERSE: reverse = true
+    of KEY, KEYS, KV, COUNT, VAL: apiName.add(arg)
+    else: raise newException(YdbError, fmt"Unsupported postfix '{arg}'")
+    args = args[0..^3]
+   
+  return (apiName, reverse)
 
 #================
 # Query:
@@ -939,15 +842,30 @@ proc QueryxCOUNT*(isReverse: bool, args: varargs[string]): int =
 macro QueryxPrepare*(token: uint64, body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
-    let (apiName, reverse) = getApiName2("Query", args)
+    let (apiName, reverse) = getApiName("Query", args)
     result = newCall(ident(apiName), token, newLit(reverse))
     for arg in args: result.add arg
 
 macro Query*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
-    let (apiName, reverse) = getApiName2("Query", args)
+    let (apiName, reverse) = getApiName("Query", args)
     result = newCall(ident(apiName), newLit(reverse))
+    for arg in args: result.add arg
+
+
+macro QueryItrxPrepare*(token: uint64, body: untyped): untyped =
+    var args: seq[NimNode]
+    transform(body, args)
+    let (apiName, reverse) = getApiName("QueryItr", args)
+    result = newCall(ident(apiName), token, newLit(reverse))
+    for arg in args: result.add arg
+
+macro QueryItr*(body: untyped): untyped =
+    var args: seq[NimNode]
+    transform(body, args)
+    let (apiName, reverse) = getApiName("QueryItr", args)
+    result = newCall(ident(apiName), newLit(0), newLit(reverse))
     for arg in args: result.add arg
 
 
@@ -999,17 +917,30 @@ proc OrderxCOUNT*(isReverse: bool, args: varargs[string]): int =
 macro OrderxPrepare*(token: uint64, body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
-    let (apiName, reverse) = getApiName2("Order", args)
+    let (apiName, reverse) = getApiName("Order", args)
     result = newCall(ident(apiName), token, newLit(reverse))
     for arg in args: result.add arg
 
 macro Order*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
-    let (apiName, reverse) = getApiName2("Order", args)
+    let (apiName, reverse) = getApiName("Order", args)
     result = newCall(ident(apiName), newLit(reverse))
     for arg in args: result.add arg
 
+macro OrderItrxPrepare*(token: uint64, body: untyped): untyped =
+    var args: seq[NimNode]
+    transform(body, args)
+    let (apiName, reverse) = getApiName("OrderItr", args)
+    result = newCall(ident(apiName), token, newLit(reverse))
+    for arg in args: result.add arg
+
+macro OrderItr*(body: untyped): untyped =
+    var args: seq[NimNode]
+    transform(body, args)
+    let (apiName, reverse) = getApiName("OrderItr", args)
+    result = newCall(ident(apiName), newLit(0), newLit(reverse))
+    for arg in args: result.add arg
 
 
 # --------------------------------
@@ -1037,6 +968,8 @@ proc injectToken(node: NimNode, tokenIdent: NimNode): NimNode =
     elif n.eqIdent("Killnode"): prepare = "killnodex"
     elif n.eqIdent("Query"): prepare = "Queryx"
     elif n.eqIdent("Order"): prepare = "Orderx"
+    elif n.eqIdent("QueryItr"): prepare = "QueryItrx"
+    elif n.eqIdent("OrderItr"): prepare = "OrderItrx"
         
     if prepare.len > 0:
         result = newCall(ident(prepare & "Prepare"), tokenIdent)
