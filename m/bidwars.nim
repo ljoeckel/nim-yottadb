@@ -121,6 +121,8 @@ proc Auction() =
 # ---------------
 
 proc Bidder() =
+    #let logFile = open(fmt"log{pid}.log", fmWrite)
+    #stdout = logFile
     var rc = Transaction:
         Set: @auction("Bidders", pid) = Increment @auction("Bidders")
 

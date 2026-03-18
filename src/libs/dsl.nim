@@ -29,7 +29,7 @@ const
     VAL = "VAL"
 
 const
-  MAX_RESTARTS = 2
+  MAX_RESTARTS = 4
 
 
 # ------------------
@@ -326,58 +326,55 @@ func getTimeout(arg: string): int =
 # Data
 #================
 when compileOption("threads"):
-    proc datax*(token: uint64, args: varargs[string]): int =
-        let ydbvar = seqToYdbVar(args)
-        ydb_data(ydbvar.name, ydbvar.subscripts, tptoken=token)
-
     macro dataxPrepare*(token: uint64, body: untyped): untyped =
         var args: seq[NimNode] 
         transform(body, args)
         result = newCall(ident("datax"), token)
         for arg in args: result.add arg
 
-proc datax*(args: varargs[string]): int =
+proc datax*(token: uint64, args: varargs[string]): int =
     let ydbvar = seqToYdbVar(args)
-    ydb_data(ydbvar.name, ydbvar.subscripts)
+    ydb_data(ydbvar.name, ydbvar.subscripts, tptoken=token)
 
 macro Data*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
-    newCall(ident"datax", args)    
+    result = newCall(ident"datax", newLit(0))    
+    for arg in args: result.add arg
 
 #================
 # Get
 #================
 when compileOption("threads"):
-    proc getx*(token: uint64, args: varargs[string]): string =
-        var ydbvar: YdbVar
-        if args.len == 1:  # "^gbl(1,2,..), Localname, "
-            ydbvar = stringToYdbVar(args[0])
-        else:
-            ydbvar = seqToYdbVar(args)
-        result = ydb_get(ydbvar.name, ydbvar.subscripts, tptoken=token)
-        if result.len == 0 and ydbvar.value.len > 0:
-            return ydbvar.value
-
     macro getxPrepare*(token: uint64, body: untyped): untyped =
         var args: seq[NimNode] 
         transform(body, args)
         result = newCall(ident("getx"), token)
         for arg in args: result.add arg
 
-proc getx*(args: varargs[string]): string =
-  var ydbvar: YdbVar
-  if args.len == 1:  # "^gbl(1,2,..), Localname, "
-    ydbvar = stringToYdbVar(args[0])
-  else:
-    ydbvar = seqToYdbVar(args)
-  result = ydb_get(ydbvar.name, ydbvar.subscripts)
-  if result.len == 0 and ydbvar.value.len > 0:
-      return ydbvar.value
+proc getx*(token: uint64, args: varargs[string]): string =
+    var ydbvar: YdbVar
+    if args.len == 1:  # "^gbl(1,2,..), Localname, "
+        ydbvar = stringToYdbVar(args[0])
+    else:
+        ydbvar = seqToYdbVar(args)
+    result = ydb_get(ydbvar.name, ydbvar.subscripts, tptoken=token)
+    if result.len == 0 and ydbvar.value.len > 0:
+        return ydbvar.value
 
-proc getxbinary*(args: varargs[string]): string =
+proc getxbinary*(token: uint64, args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)
-    ydb_getbinary(ydbvar.name, ydbvar.subscripts)
+    ydb_getbinary(ydbvar.name, ydbvar.subscripts, tptoken=token)
+
+proc getxOrderedSet*(token: uint64, args: varargs[string]): OrderedSet[int] =
+    let str = getx(token, args)
+    result = initOrderedSet[int]()
+    if str[0] == '{' and str[^1] == '}':
+        for s in split(str[1 .. ^2], ","):
+            result.incl(parseInt(strip(s)))
+    else:
+        for s in split(str, ","):
+            result.incl(parseInt(strip(s)))
 
 macro Get*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -387,14 +384,16 @@ macro Get*(body: untyped): untyped =
     if args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
         typename.add(args[^1][1].strVal)
         args = args[0..^3] # remove TD,int
-    return newCall(ident(typename), args)
+    result = newCall(ident(typename), newLit(0))
+    for arg in args: result.add arg
+
 
 # -------------------------------
 # Int / Uint / Float conversions
 # -------------------------------
 template defineGetX(typeName, parseFunc: untyped) =
-  proc `getx typeName`*(args: varargs[string]): typeName =
-    let s = getx(args)
+  proc `getx typeName`*(token: uint64, args: varargs[string]): typeName =
+    let s = getx(token, args)
     if s.len == 0: return cast[typeName](0)
     let tmpvar = parseFunc(s)
     if tmpvar < low(typeName) or tmpvar > high(typeName):
@@ -421,48 +420,42 @@ defineGetX(float64, parseFloat)
 # Killnode
 #================
 when compileOption("threads"):
-    proc killnodex*(token: uint64, args: varargs[string]) =
-        for ydbvar in seqToYdbVars(args):
-            ydb_delete_node(ydbvar.name, ydbvar.subscripts, tptoken=token)
-
     macro killnodexPrepare*(token: uint64, body: untyped): untyped =
         var args: seq[NimNode] 
         processStmtList(body) 
         result = newCall(ident("killnodex"), token)
         for arg in args: result.add arg
 
-proc killnodex*(args: varargs[string]) =
+proc killnodex*(token: uint64, args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
-        ydb_delete_node(ydbvar.name, ydbvar.subscripts)
+        ydb_delete_node(ydbvar.name, ydbvar.subscripts, tptoken=token)
 
 macro Killnode*(body: untyped): untyped =
     var args: seq[NimNode]
     processStmtList(body)
-    return newCall(ident"killnodex", args)
+    result = newCall(ident"killnodex", newLit(0))
+    for arg in args: result.add arg
 
 
 #================
 # Kill
 #================
 when compileOption("threads"):
-    proc killx*(token: uint64, args: varargs[string]) =
-        for ydbvar in seqToYdbVars(args):
-            ydb_delete_tree(ydbvar.name, ydbvar.subscripts, tptoken=token)
-
     macro killxPrepare*(token: uint64, body: untyped): untyped =
         var args: seq[NimNode] 
         processStmtList(body) 
         result = newCall(ident("killx"), token)
         for arg in args: result.add arg
 
-proc killx*(args: varargs[string]) =
+proc killx*(token: uint64, args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
-        ydb_delete_tree(ydbvar.name, ydbvar.subscripts)
+        ydb_delete_tree(ydbvar.name, ydbvar.subscripts, tptoken=token)
 
 macro Kill*(body: untyped): untyped =
     var args: seq[NimNode]
     processStmtList(body)
-    return newCall(ident"killx", args)
+    result = newCall(ident"killx", newLit(0))
+    for arg in args: result.add arg
 
 
 #================
@@ -480,45 +473,28 @@ macro Delexcl*(body: untyped): untyped =
     return newCall(ident"delexclx", args)
 
 
-proc getxOrderedSet*(args: varargs[string]): OrderedSet[int] =
-    let str = getx(args)
-    result = initOrderedSet[int]()
-    if str[0] == '{' and str[^1] == '}':
-        for s in split(str[1 .. ^2], ","):
-            result.incl(parseInt(strip(s)))
-    else:
-        for s in split(str, ","):
-            result.incl(parseInt(strip(s)))
-
-
 #================
 # Increment
 #================
 when compileOption("threads"):
-    proc incrementx*(token: uint64, args: varargs[string]): int =
-        let ydbvar = seqToYdbVar(args)
-        if ydbvar.value.len == 0:
-            ydb_increment(ydbvar.name, ydbvar.subscripts, 1, tptoken=token)
-        else:
-            ydb_increment(ydbvar.name, ydbvar.subscripts, parseInt(ydbvar.value), tptoken=token)
-
     macro incrementxPrepare*(token: uint64, body: untyped): untyped =
         var args: seq[NimNode] 
         transform(body, args, @[BY])
         result = newCall(ident("incrementx"), token)
         for arg in args: result.add arg
 
-proc incrementx*(args: varargs[string]): int =
+proc incrementx*(token: uint64, args: varargs[string]): int =
     let ydbvar = seqToYdbVar(args)
     if ydbvar.value.len == 0:
-        ydb_increment(ydbvar.name, ydbvar.subscripts, 1)
+        ydb_increment(ydbvar.name, ydbvar.subscripts, 1, tptoken=token)
     else:
-        ydb_increment(ydbvar.name, ydbvar.subscripts, parseInt(ydbvar.value))
+        ydb_increment(ydbvar.name, ydbvar.subscripts, parseInt(ydbvar.value), tptoken=token)
 
 macro Increment*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args, @[BY])
-    return newCall(ident"incrementx", args)
+    result = newCall(ident"incrementx", newLit(0))
+    for arg in args: result.add arg
 
 
 #================
@@ -591,25 +567,21 @@ macro Lock*(body: untyped): untyped =
 # Set:
 #================
 when compileOption("threads"):
-    proc setx*(token: uint64, args: varargs[string]) =
-        for ydbvar in seqToYdbVars(args):
-            ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value, tptoken=token)
-
     macro setxPrepare*(token: uint64, body: untyped): untyped =
         var args: seq[NimNode] 
         processStmtList(body) 
         result = newCall(ident("setx"), token)
         for arg in args: result.add arg
 
-proc setx*(args: varargs[string]) =
+proc setx*(token: uint64, args: varargs[string]) =
     for ydbvar in seqToYdbVars(args):
-        ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
+        ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value, tptoken=token)
 
 macro Set*(body: untyped): untyped =
     var args: seq[NimNode]
     processStmtList(body)
-    return newCall(ident"setx", args)
-
+    result = newCall(ident"setx", newLit(0))
+    for arg in args: result.add arg
 
 # --------------------
 # Query Iterators
@@ -970,6 +942,7 @@ proc injectToken(node: NimNode, tokenIdent: NimNode): NimNode =
     elif n.eqIdent("Order"): prepare = "Orderx"
     elif n.eqIdent("QueryItr"): prepare = "QueryItrx"
     elif n.eqIdent("OrderItr"): prepare = "OrderItrx"
+    elif n.eqIdent("Lock"): raise newException(Exception, "Lock may not be used inside Transaction")
         
     if prepare.len > 0:
         result = newCall(ident(prepare & "Prepare"), tokenIdent)

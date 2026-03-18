@@ -225,6 +225,10 @@ when compileOption("threads"):
         assert 0 == Data ^AAA("counter")
 
     proc testTransactionIncrement =
+        Kill: ^AAA("counter")
+        let cnt = Increment ^AAA("counter")
+        assert cnt == 1
+
         discard Transaction:
             Kill: ^AAA("counter")
             let cnt = Increment ^AAA("counter")
@@ -274,6 +278,7 @@ when compileOption("threads"):
     proc testTransactionQueryItrMT =
         # IMPORTANT! YOU MAY NOT CALL testQueryIterators() from inside the Transaction
         # when compiled with --threads:on
+        # If a proc is used without Transaction, the process will hang
         # tptoken will be set from YottaDB in the callback to the Transaction 
         discard Transaction:
             var strdata: seq[string]
