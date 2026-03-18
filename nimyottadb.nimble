@@ -57,6 +57,7 @@ task test, "Run nimyottadb unittests":
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/delete.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/delexcl.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/dsl_test.nim"
+  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/dsliterators.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/increment.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/iterator.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/kill.nim"
@@ -74,7 +75,35 @@ task test, "Run nimyottadb unittests":
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test_threaded.nim"
 
+  const progs = @[
+    "src/tests/binary",
+    "src/tests/callin",
+    "src/tests/data",
+    "src/tests/delete",
+    "src/tests/delexcl",
+    "src/tests/dsl_test",
+    "src/tests/dsliterators",
+    "src/tests/increment",
+    "src/tests/iterator",
+    "src/tests/kill",
+    "src/tests/locks",
+    "src/tests/nextnode",
+    "src/tests/serialization_test",
+    "src/tests/setget",
+    "src/tests/setgetlocal",
+    "src/tests/special_vars",
+    "src/tests/transaction",
+    "src/tests/ydbdsl_test",
+    "src/tests/yottadb_test",
+    "src/tests/zwr",
+    "src/tests/yottadb_test",
+    "src/tests/yottadb_test_threaded"
+  ]
+  for prog in progs:
+    exec "rm -f " & prog
+
 task examples, "Compile the example apps":
+  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/sayHello"
   exec "nim c -r -d:release -d:danger --hints:off --verbosity:0 --threads:off src/examples/benchmark"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/clientser"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/hello_customer"
@@ -86,3 +115,20 @@ task examples, "Compile the example apps":
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:on src/examples/ydbSet_thread"
   exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/image_loader"
   exec "nim c -r -d:release -d:danger --hints:off --verbosity:0 --threads:off src/3n1/solver"
+
+  const progs = @[
+    "src/examples/sayHello",
+    "src/examples/benchmark",
+    "src/examples/clientser",
+    "src/examples/hello_customer",
+    "src/examples/tx",
+    "src/examples/dsl_lock_test",
+    "src/examples/tx_thread",
+    "src/examples/tx_thread_dsl",
+    "src/examples/tx_upcount_thread",
+    "src/examples/ydbSet_thread",
+    "src/examples/image_loader",
+    "src/3n1/solver"
+  ]  
+  for prog in progs:
+    exec "rm -f " & prog

@@ -7,6 +7,8 @@ YottaDB is a proven Multi-Language NoSQL database engine whose code base has dec
 
 For latest changes see the [CHANGELOG](doc/CHANGELOG.md)
 
+For examples on how to use 'nim-yottadb' see [ydbsamples](https://github.com/ljoeckel/nimydbsamples.git)
+
 The nim-yottadb implementation delievers the following features:
 ### Simple-API ###
 - ydb_data (Get the state of a node or tree)
