@@ -160,54 +160,51 @@ proc testOrderIterators =
 when compileOption("threads"):
     proc testTransactionSetAPI =
         var rc = Transaction:
-            ydb_set("^AAA", @["100"], fmt"tptoken={tptoken}", tptoken)
+            ydb_set("^AAA", @["100"], fmt"TPTOKEN={TPTOKEN}")
         assert 1 == ydb_data("^AAA", @["100"]) 
         
         rc = Transaction("ABC"):
             let dta = $cast[cstring](param)
-            ydb_set("^AAA", @["102", dta], "cstring tptoken="  & $tptoken, tptoken)
+            ydb_set("^AAA", @["102", dta], "cstring TPTOKEN="  & $TPTOKEN)
         assert 1 == ydb_data("^AAA", @["102", "ABC"]) 
 
         rc = Transaction(4712):
             let dta = $cast[cint](param)
-            ydb_set("^AAA", @["102", dta], "cint tptoken="  & $tptoken, tptoken)
+            ydb_set("^AAA", @["102", dta], "cint TPTOKEN="  & $TPTOKEN)
         assert 1 == ydb_data("^AAA", @["102", "4712"])             
-
-        # Try invalid globalname -> should rollback after 4 tries
-        rc = Transaction:
-            ydb_set("^^AAA", @["999"], "tp_rollback", tptoken)
-        assert rc == YDB_TP_ROLLBACK
 
         echo "Nested transaction tests do not work currently with MT, skipping"
 
 
     proc testTransactionSet =
         discard Transaction:
-            Set: ^AAA(101) = fmt"tptoken={tptoken}"
+            Set: ^AAA(101) = fmt"TPTOKEN={TPTOKEN}"
         assert 1 == Data ^AAA(101)
 
     proc testTransactionSetParam =
         discard Transaction("ABC"):
             let dta = $cast[cstring](param)
-            Set: ^AAA(102, dta) = fmt"tptoken={tptoken}"
+            Set: ^AAA(102, dta) = fmt"TPTOKEN={TPTOKEN}"
             assert 10 == Data ^AAA(102) # inside transaction
         assert 1 == Data ^AAA(102, "ABC") # after transaction
 
         discard Transaction(4712):
             let dta = $cast[cint](param)
-            Set: ^AAA(103, dta) = fmt"tptoken={tptoken}"
+            Set: ^AAA(103, dta) = fmt"TPTOKEN={TPTOKEN}"
         assert 1 == Data ^AAA(102, 4712)
 
     proc testTransactionData =
         discard Transaction:
-            Set: ^AAA(101) = fmt"tptoken={tptoken}"
+            Set: ^AAA(101) = fmt"TPTOKEN={TPTOKEN}"
             assert 1 == Data ^AAA(101)
         assert 1 == Data ^AAA(101)            
 
     proc testTransactionRollback =
         # Try invalid globalname -> should rollback after 4 tries
         let rc = Transaction:
-            Set: ^^AAA(999) = fmt"tptoken={tptoken}"
+            echo "205 in Body tptoken=", tptoken, " TPTOKEN=", TPTOKEN
+            Set: ^^AAA(999) = fmt"TPTOKEN={TPTOKEN}"
+            echo "207 Leaving body"
         assert rc == YDB_TP_ROLLBACK
 
         echo "Nested transaction tests do not work currently with MT, skipping"
@@ -265,13 +262,13 @@ when compileOption("threads"):
 
     proc testTransactionQueryItr =
         # Test Iterators OUTSIDE the Transaction scope when --threads:on
-        # tptoken=0
+        # TPTOKEN=0
         init()
         testQueryIterators()
 
     proc testTransactionOrderItr =
         # Test Iterators OUTSIDE the Transaction scope when --threads:on
-        # tptoken=0
+        # TPTOKEN=0
         init()
         testOrderIterators()
 
@@ -279,7 +276,7 @@ when compileOption("threads"):
         # IMPORTANT! YOU MAY NOT CALL testQueryIterators() from inside the Transaction
         # when compiled with --threads:on
         # If a proc is used without Transaction, the process will hang
-        # tptoken will be set from YottaDB in the callback to the Transaction 
+        # TPTOKEN will be set from YottaDB in the callback to the Transaction 
         discard Transaction:
             var strdata: seq[string]
             var seqdata: seq[seq[string]]
@@ -430,7 +427,6 @@ when compileOption("threads"):
     test "transactionSet": testTransactionSet()
     test "transactionSetParam": testTransactionSetParam()
     test "transactionData": testTransactionData()
-    test "transactionRollback": testTransactionRollback()
     test "transactionKillnode": testTransactionKillnode()
     test "transactionKill": testTransactionKill()
     test "transactionIncrement": testTransactionIncrement()
@@ -439,6 +435,7 @@ when compileOption("threads"):
     test "transactionQueryItrMT": testTransactionQueryItrMT()
     test "transactionOrderItr": testTransactionOrderItr()
     test "transactionOrderItrMT": testTransactionOrderItrMT()
+    test "transactionRollback": testTransactionRollback()
 
 
 else:

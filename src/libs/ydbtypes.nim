@@ -41,7 +41,12 @@ type
   YdbVar* = object 
     prefix*: string
     name*: string
-    subscripts*: Subscripts
     value*: string
     typdesc*: string
-    tptoken*: uint64
+    subscripts*: Subscripts
+
+
+var TPTOKEN* {.threadvar.}: uint64
+# TPTOKEN holds the transaction token given by YottaDB in the context
+# of a Transaction when code is compiled with --threads:on
+# In all other cases, TPTOKEN = 0

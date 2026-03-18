@@ -45,43 +45,43 @@ func stringToSeq*(subs: Subscripts): Subscripts =
         result.add(stringToSeq(sub))
 
 
-proc ydbMessage*(status: cint, tptoken: uint64 = 0): string =
-  ydbMessage_db(status, tptoken)
+proc ydbMessage*(status: cint): string =
+  ydbMessage_db(status)
 
 
-proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "", tptoken: uint64 = 0) =
+proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "") =
     if value.len <= YDB_MAX_BUF_SIZE:
-        ydb_set_db(name, keys, value, tptoken)
+        ydb_set_db(name, keys, value)
     else:
-        ydb_set_binary_db(name, keys, value, tptoken)
+        ydb_set_binary_db(name, keys, value)
 
 
-proc ydb_get*(name: string, keys: Subscripts = @[], tptoken: uint64 = 0): string =
-  ydb_get_db(name, keys, tptoken)
+proc ydb_get*(name: string, keys: Subscripts = @[]): string =
+  ydb_get_db(name, keys)
 
-proc ydb_getbinary*(name: string, keys: Subscripts = @[], tptoken: uint64 = 0): string =
-  ydb_getbinary_db(name, keys, tptoken)
-
-
-proc ydb_data*(name: string, keys: Subscripts, tptoken: uint64 = 0): int =
-  ydb_data_db(name, keys, tptoken)
+proc ydb_getbinary*(name: string, keys: Subscripts = @[]): string =
+  ydb_getbinary_db(name, keys)
 
 
-proc ydb_delete_node*(name: string, keys: Subscripts, tptoken: uint64 = 0) =
-  ydb_delete_node_db(name, keys, tptoken)
+proc ydb_data*(name: string, keys: Subscripts): int =
+  ydb_data_db(name, keys)
 
 
-proc ydb_delete_tree*(name: string, keys: Subscripts, tptoken: uint64 = 0) =
-  ydb_delete_tree_db(name, keys, tptoken)
+proc ydb_delete_node*(name: string, keys: Subscripts) =
+  ydb_delete_node_db(name, keys)
 
 
-proc ydb_delete_excl*(names: seq[string] = @[], tptoken: uint64 = 0) =
+proc ydb_delete_tree*(name: string, keys: Subscripts) =
+  ydb_delete_tree_db(name, keys)
+
+
+proc ydb_delete_excl*(names: seq[string] = @[]) =
   # Default names to empty -> clear all local variables
-  ydb_delete_excl_db(names, tptoken)
+  ydb_delete_excl_db(names)
 
 
-proc ydb_increment*(name: string, keys: Subscripts, Increment: int = 1, tptoken: uint64 = 0): int =
-  ydb_increment_db(name, keys, Increment, tptoken)
+proc ydb_increment*(name: string, keys: Subscripts, Increment: int = 1): int =
+  ydb_increment_db(name, keys, Increment)
 
 
 proc ydb_tp_mt*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string = "", transid: string = ""): int =
@@ -100,69 +100,68 @@ proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: int, transid: string = ""): int =
 
 # ------------------ Next/Previous Node -----------------
 
-proc ydb_node_next*(global: string, subscripts: Subscripts = @[], tptoken: uint64 = 0): (int, Subscripts) =
-  ydb_node_next_db(global, subscripts, tptoken)
+proc ydb_node_next*(global: string, subscripts: Subscripts = @[]): (int, Subscripts) =
+  ydb_node_next_db(global, subscripts)
   
-proc ydb_node_previous*(global: string, subscripts: Subscripts = @[], tptoken: uint64 = 0): (int, Subscripts) =
-  ydb_node_previous_db(global, subscripts, tptoken)
+proc ydb_node_previous*(global: string, subscripts: Subscripts = @[]): (int, Subscripts) =
+  ydb_node_previous_db(global, subscripts)
 
 # ------------------ Next/Previous subscripts -----------------
 
-proc ydb_subscript_next*(name: string, subs: Subscripts = @[], tptoken: uint64 = 0): string =
-  ydb_subscript_next_db(name, subs, tptoken)
+proc ydb_subscript_next*(name: string, subs: Subscripts = @[]): string =
+  ydb_subscript_next_db(name, subs)
 
-proc ydb_subscript_previous*(name: string, subs: Subscripts = @[], tptoken: uint64 = 0): string =
-  ydb_subscript_previous_db(name, subs, tptoken)
+proc ydb_subscript_previous*(name: string, subs: Subscripts = @[]): string =
+  ydb_subscript_previous_db(name, subs)
 
 
 # ------------------ Locks -----------------
 
 # Max of 35 variable names in one call
-proc ydb_lock*(timeout_nsec: int, keys: seq[Subscripts], tptoken: uint64 = 0) =
-  ydb_lock_db(timeout_nsec, keys, tptoken)
+proc ydb_lock*(timeout_nsec: int, keys: seq[Subscripts]) =
+  ydb_lock_db(timeout_nsec, keys)
 
 
 # Only one variable name in one call
-proc ydb_lock_incr*(timeout_nsec: int, name: string, keys: Subscripts, tptoken: uint64 = 0) =
-  ydb_lock_incr_db(timeout_nsec, name, keys, tptoken)
+proc ydb_lock_incr*(timeout_nsec: int, name: string, keys: Subscripts) =
+  ydb_lock_incr_db(timeout_nsec, name, keys)
 
 
 # Only one variable name in one call
-proc ydb_lock_decr*(name: string, keys: Subscripts, tptoken: uint64 = 0) =
-  ydb_lock_decr_db(name, keys, tptoken)
+proc ydb_lock_decr*(name: string, keys: Subscripts) =
+  ydb_lock_decr_db(name, keys)
 
 
-proc str2zwr*(name: string, tptoken: uint64 = 0): string =
-  ydb_str2zwr_db(name, tptoken)
+proc str2zwr*(name: string): string =
+  ydb_str2zwr_db(name)
 
-proc zwr2str*(name: string, tptoken: uint64 = 0): string =
-  ydb_zwr2str_db(name, tptoken)
+proc zwr2str*(name: string): string =
+  ydb_zwr2str_db(name)
 
 
 # Call-In Interface
-proc ydb_ci*(name: string, tptoken: uint64 = 0) =
-  ydb_ci_db(name, tptoken)
+proc ydb_ci*(name: string) =
+  ydb_ci_db(name)
 
 # ------------------ YdbVar ----------------
 
-proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = "", tptoken: uint64 = 0): YdbVar =
+proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = ""): YdbVar =
   if global.len == 0: raise newException(YdbError, "Empty 'global' param")
 
   result.name = global
   result.subscripts = subscripts
   result.value = value
-  result.tptoken = tptoken
   # Read from / or write to DB
   if value.len == 0:
-    result.value = ydb_get(result.name, result.subscripts, result.tptoken)
+    result.value = ydb_get(result.name, result.subscripts)
   else:
-    ydb_set(result.name, result.subscripts, result.value, result.tptoken)
+    ydb_set(result.name, result.subscripts, result.value)
 
 proc `$`*(v: YdbVar): string =
-  ydb_get(v.name, v.subscripts, v.tptoken)
+  ydb_get(v.name, v.subscripts)
 
 proc `[]=`*(v: var YdbVar; val: string) =
-  ydb_set(v.name, v.subscripts, val, v.tptoken)
+  ydb_set(v.name, v.subscripts, val)
   v.value = val
 
 

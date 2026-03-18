@@ -132,12 +132,12 @@ atexit(cleanupBuffers)
 # ----------------------------------------------------------
 # YottaDB API Wrappers (safe Nim procs around C functions)
 # ----------------------------------------------------------
-proc ydbMessage_db*(status: int, tptoken: uint64 = 0): string =
+proc ydbMessage_db*(status: int, ): string =
   ## Return error message text for given status code
   if status == YDB_OK: return
   check()
   when compileOption("threads"):
-    rc = ydb_message_t(tptoken, ERRMSG.addr, status.cint, ERRMSG.addr)
+    rc = ydb_message_t(TPTOKEN, ERRMSG.addr, status.cint, ERRMSG.addr)
   else:
     rc = ydb_message(status.cint, ERRMSG.addr)
 
@@ -147,7 +147,7 @@ proc ydbMessage_db*(status: int, tptoken: uint64 = 0): string =
     return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
 
 
-template checkRC(tptoken: uint64 = 0) =
+template checkRC() =
   case rc
   of YDB_OK, YDB_ERR_NODEEND, YDB_ERR_GVUNDEF:
     discard
@@ -158,7 +158,7 @@ template checkRC(tptoken: uint64 = 0) =
   of YDB_TP_ROLLBACK:
     raise newException(TpRollback, YDB_TP_ROLLBACK_MSG)
   elif rc < YDB_OK:
-    raise newException(YdbError, ydbMessage_db(rc, tptoken))
+    raise newException(YdbError, ydbMessage_db(rc))
   else:
     discard
 
@@ -167,13 +167,13 @@ proc ydb_tp_start*(myTxn: ydb_tpfnptr_t, param: string, transid:string): int =
   ## Start a single-threaded transaction
   check()
   result = ydb_tp_s(myTxn, cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
-  checkRC(0)
+  checkRC()
 
 proc ydb_tp_start*(myTxn: ydb_tpfnptr_t, param: int, transid:string): int =
   ## Start a single-threaded transaction
   check()
   result = ydb_tp_s(myTxn, cast[pointer](param.cint), transid, 0, GLOBAL.addr)
-  checkRC(0)
+  checkRC()
 
 
 proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:string, transid:string): int =
@@ -189,21 +189,21 @@ proc ydb_tp2_start*(myTxn: YDB_tp2fnptr_t, param:int, transid:string): int =
   checkRC()
 
 
-proc ydb_set_db*(name: string, keys: Subscripts, value: string, tptoken: uint64) =
+proc ydb_set_db*(name: string, keys: Subscripts, value: string) =
   ## Store a value into a local or global node
   check()
   setIdxArr(IDXARR, keys)
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF, value)
   when compileOption("threads"):
-    rc = ydb_set_st(tptoken, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
+    rc = ydb_set_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, cast[cint](keys.len), IDXARR[0].addr, DATABUF.addr)
   else:
     rc = ydb_set_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
-  checkRC(tptoken)
+  checkRC()
 
-proc ydb_set_binary_db*(name: string, keys: Subscripts, value: string, tptoken: uint64) =
+proc ydb_set_binary_db*(name: string, keys: Subscripts, value: string) =
   if value.len <= YDB_MAX_BUF_SIZE:
-    ydb_set_db(name, keys, value, tptoken)
+    ydb_set_db(name, keys, value)
   else:
     var idx = 0
     var endpos = 0
@@ -214,11 +214,11 @@ proc ydb_set_binary_db*(name: string, keys: Subscripts, value: string, tptoken: 
       if idx >= endpos: break
       var subs:Subscripts = keys
       subs.add("___$" & fmt"{i:08}" & "$___")
-      ydb_set_db(name, subs, value[idx .. endpos], tptoken)
+      ydb_set_db(name, subs, value[idx .. endpos])
       idx = endpos + 1
 
 
-proc ydb_data_db*(name: string, keys: Subscripts, tptoken: uint64): int =
+proc ydb_data_db*(name: string, keys: Subscripts): int =
   ## Check existence/type of a global node
   ## Return codes: 0 = no Data, 1 = Data, 10 = child nodes, 11 = both
   check()
@@ -227,51 +227,51 @@ proc ydb_data_db*(name: string, keys: Subscripts, tptoken: uint64): int =
   var value: cuint = 0
 
   when compileOption("threads"):
-    rc = ydb_data_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, value.addr)
+    rc = ydb_data_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, value.addr)
   else:
     rc = ydb_data_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, value.addr)
 
-  checkRC(tptoken)
+  checkRC()
   return value.int # 0,1,10,11
 
 
 # --- Delete node/tree ---
-proc ydb_delete(name: string, keys: Subscripts, deltype: uint, tptoken: uint64) =
+proc ydb_delete(name: string, keys: Subscripts, deltype: uint) =
   ## Internal helper to delete either a node or a subtree
   check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
   when compileOption("threads"):
-    rc = ydb_delete_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, cast[cint](deltype))
+    rc = ydb_delete_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, cast[cint](deltype))
   else:
     rc = ydb_delete_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, deltype.cint)
   
-  checkRC(tptoken)
+  checkRC()
 
-proc ydb_delete_node_db*(name: string, keys: Subscripts, tptoken: uint64) =
+proc ydb_delete_node_db*(name: string, keys: Subscripts) =
   ## Delete a single node
-  ydb_delete(name, keys, YDB_DEL_NODE, tptoken)
+  ydb_delete(name, keys, YDB_DEL_NODE)
 
-proc ydb_delete_tree_db*(name: string, keys: Subscripts, tptoken: uint64) =
+proc ydb_delete_tree_db*(name: string, keys: Subscripts) =
   ## Delete a node and its subtree  
-  ydb_delete(name, keys, YDB_DEL_TREE, tptoken)
+  ydb_delete(name, keys, YDB_DEL_TREE)
 
 
-proc ydb_delete_excl_db*(names: seq[string], tptoken: uint64) =
+proc ydb_delete_excl_db*(names: seq[string]) =
   ## Delete all locals except the specified names  
   check()
   setYdbBuffer(NAMES, names)
 
   when compileOption("threads"):
-    rc = ydb_delete_excl_st(tptoken, ERRMSG.addr, names.len.cint, NAMES[0].addr)
+    rc = ydb_delete_excl_st(TPTOKEN, ERRMSG.addr, names.len.cint, NAMES[0].addr)
   else:
     rc = ydb_delete_excl_s(names.len.cint, NAMES[0].addr)
 
-  checkRC(tptoken)
+  checkRC()
 
 
-proc ydb_increment_db*(name: string, keys: Subscripts, Increment: int, tptoken: uint64): int =
+proc ydb_increment_db*(name: string, keys: Subscripts, Increment: int): int =
   ## Increment a node value and return new value  
   check()
   setYdbBuffer(GLOBAL, name)
@@ -279,11 +279,11 @@ proc ydb_increment_db*(name: string, keys: Subscripts, Increment: int, tptoken: 
   setIdxArr(IDXARR, keys)
 
   when compileOption("threads"):
-    rc = ydb_incr_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr, INCRBUF.addr)
+    rc = ydb_incr_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr, INCRBUF.addr)
   else:
     rc = ydb_incr_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr, INCRBUF.addr)
 
-  checkRC(tptoken)
+  checkRC()
 
   INCRBUF.buf_addr[INCRBUF.len_used] = '\0' # null terminate
   let buf = $INCRBUF.buf_addr
@@ -294,7 +294,7 @@ proc ydb_increment_db*(name: string, keys: Subscripts, Increment: int, tptoken: 
 
 
 # --- Node traversal (next/previous) ---
-proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
+proc node_traverse(direction: Direction, name: string, keys: Subscripts): (int, Subscripts) =
   ## Traverse to the next/previous node and return subscripts  
   check()
   setYdbBuffer(GLOBAL, name)
@@ -309,9 +309,9 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken
 
   when compileOption("threads"):
     if direction == Direction.Next:
-      rc = ydb_node_next_st(tptoken, ERRMSG.addr, GLOBAL.addr, subs.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
+      rc = ydb_node_next_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, subs.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
     else:
-      rc = ydb_node_previous_st(tptoken, ERRMSG.addr, GLOBAL.addr, subs.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
+      rc = ydb_node_previous_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, subs.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
   else:
     if direction == Direction.Next:
       rc = ydb_node_next_s(GLOBAL.addr, subs.len.cint, IDXARR[0].addr, ret_subs_used.addr, IDXARR[0].addr)
@@ -332,19 +332,19 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts, tptoken
   elif rc == YDB_ERR_NODEEND:
     return (rc.int, @[])
   else:
-    checkRC(tptoken)
+    checkRC()
 
-proc ydb_node_next_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
+proc ydb_node_next_db*(name: string, keys: Subscripts): (int, Subscripts) =
   ## Traverse to next node  
-  node_traverse(Direction.Next, name, keys, tptoken)
+  node_traverse(Direction.Next, name, keys)
 
-proc ydb_node_previous_db*(name: string, keys: Subscripts, tptoken: uint64): (int, Subscripts) =
+proc ydb_node_previous_db*(name: string, keys: Subscripts): (int, Subscripts) =
   ## Traverse to next node
-  node_traverse(Direction.Previous, name, keys, tptoken)
+  node_traverse(Direction.Previous, name, keys)
 
 
 # --- Subscript traversal (next/previous) ---
-proc subscript_traverse(direction: Direction, name: string, keys: Subscripts, tptoken: uint64): string =
+proc subscript_traverse(direction: Direction, name: string, keys: Subscripts): string =
   ## Traverse subscripts at current level  
   check()
   setYdbBuffer(GLOBAL, name)
@@ -357,9 +357,9 @@ proc subscript_traverse(direction: Direction, name: string, keys: Subscripts, tp
 
   when compileOption("threads"):
     if direction == Direction.Next:
-      rc = ydb_subscript_next_st(tptoken, ERRMSG.addr, GLOBAL.addr, subs.len.cint, IDXARR[0].addr,  DATABUF.addr)
+      rc = ydb_subscript_next_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, subs.len.cint, IDXARR[0].addr,  DATABUF.addr)
     else:
-      rc = ydb_subscript_previous_st(tptoken, ERRMSG.addr, GLOBAL.addr, subs.len.cint, IDXARR[0].addr,  DATABUF.addr)    
+      rc = ydb_subscript_previous_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, subs.len.cint, IDXARR[0].addr,  DATABUF.addr)    
 
   else:
     if direction == Direction.Next:
@@ -373,26 +373,26 @@ proc subscript_traverse(direction: Direction, name: string, keys: Subscripts, tp
   elif rc == YDB_ERR_NODEEND:
     result = EMPTY_STRING
   else:
-    checkRC(tptoken)
+    checkRC()
 
 
-proc ydb_subscript_next_db*(name: string, keys: Subscripts, tptoken: uint64): string =
+proc ydb_subscript_next_db*(name: string, keys: Subscripts): string =
   ## Traverse to next subscript  
-  subscript_traverse(Direction.Next, name, keys, tptoken)
+  subscript_traverse(Direction.Next, name, keys)
 
-proc ydb_subscript_previous_db*(name: string, keys: Subscripts, tptoken: uint64): string =
+proc ydb_subscript_previous_db*(name: string, keys: Subscripts): string =
   ## Traverse to previous subscript  
-  subscript_traverse(Direction.Previous, name, keys, tptoken)
+  subscript_traverse(Direction.Previous, name, keys)
 
 
-proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64, binary: bool = false): string =
+proc ydb_get_db*(name: string, keys: Subscripts = @[], binary: bool = false): string =
   ## Retrieve a value from a local or global node
   check()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
   when compileOption("threads"):
-    rc = ydb_get_st(tptoken, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
+    rc = ydb_get_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
   else:
     rc = ydb_get_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
 
@@ -409,30 +409,30 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[], tptoken: uint64, binary: 
   elif rc == YDB_ERR_GVUNDEF:
     return EMPTY_STRING
   else:
-    checkRC(tptoken)
+    checkRC()
 
-proc ydb_getbinary_db*(name: string, keys: Subscripts = @[], tptoken: uint64): string =
+proc ydb_getbinary_db*(name: string, keys: Subscripts = @[]): string =
   var subs = keys
   if keys.len > 0 and keys.len < 30: # willkürlich festgelegt TODO: Need length calculation of subs
     subs.add("___$00000000$___") # marker for first huge block
-    if ydb_data_db(name, subs, tptoken) >= 1:
+    if ydb_data_db(name, subs) >= 1:
       var sb = newStringStream()
       rc = YDB_OK
       while rc == YDB_OK:
         if subs[^1].startsWith("___$0"):
-          let val = ydb_get_db(name, subs, tptoken, true)
+          let val = ydb_get_db(name, subs, true)
           sb.write(val)
-        subs[^1] = ydb_subscript_next_db(name, subs, tptoken)
+        subs[^1] = ydb_subscript_next_db(name, subs)
       sb.setPosition(0)
       return sb.readAll()
     else:
-      return ydb_get_db(name, keys, tptoken, true)  
+      return ydb_get_db(name, keys, true)  
   else:
-    return ydb_get_db(name, keys, tptoken, true)
+    return ydb_get_db(name, keys, true)
 
 
 # --- Locks ---
-proc ydb_lock_incr_db*(timeout_nsec: int, name: string, keys: Subscripts, tptoken: uint64) =
+proc ydb_lock_incr_db*(timeout_nsec: int, name: string, keys: Subscripts) =
   ## Increment Lock for variable
   check()
   setYdbBuffer(GLOBAL, name)
@@ -445,17 +445,17 @@ proc ydb_lock_incr_db*(timeout_nsec: int, name: string, keys: Subscripts, tptoke
     subslen = keys.len.cint
 
   when compileOption("threads"):
-    rc = ydb_lock_incr_st(tptoken, ERRMSG.addr, timeout_nsec.culonglong, GLOBAL.addr, subslen, IDXARR[0].addr)
+    rc = ydb_lock_incr_st(TPTOKEN, ERRMSG.addr, timeout_nsec.culonglong, GLOBAL.addr, subslen, IDXARR[0].addr)
   else:
     rc = ydb_lock_incr_s(timeout_nsec.culonglong, GLOBAL.addr, subslen, IDXARR[0].addr)
 
   if rc == YDB_LOCK_TIMEOUT:
     raise newException(YdbError, fmt"YDB_LOCK_TIMEOUT while setting: {keys}")
   else:
-    checkRC(tptoken)
+    checkRC()
 
 
-proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken: uint64) =
+proc ydb_lock_decr_db*(name: string, keys: Subscripts) =
   ## Increment Lock variable
   check()
   setYdbBuffer(GLOBAL, name)
@@ -468,19 +468,19 @@ proc ydb_lock_decr_db*(name: string, keys: Subscripts, tptoken: uint64) =
     subslen = keys.len.cint
 
   when compileOption("threads"):
-    rc = ydb_lock_decr_st(tptoken, ERRMSG.addr, GLOBAL.addr, subslen, IDXARR[0].addr)
+    rc = ydb_lock_decr_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, subslen, IDXARR[0].addr)
   else:
     rc = ydb_lock_decr_s(GLOBAL.addr, subslen, IDXARR[0].addr)
 
-  checkRC(tptoken)
+  checkRC()
 
 
-proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]], tptoken: uint64): cint =
+proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_buffer_t], subs: seq[seq[ydb_buffer_t]]): cint =
   ## Pass all potential Lock parameters to the variadic c-function
   ## Setting the numOfLocks controls how many parameters are read by c-function
   if numOfLocks == 0:  # release all locks
     when compileOption("threads"):
-      rc = ydb_lock_st(tptoken, ERRMSG.addr, timeout, 0.cint) 
+      rc = ydb_lock_st(TPTOKEN, ERRMSG.addr, timeout, 0.cint) 
     else:
       rc = ydb_lock_s(timeout, 0.cint)
   else:
@@ -494,7 +494,7 @@ proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_b
         subslen[i] = subs[i].len.cint
 
     when compileOption("threads"):
-      rc = ydb_lock_st(tptoken, ERRMSG.addr, timeout, numOfLocks.cint, 
+      rc = ydb_lock_st(TPTOKEN, ERRMSG.addr, timeout, numOfLocks.cint, 
         addr names[0], subslen[0], addr subs[0][0],
         addr names[1], subslen[1], addr subs[1][0],
         addr names[2], subslen[2], addr subs[2][0],
@@ -572,7 +572,7 @@ proc ydb_lock_db_variadic(numOfLocks: int, timeout: culonglong, names: seq[ydb_b
   return rc.cint
 
 
-proc ydb_lock_db*(timeout_nsec: int, keys: seq[Subscripts], tptoken: uint64) =
+proc ydb_lock_db*(timeout_nsec: int, keys: seq[Subscripts]) =
   ## Acquire Lock on a node(s) with timeout in nsec
   if keys.len > YDB_MAX_NAMES:
     raise newException(YdbError, fmt"Too many arguments. Only {YDB_MAX_NAMES} are allowed")    
@@ -598,9 +598,9 @@ proc ydb_lock_db*(timeout_nsec: int, keys: seq[Subscripts], tptoken: uint64) =
     subs.add(stringToYdbBuffer(EMPTY_STRING))
     locksubs.add(subs)
 
-  let rc = ydb_lock_db_variadic(keys.len, cast[culonglong](timeout_nsec), locknames, locksubs, tptoken)  
+  let rc = ydb_lock_db_variadic(keys.len, cast[culonglong](timeout_nsec), locknames, locksubs)  
   if rc < YDB_OK:
-    raise newException(YdbError, fmt"{ydbMessage_db(rc, tptoken)}, {keys})")
+    raise newException(YdbError, fmt"{ydbMessage_db(rc)}, {keys})")
   elif rc == YDB_LOCK_TIMEOUT:
     raise newException(YdbError, fmt"YDB_LOCK_TIMEOUT while setting: {keys}")
 
@@ -608,7 +608,7 @@ proc ydb_lock_db*(timeout_nsec: int, keys: seq[Subscripts], tptoken: uint64) =
 
 # ----------- Call In Interface -------------
 
-proc ydb_ci_db*(name: string, tptoken: uint64) =
+proc ydb_ci_db*(name: string) =
   ## Call into a M routine (CI = call-in) with NO arguments, and NO return argument  
   ## Pass variables via local or global variables back and forth
   check()
@@ -618,14 +618,14 @@ proc ydb_ci_db*(name: string, tptoken: uint64) =
     dealloc(c_call_name)
 
   when compileOption("threads"):
-    rc = ydb_ci_t(tptoken, ERRMSG.addr, c_call_name)
+    rc = ydb_ci_t(TPTOKEN, ERRMSG.addr, c_call_name)
   else:
     rc = ydb_ci(c_call_name)
 
-  checkRC(tptoken)
+  checkRC()
 
 
-proc ydb_str2zwr_db*(name: string, tptoken: uint64): string =
+proc ydb_str2zwr_db*(name: string): string =
   ## Convert binary string: "hello\9World" -> "hello"_$C(9)_"World"
   check()
   let bufsize = min( (name.len.float * 2.5).int , YDB_MAX_BUF_SIZE)
@@ -634,7 +634,7 @@ proc ydb_str2zwr_db*(name: string, tptoken: uint64): string =
   setYdbBuffer(DATABUF, name)
 
   when compileOption("threads"):
-    rc = ydb_str2zwr_st(tptoken, ERRMSG.addr, DATABUF.addr, ZWRBUF.addr)
+    rc = ydb_str2zwr_st(TPTOKEN, ERRMSG.addr, DATABUF.addr, ZWRBUF.addr)
   else:
     rc = ydb_str2zwr_s(DATABUF.addr, ZWRBUF.addr)
 
@@ -643,15 +643,15 @@ proc ydb_str2zwr_db*(name: string, tptoken: uint64): string =
     result = $ZWRBUF.buf_addr
     deallocBuffer(ZWRBUF)
   else:
-    checkRC(tptoken)
+    checkRC()
 
 
-proc ydb_zwr2str_db*(name: string, tptoken: uint64): string =
+proc ydb_zwr2str_db*(name: string): string =
   ## Convert converted binary string: "hello"_$C(9)_"World" -> "hello\9World"
   check()
   setYdbBuffer(DATABUF, name)
   when compileOption("threads"):
-    rc = ydb_zwr2str_st(tptoken, ERRMSG.addr, DATABUF.addr, DATABUF.addr)
+    rc = ydb_zwr2str_st(TPTOKEN, ERRMSG.addr, DATABUF.addr, DATABUF.addr)
   else:
     rc = ydb_zwr2str_s(DATABUF.addr, DATABUF.addr)
 
@@ -661,4 +661,4 @@ proc ydb_zwr2str_db*(name: string, tptoken: uint64): string =
     for idx in 0..<DATABUF.len_used:
       result[idx] = DATABUF.buf_addr[idx].char
   else:
-    checkRC(tptoken)
+    checkRC()

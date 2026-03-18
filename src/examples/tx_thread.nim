@@ -38,18 +38,18 @@ proc worker(tn: int, iterations: int) =
       let tnr = info.split(",")[0]
       let fibresult = info.split(",")[1]
       let ms = info.split(",")[2]
-      let restarted = parseInt(ydb_get("$TRESTART", tptoken=tptoken)) # How many times the proc was called from yottadb
-      let txid = ydb_increment("^CNT", @[THS, tnr], 1, tptoken)
-      let data = fmt"tn:{tnr}, restarts:{restarted}, fibresult:{fibresult}, ms:{ms}, tptoken:{tptoken}"
-      ydb_set(GLOBAL, @[$txid, $tnr], $data, tptoken)
+      let restarted = parseInt(ydb_get("$TRESTART")) # How many times the proc was called from yottadb
+      let txid = ydb_increment("^CNT", @[THS, tnr], 1)
+      let data = fmt"tn:{tnr}, restarts:{restarted}, fibresult:{fibresult}, ms:{ms}, tptoken:{TPTOKEN}"
+      ydb_set(GLOBAL, @[$txid, $tnr], $data)
     
     if rc == YDB_OK:
       let rc = Transaction($tn & "," & $ms):
         let info = $cast[cstring](param)
         let tn = info.split(",")[0]
         let ms = info.split(",")[1]
-        let txid = ydb_get("^CNT", @[THS, $tn], tptoken=tptoken) # get last transaction id for this thread
-        var data = newYdbVar(GLOBAL, @[$txid, $tn], tptoken=tptoken)
+        let txid = ydb_get("^CNT", @[THS, $tn]) # get last transaction id for this thread
+        var data = newYdbVar(GLOBAL, @[$txid, $tn])
         data[] = data.value & " overall-time:" & $ms # append overall
     else:
       # Should not happen
