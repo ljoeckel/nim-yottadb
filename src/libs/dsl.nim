@@ -2,6 +2,7 @@ import macros
 import std/strutils
 import std/strformat
 import std/sets
+import std/[json]
 import libs/ydbtypes
 import libs/ydbapi
 when compileOption("profiler"):
@@ -803,6 +804,61 @@ macro OrderItr*(body: untyped): untyped =
     let (apiName, reverse) = getApiName("OrderItr", args)
     result = newCall(ident(apiName), newLit(reverse))
     for arg in args: result.add arg
+
+
+#================
+# CallM:
+#================
+proc setupCTX(node: JsonNode, level: var int, subs: var seq[string]) =
+  case node.kind
+  of JObject:
+    for key, value in node.pairs:
+      inc level
+      if subs.len < level: subs.add(key)
+      setupCTX(value, level, subs)
+      dec level
+      subs.delete(level)
+  of JArray:
+    for item in node.elems:
+      setupCTX(item, level, subs)
+  else:
+    # (String, Int, etc.) einfach ausgeben
+    if node.kind == JString:
+        Set: CTX(subs) = node.getStr()
+    elif node.kind == JInt:
+        Set: CTX(subs) = node.getInt()
+    elif node.kind == JFloat:
+        Set: CTX(subs) = node.getFloat()
+    elif node.kind == JBool:
+        Set: CTX(subs) = node.getBool()
+    else:
+        echo "Unknown datatype ", node.kind
+
+proc callmx*(args: varargs[string]): string =
+    Kill CTX
+    if args.len == 2 and args[1][0] == '{' and args[1][^1] == '}': # Try to parse Json
+        # JSON passed
+        let data = parseJson(args[1])
+        var indent : seq[string]
+        var level = 0
+        setupCTX(data, level, indent)
+        # call the callin interface, The RESULT local variable can be readout with Get LOCAL(,,)
+    elif args.len == 2:
+        # Single argument
+        Set: CTX = args[1]
+    else:
+        # Multiple arguments
+        for i in 1..<args.len:
+            Set: CTX(i) = args[i]
+
+    ydb_ci(args[0])
+    result = Get RESULT
+
+
+macro CallM*(body: untyped): untyped =
+    var args: seq[NimNode]
+    processStmtList(body)
+    result = newCall(ident"callmx", args)
 
 
 # --------------------------------

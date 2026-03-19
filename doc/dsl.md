@@ -348,21 +348,16 @@ If a `Transaction` raises an exception, the macro returns `YDB_TP_RESTART` to re
 
 You can pass a single `string` parameter to `Transaction("ABC")`. Inside the body cast `param` to `cstring` to access it:
 ```nim
-# single-threaded (--threads:off)
-let rc = Transaction("ABC"):
-  let s = $cast[cstring](param)
-  Set: ^gbl(101, s) = "Data"
+let rc = Transaction("4711B"):
+  let nbr = $cast[cstring](param)
+  let id = Increment ^IDS("customer")
+  Set: ^Customer(id, "account", nbr) = "Data"
 ```
 
-In single-threaded mode you may use both the API and the DSL inside the transaction body (e.g. `ydb_set`, `setvar`, or using a dynamic global name via `let gbl = "^AAA"` and `Set: @gbl(4) = "..."`).
+You may use both the API and the DSL inside the transaction body.
 
-For multi-threaded transactions you must pass the `tptoken` parameter to YottaDB API calls. DSL-style `setvar` is not currently supported inside multi-threaded `Transaction` bodies; use the API form (`ydb_set(..., tptoken)`). If `tptoken` is omitted in a multi-threaded context, the call will block.
-```nim
-# multi-threaded (--threads:on)
-let rc2 = Transaction(4712):
-  let id = $cast[cint](param)
-  ydb_set("^gbl", @[id], "Data", tptoken)
-```
+Also DSL is supported in Multi-Threaded environment (compile with '--threads:on').
+In this case the required `tptoken` will be automatically set by the DSL macros.
 
 Inside the multi-threaded transaction body you have access to:
 - `tptoken`: uint64
@@ -371,23 +366,45 @@ Inside the multi-threaded transaction body you have access to:
 
 Transactions commit automatically at the end of their scope. For an example of `Transaction` usage see `m/bidwars.nim`. 
 
+You can pass data to the Transaction scope via the YottaDB's local variables:
 
-
-If you need access to variables outside the `Transaction` scope then the variable must be in Nim's global scope:
-```bash
-var somedata = "ABC"
-proc doTransaction() =
-    let somevar = "DEF"
-    let rc = Transaction:
-        Set: ^Data(4711) = somedata
-        # Set: ^Data(4712) = somevar # this will NOT work
-```
-Instead you can use YottaDB's local variables to pass Data between your proc and the Transaction scope:
-```bash
+```nim
 Set: ctx("somedata") = "ABC"
 proc doTransaction() =
     let rc = Transaction:
         Set: ^Data(4711) = Get ctx("somedata")
 ```
-
 For background on YottaDB multi-threaded transactions read the YottaDB docs: https://docs.yottadb.com/MultiLangProgGuide/programmingnotes.html#threads-txn-proc
+
+# Call-In Interface
+There is a mechanism to call M-Code from Nim via DSL:
+```nim
+let result = CallM: method2("Hello World")
+assert result == "TheResultFrom YDB CTX=Hello World"
+```
+The `CallM` macro passes the parameter (Hello World) to the local variable `CTX` which can be then read out by the M-script:
+```bash
+method2 ; echo back some text with CTX (single argument)
+        set RESULT="TheResultFrom YDB CTX="_CTX
+        quit
+```
+Instead of a single argument string, a JSON object can also be passed to the CallM macro:
+```nim
+let data = parseJson("""{
+    "total": {
+        "RegT Margin": "896,255 USD",
+        "current_initial": "468,562 USD",
+    },
+    "commodities": {
+        "current_initial": "13,794 USD",
+        "Prdctd Pst-xpry Mrgn @ Opn": "0 USD",
+    }
+  }""")
+```
+The `CTX` local will be build in the form:
+```nim
+CTX("commodities","PrdctdPst-xpryMrgnOpn")="0 USD"
+CTX("commodities","current_initial")="13,794 USD"
+CTX("total","RegTMargin")="896,255 USD"
+CTX("total","current_initial")="468,562 USD"
+```

@@ -1,4 +1,4 @@
-import std/[strformat, unittest, times, os]
+import std/[strformat, unittest]
 import yottadb
 import ydbutils
 
@@ -160,49 +160,6 @@ proc testPreviousNodeIterator() =
 proc nextSubscript(global: string, start: Subscripts, expected: string) =
   var subscript = ydb_subscript_next(global, start)
   doAssert subscript == expected
-
-#TODO: REWRITE!
-# proc ydb_subscript_next_iterate(global: string, start: Subscripts, expected: string) =
-#   var last_subscript: string
-#   var subscript = ydb_subscript_next(global, start)
-#   while subscript.len > 0:
-#     last_subscript = subscript
-#     (rc, subscript) = ydb_subscript_next(global, subscript)
-#   doAssert last_subscript == expected
-
-#TODO: REWRITE!
-# proc previousSubscript(global: string, start: Subscripts, expected: Subscripts) =
-#   var lastSubscript: Subscripts
-#   var (rc, subscript) = ydb_subscript_previous(global, start)
-#   while rc == YDB_OK:
-#     lastSubscript = subscript
-#     (rc, subscript) = ydb_subscript_previous(global, subscript)
-#   doAssert lastSubscript == expected
-
-#TODO: REWRITE!
-# proc nextSubsIter(global: string, start: Subscripts, expected: Subscripts) =
-#   var lastSubs: Subscripts
-#   for subs in nextSubscript(global, start):
-#     lastSubs = subs
-#   doAssert lastSubs == expected
-#   let refdata = @[@["HAUS", "ELEKTRIK"], @["HAUS", "FLAECHEN"],@["HAUS", "HEIZUNG"]]
-#   var dbdata: seq[Subscripts]
-#   for subs in nextSubscript(global, start):
-#     dbdata.add(subs)
-#   assert dbdata == refdata
-
-#TODO: REWRITE!
-# proc previousSubsIter(global: string, start: Subscripts, expected: Subscripts) =
-#   var lastSubs: Subscripts
-#   for subs in prevSubscript(global, start):
-#     lastSubs = subs
-#   doAssert lastSubs == expected
-
-#   let refdata = @[@["HAUS", "HEIZUNG"], @["HAUS", "FLAECHEN"],@["HAUS", "ELEKTRIK"]]
-#   var dbdata: seq[Subscripts]
-#   for subs in prevSubscript(global, start):
-#     dbdata.add(subs)
-#   assert dbdata == refdata
 
 proc deleteTree() =
   ydb_delete_node("^LJ", @["LAND", "STRASSE"])
@@ -368,22 +325,6 @@ proc testDeleteExcl() =
   ydb_delete_excl()
   doAssertRaises(YdbError): discard ydb_get("DELTEST1", @["A"])
 
-
-proc test_ydb_ci() =
-  let ydb_ci = getEnv("ydb_ci")
-  if ydb_ci.len == 0:
-    echo "Could not find environment variable 'ydb_ci' to set the callin table. *** Test ignored ***"
-    return
-  if not fileExists(ydb_ci):
-    echo "Could not find callin file ", ydb_ci, " *** Test ignored ***"
-    return
-
-  let tm = getTime()
-  Set: VAR1=tm                      # set a YottaDB variable
-  ydb_ci("method1")
-  let result = Get RESULT  # Read the YottaDB variable from the Callin
-  assert $tm == result
-
 # -------------------------------------------------------------------
 
 if isMainModule:
@@ -400,19 +341,6 @@ if isMainModule:
   test "testNextNodeIterator": testNextNodeIterator()
   test "testPreviousNodeIterator": testPreviousNodeIterator()
   test "testPreviousNode": testPreviousNode("^LJ", @["LAND", "STRASSE"])
-  # test "nextSubscript1": nextSubscript("^LL", @["HAUS", "ELE..."], @["HAUS", "ELEKTRIK"])
-  # test "nextSubscript2": nextSubscript("^LL", @["HAUS", "ELEKTRIK"], @["HAUS", "FLAECHEN"])
-  # test "nextSubscript3": nextSubscript("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "DOSEN"])
-  # test "nextSubscript4": nextSubscript("^LL", @["HAUS", "ELEKTRIK", "DOSEN", ""], @["HAUS", "ELEKTRIK", "DOSEN", "1"])
-  # test "nextSubscript1": ydb_subscript_next_iterate("^LL", @["HAUS"], @["ORT"])
-  # test "nextSubscript2": ydb_subscript_next_iterate("^LL", @["HAUS", "ELE..."], @["HAUS", "HEIZUNG"])
-  # test "nextSubscript3": ydb_subscript_next_iterate("^LL", @["HAUS", "ELEKTRIK", ""], @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
-  # test "nextSubscript4": ydb_subscript_next_iterate("^LL", @["HAUS", "ELEKTRIK", "DOSEN", ""], @["HAUS", "ELEKTRIK", "DOSEN", "4"])
-  # test "previousSubscript1":previousSubscript("^LL", @["HAUS", "ELEKTRIK", "SICHERUN..."], @["HAUS", "ELEKTRIK", "DOSEN"] )
-  # test "previousSubscript2":previousSubscript("^LL", @["HAUS", "ELEKTRIK", "DOSEN", "99999"], @["HAUS", "ELEKTRIK", "DOSEN", "1"] )
-  # test "previousSubscript3":previousSubscript("^LL", @["HAUS"], @[] )
-  # test "ydb_subscript_next_iter":nextSubsIter("^LL", @["HAUS", "ELEKT..."], @["HAUS", "HEIZUNG"])
-  # test "ydb_subscript_previous_iter":previousSubsIter("^LL", @["HAUS", "ZZZZ"], @["HAUS", "ELEKTRIK"])
   test "deleteTree": deleteTree()
   test "deleteNode": deleteNode()
   test "deleteGlobalVar": testDeleteTree()
@@ -420,7 +348,6 @@ if isMainModule:
   test "testSpecialVariables": testSpecialVariables()
   test "Increment": testIncrement()
   test "maxSubscripts": testMaxSubscripts()
-  test "Call-In Interface": test_ydb_ci()
   test "testSetAndGetiable": testSetAndGetiable()
   test "testLock": testLock()
   test "testLockIncrement": testLockIncrement()

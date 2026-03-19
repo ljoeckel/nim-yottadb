@@ -15,7 +15,9 @@ type
         time*: string
 ```
 
-- The 'Transaction' macro now supports DSL when compiled with --thrads:on. The 'tptoken' is now injected into the db calls. All DSL's except 'Lock'. Also Order/Query and OrderItr/QueryItr can be used inside multi-threaded 'Transaction'
+- The 'Transaction' macro now supports DSL when compiled with --thrads:on. The 'tptoken' is now injected into the db calls. All DSL's except 'Lock' is supported. Also Order/Query and OrderItr/QueryItr can be used inside multi-threaded 'Transaction'
+- The DSL has a new `CallM` macro that allows to call the M's callin interface with either a string or a JSON Object.
+
 ## Breaking Changes
 - Serialization does not longer support "Binary object stream". Only by 'decomposition' is available
 - Use saveObject, loadObject, deleteObject for serialization
