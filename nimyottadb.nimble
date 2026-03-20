@@ -8,7 +8,7 @@ binDir = "bin"
 requires "nim >= 2.2.4"
 
 # Dependencies
-requires "malebolgia"
+requires "malebolgia >=1.3.2"
 
 task test, "Run nimyottadb unittests":
   echo "binary"

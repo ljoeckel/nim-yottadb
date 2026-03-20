@@ -46,7 +46,6 @@ proc haveEnvironment(): bool =
 
 
 proc test_ydb_ci() =
-  assert haveEnvironment()
   let tm = getTime()
   Set: CTX = $tm # pass CTX to callm.m
   ydb_ci: "method2"
@@ -54,19 +53,16 @@ proc test_ydb_ci() =
 
 
 proc test_ydb_callm() =
-  assert haveEnvironment()
   let result = CallM: method2("Hello World")
   assert result == "TheResultFrom YDB CTX=Hello World"
 
 
 proc test_ydb_callm_multiargs() =
-  assert haveEnvironment()
   let result = CallM: method3("Hello World", 123, 456.99, true)
   assert "From callin: CTX(1..4)=Hello World,123,456.99,true" == result
 
 
 proc test_ydb_callm_json() =
-  assert haveEnvironment()
   let data = parseJson("""{
       "total": {
           "RegT Margin": "896,255 USD",
@@ -114,7 +110,7 @@ proc test_ydb_callm_json() =
       inc cnt
 
 
-if isMainModule:
+if isMainModule and haveEnvironment():
   test "ydb_ci_api": test_ydb_ci()
   test "ydb_ci_callm": test_ydb_callm()
   test "ydb_ci_callm_multiargs": test_ydb_callm_multiargs()
