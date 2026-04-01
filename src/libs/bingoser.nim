@@ -1,4 +1,4 @@
-import macros, strutils, options, tables, sets, json
+import macros, strutils, options, tables, sets, json, sequtils
 import ydbapi
 
 # Public API
@@ -48,6 +48,8 @@ proc delete[T: tuple](global: string, subs: seq[string], k: string; o: T);
 proc delete[T](global: string, subs: seq[string], k: string; o: T);
 proc delete[T: object](subs: seq[string]; o: T);
 
+var IDX {.threadvar.}: int
+
 #-----------------------------
 # Index management
 #-----------------------------
@@ -62,6 +64,7 @@ type
     table: string
     fieldIndex: string
     value: string
+    values: seq[string]
     fieldId: string
     idValue: string
 
@@ -88,8 +91,7 @@ proc getIndexedFields[T](obj: T): Table[string, string] =
     else:
       # Felder ohne Pragma werden einfach ignoriert
       discard
-
-
+  
 proc updateIndex[T](o: T, updateMode: UpdateMode) =
   # Update INDEXED fields
   var fieldValues: seq[FieldValue]
@@ -101,27 +103,62 @@ proc updateIndex[T](o: T, updateMode: UpdateMode) =
     for fn, fv in fieldPairs(o):
       if fn == k: 
         fieldvalue.fieldIndex = fn
-        fieldvalue.value = $fv
+        when fv is Option[system.string]:
+          let opt = cast[Option[system.string]](fv)
+          fieldvalue.value = if opt.isSome: opt.get() else: ""
+        elif fv is seq[string]:
+          fieldvalue.values = fv
+        else:
+          fieldvalue.value = $fv
         break
+
     # search for ID field
     for fn, fv in fieldPairs(o):
       if fn == v: 
         fieldvalue.fieldId = fn
-        fieldvalue.idValue = $fv
+        var value:string
+        when fv is Option[string]:
+          value = if fv.isSome: fv.get() else: ""
+        elif fv is string:
+          value = fv
+        else:
+          echo "133 Unchecked datatype fv=", fv
+          value = $fv
+
+        fieldvalue.idValue = value
+        fieldValues.add(fieldValue)
         break
-    fieldValues.add(fieldValue)
 
   # Update the DB
   for field in fieldValues:
     let gblname = "^" & field.table & toUpper(field.fieldIndex)
-    if field.value.isEmptyOrWhitespace:
+    # seq[string]
+    if field.values.len > 0:
       if updateMode == Update:
-        ydb_set(gblname, @["%", field.idValue], "") # prevent emptyindex error
+        for value in field.values:
+          when value is Option[system.string]:
+            echo "140 TODO implement Option[string]"
+          elif value is seq[string]:
+            echo "140 TODO implement seq[string]"
+          elif value is string: # string
+            # handle @["Telefonica, Deutsche Telekom, Vodafone, Parkraum-Inbox, Heuzeroth-Thomas, Mobilfunk"]
+            if value.find(',') > 0:
+              var parts = value.split(',')
+              for part in parts:
+                ydb_set(gblname, @[strip(part), field.idValue], "")  
+          else: # ??
+            ydb_set(gblname, @[value, field.idValue], "")
       else:
-        ydb_delete_node(gblname, @["%", field.idValue]) # prevent emptyindex error
-    else:
+        echo "TODO: implement delete fieldvalues"
+    elif field.value.isEmptyOrWhitespace:
+    #   if updateMode == Update:
+    #     ydb_set(gblname, @["%", field.idValue], "") # prevent emptyindex error
+    #   else:
+    #     ydb_delete_node(gblname, @["%", field.idValue]) # prevent emptyindex error
+      discard
+    else: # string
       if updateMode == Update:
-        ydb_set(gblname, @[field.value, field.idValue], "")
+          ydb_set(gblname, @[field.value, field.idValue], "")
       else:
         ydb_delete_node(gblname, @[field.value, field.idValue])  
 
@@ -180,21 +217,27 @@ proc store(global: string, subs: seq[string], k: string; x: string) =
   saveInYdb(global, subs, k, $x)
   
 proc store[T: SomeNumber](global: string, subs: seq[string], k: string; x: T) =
+  # echo "183 ", global, " ", subs, " ", k, " ", type(x)
   saveInYdb(global, subs, k, $x)
   
 proc store[T: enum](global: string, subs: seq[string], k: string; x: T) =
+  # echo "186 ", global, " ", subs, " ", k, " ", type(x)
   saveInYdb(global, subs, k, $ord(x))
   
 proc store[S, T](global: string, subs: seq[string], k: string; x: array[S, T]) =
+  # echo "189 ", global, " ", subs, " ", k, " ", type(x)
   for elem in items(x):
     store(global, subs, k, elem)
 
 proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[T] | set[T]) =
+  # echo "193 ", global, " ", subs, " ", k, " ", type(x)
   var idx = 0
   for elem in x.items():
+    inc IDX
     var subscpy = subs
     when T is object:
       subscpy.add($idx)
+      # echo "202 T is object  subscpy:", subscpy, " elem=", elem
       store(subscpy, elem)
     elif T is enum:
       subscpy.add(k)
@@ -209,16 +252,18 @@ proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[
     inc(idx)
 
 proc store[K, V](global: string, subs: seq[string], kv: string; o: (Table[K, V]|OrderedTable[K, V])) =
+  # echo "212 ", global, " ", subs, " ", kv, " ", type(o)
   for fn, fv in pairs(o):
     store(global, subs, kv, fn)
     store(global, subs, kv, fv)
 
 proc store[T](global: string, subs: seq[string], k: string; o: Option[T]) =
-  let isSome = isSome(o)
-  if isSome:
+  if isSome(o):
+    # echo "218 IDX=", IDX, " global:", global, " subs:", subs, " k:", k, " ", type(o)
     store(global, subs, k, get(o))
 
 proc store[T: tuple](global: string, subs: seq[string], k: string; o: T) =
+  # echo "222 ", global, " ", subs, " ", k, " ", type(o)
   for fn, fv in fieldPairs(o):
     store(global, subs, fn, fv)
 
@@ -227,7 +272,7 @@ proc store[T: tuple](global: string, subs: seq[string], k: string; o: T) =
 
 # For references to objects (e.g. Foo)
 #proc store[T: object](global: string, subs: seq[string], k: string; o: ref T) =
-#  echo "76 ref T typeof(o):", $typeof(o)
+#  # echo "76 ref T typeof(o):", $typeof(o)
 #  if o != nil:
 #    store[T](global, subs, k, o[])  # unwrap and call object version
 
@@ -238,16 +283,19 @@ proc store[T](global: string, subs: seq[string], k: string; o: T) =
     store(gbl, subs, fn, fv)
 
 proc store[T: object](subs: seq[string]; o: T) =
+  # echo "248 store subs:", subs, " o:", type(o)
   let gbl = "^" & $typeof(o)
   for fn, fv in fieldPairs(o):
     store(gbl, subs, fn, fv)
+  updateIndex(o, Update)
 
 proc saveObject*[T: object](subs: seq[string]; o: T) =
   let gbl = "^" & $typeof(o)
-  let data = ydb_data(gbl, subs)
-  if data > 0:
-    var oldobj = loadObject[T](subs)
-    updateIndex(oldobj, Delete)
+  # echo "248 saveObject ", gbl, " ", subs, " ", type(o)
+  # let data = ydb_data(gbl, subs)
+  # if data > 0:
+  #   var oldobj = loadObject[T](subs)
+  #   updateIndex(oldobj, Delete)
 
   # Save the new/updated object
   for fn, fv in fieldPairs(o):
@@ -259,6 +307,7 @@ proc saveObject*[T: object](id: string, o: T) =
 
 proc saveObject*[T: object](id: int, o: T) =
   saveObject(@[$id], o)
+  
 
 
 #-----------------------------
@@ -361,9 +410,14 @@ proc load[K, V](global: string, subs: seq[string], kv: string; o: var (Table[K, 
     load(global, subs, kv, fv)
 
 proc load[T](global: string, subs: seq[string], k: string; o: var Option[T]) =
-  let isSome = isSome(o)
-  if isSome:
-    load(global, subs, k, get(o))
+  #if isSome(o):
+  #  load(global, subs, k, get(o))
+  #load(global, subs, o)
+  var subscripts = subs
+  subscripts.add(k)
+  let val = ydb_get(global, subscripts)
+  if val.len > 0: o = some(val)
+  # echo "363 global:", global, " subs:", subs, ",'", k, "'=", val
 
 proc load[T: var tuple](global: string, subs: seq[string], k: string; o: var T) =
   for fn, fv in fieldPairs(o):

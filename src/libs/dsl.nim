@@ -373,9 +373,14 @@ macro Get*(body: untyped): untyped =
     result = newCall(ident(typename), args)
 
 
-# -------------------------------
-# Int / Uint / Float conversions
-# -------------------------------
+# -------------------------------------
+# Int / Uint / Float / Bool conversions
+# -------------------------------------
+proc parseBool(value: string): bool =
+    var b = toUpper(value)
+    if b == "TRUE" or b == "T" or b == "1":
+        result = true
+        
 template defineGetX(typeName, parseFunc: untyped) =
   proc `getx typeName`*(args: varargs[string]): typeName =
     let s = getx(args)
@@ -399,6 +404,7 @@ defineGetX(uint64, parseUInt)
 defineGetX(float, parseFloat)
 #defineGetX(float32, parseFloat) #TODO: cast gives strange results
 defineGetX(float64, parseFloat)
+defineGetX(bool, parseBool)
 
 
 #================

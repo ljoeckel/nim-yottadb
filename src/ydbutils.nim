@@ -238,3 +238,12 @@ proc printLogs*() =
 #   let logFile = open("log.txt", fmWrite)
 #   stdout = logFile
 #   echo fmt"This is output to the {logFileName} file."
+
+# Filesystem / Directory
+proc directoryWalk*(path: string): seq[string] =
+    for kind, path in walkDir(path):
+        case kind:
+        of pcFile, pcLinkToFile:
+            result.add(path)
+        of pcDir, pcLinkToDir:
+            result.add(directoryWalk(path))

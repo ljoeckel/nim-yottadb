@@ -1,21 +1,15 @@
 import os
 import std/[times, strutils, strformat]
 import yottadb
+import ydbutils
 
 const
     ID = "^CNT(id)"
 
-proc walk(path: string): seq[string] =
-    for kind, path in walkDir(path):
-        case kind:
-        of pcFile, pcLinkToFile:
-            result.add(path)
-        of pcDir, pcLinkToDir:
-            result.add(walk(path))
 
 proc saveImagesToDb(basedir: string): uint =
     var totalBytes: uint
-    for image in walk(basedir):
+    for image in directoryWalk(basedir):
         let image_data = readFile(image)
         echo fmt"Save image {image} ({image_data.len} bytes) to db"
         let id = Increment @ID
