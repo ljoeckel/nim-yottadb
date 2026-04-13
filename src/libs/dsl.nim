@@ -954,3 +954,20 @@ template Transaction*(body: untyped): int =
 
 template Transaction*(param: untyped, body: untyped): int =
   transactionImpl(param, body)
+
+
+# --------------------------------
+# Locks
+# --------------------------------
+
+template withlock*(body: untyped): untyped =
+    ## Create a database Lock named ^LOCKS(int.high) while executing the body
+    Lock: {+^LOCKS(int.high)}
+    body
+    Lock: {-^LOCKS(int.high)}
+
+template withlock*(lockid: untyped, body: untyped): untyped =
+    ## Create a database Lock named ^LOCKS(lockid) while executing the body
+    Lock: {+^LOCKS(lockid)}
+    body
+    Lock: {-^LOCKS(lockid)}

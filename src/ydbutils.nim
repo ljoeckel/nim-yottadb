@@ -5,19 +5,6 @@ import yottadb
 # Yotta related functions 
 # -----------------------
 
-# withlock:
-template withlock*(body: untyped): untyped =
-    ## Create a database Lock named ^LOCKS(int.high) while executing the body
-    Lock: {+^LOCKS(int.high)}
-    body
-    Lock: {-^LOCKS(int.high)}
-
-template withlock*(lockid: untyped, body: untyped): untyped =
-    ## Create a database Lock named ^LOCKS(lockid) while executing the body
-    Lock: {+^LOCKS(lockid)}
-    body
-    Lock: {-^LOCKS(lockid)}
-
 proc listVar*(name: string) =
   # List all entries for a variable with its value
   for key, value in QueryItr @name.kv:
