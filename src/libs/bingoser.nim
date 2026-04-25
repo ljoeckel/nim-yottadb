@@ -181,6 +181,8 @@ macro fillFrom*(obj: var auto, data: JsonNode) =
       if `data`.hasKey(`name`):
         when `obj`.`nameIdent` is int:
           `obj`.`nameIdent` = `data`[`name`].getInt()
+        elif `obj`.`nameIdent` is float:
+          `obj`.`nameIdent` = `data`[`name`].getFloat()
         elif `obj`.`nameIdent` is string:
           `obj`.`nameIdent` = `data`[`name`].getStr()
         elif `obj`.`nameIdent` is bool:
