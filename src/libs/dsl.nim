@@ -48,11 +48,9 @@ const
 # ------------------
 template transformCallNode(node: NimNode) =
     case node.kind
-    of nnkIdent, nnkInfix:
-        args.add(newCall(ident"$", node))
     of nnkStrLit, nnkPrefix:  # "abc" / let id=4711; Get ^gbl($id)
         args.add(node)
-    of nnkIntLit, nnkFloatLit, nnkCharLit:
+    of nnkIdent, nnkInfix, nnkDotExpr, nnkIntLit, nnkFloatLit, nnkCharLit:
         args.add(newCall(ident"$", node))
     else:
         raise newException(Exception, "transformCallNode: node.kind:" & $node.kind & " not supported! node=" & repr(node))

@@ -1,4 +1,4 @@
-import macros, strutils, options, tables, sets, json, sequtils
+import macros, strutils, strformat, options, tables, sets, json, sequtils
 import ydbapi
 
 # Public API
@@ -345,11 +345,14 @@ proc load[T: var SomeNumber](global: string, subs: seq[string], k: string; x: va
 
 # ENUM
 proc load[T: enum](global: string, subs: seq[string], k: string; x: var T) =
-  let value = parseInt(loadFromYdb(global, subs, k))
-  if value >= low(T).ord and value <= high(T).ord:
-    x = T(value)
-  else:
-    raise newException(ValueError, "Invalid enum value: " & $value)
+  try:
+    let dbval = loadFromYdb(global, subs, k)
+    let value = parseInt(dbval)
+    if value >= low(T).ord and value <= high(T).ord:
+      x = T(value)
+  except:
+    x = low(T)
+    echo fmt"WARN: No valid '{k}' enum value from db Global:'{global}', Subscript:'{subs}'. Using '{low(T)}' as default"
 
 # SET 
 proc load[T](global: string, subs: seq[string], k: string; x: var set[T]) =
@@ -438,7 +441,11 @@ proc loadObject*[T](subs: seq[string]): T =
   let gbl = "^" & $T
   # Test for empty id
   if subs.len == 0 or (subs.len >= 1 and subs[0] == ""): return T()
-  load(gbl, subs, result)
+  # Test for existence
+  if ydb_data(gbl, subs) > 1:
+    load(gbl, subs, result)
+  else:
+    return T()
 
 proc loadObject*[T](id: int): T =
   loadObject[T](@[$id])
