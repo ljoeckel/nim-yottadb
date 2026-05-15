@@ -134,13 +134,12 @@ proc testSetGetGlobal() =
   assert 6 == Get ^global(@["6", $x]).int
   assert 6.0 == Get ^global(@["6", $x]).float
 
-  let id7 = @["7", "x"]
-  var global = fmt"^global({id7})"
-  echo "global=", global
-  Set: @global = "7"
-  assert "7" == Get @global
-  assert 7 == Get @global.int
-  assert 7.0 == Get @global.float
+  let global = "^global(7)" 
+  Set: @global("x") = "7"
+  assert "7" == Get ^global("7", "x")
+  assert "7" == Get @global("x")
+  assert 7 == Get @global("x").int
+  assert 7.0 == Get @global("x").float
 
 proc testSetGet() =
   let id = 123
@@ -564,9 +563,6 @@ proc testDefaults() =
   let valstr = Get (@gbl("Test2"), default="test2")
   assert valstr == "test2"
 
-
-proc testNewName() = 
-  Set: ^x(1) = 1
 
 if isMainModule:
     test "setGetSingleMulti": setGetSingleMulti()

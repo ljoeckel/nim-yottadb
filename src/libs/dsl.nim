@@ -50,7 +50,7 @@ template transformCallNode(node: NimNode) =
     case node.kind
     of nnkStrLit, nnkPrefix:  # "abc" / let id=4711; Get ^gbl($id)
         args.add(node)
-    of nnkIdent, nnkInfix, nnkDotExpr, nnkIntLit, nnkFloatLit, nnkCharLit:
+    of nnkIdent, nnkInfix, nnkDotExpr, nnkIntLit, nnkFloatLit, nnkCharLit, nnkBracketExpr:
         args.add(newCall(ident"$", node))
     else:
         raise newException(Exception, "transformCallNode: node.kind:" & $node.kind & " not supported! node=" & repr(node))
@@ -284,8 +284,14 @@ func seqToYdbVar(args: varargs[string]): YdbVar =
         else:
             result.subscripts = args[1..^1]
 
-    if result.subscripts.len > 0 and result.subscripts[0].len > 1 and result.subscripts[0][0..1] == INDIRECTION_KEYS:
-        result.subscripts = stringToSeq(result.subscripts)
+    # convert string which describes a sequence to a real sequence: '@[\"123\",\"456\"]' -> @["123", "456"] 
+    var newsubs: seq[string]
+    for sub in result.subscripts:
+        if INDIRECTION_KEYS in sub:
+            newsubs.add(stringToSeq(sub))
+        else:
+            newsubs.add(sub)
+    result.subscripts = newsubs
 
 # "^global(1,2,..)" -> ydbvar
 func stringToYdbVar(name: string): YdbVar =
@@ -341,14 +347,11 @@ macro Data*(body: untyped): untyped =
 # Get
 #================
 proc getx*(args: varargs[string]): string =
-    var ydbvar: YdbVar
-    if args.len == 1:  # "^gbl(1,2,..), Localname, "
-        ydbvar = stringToYdbVar(args[0])
-    else:
-        ydbvar = seqToYdbVar(args)
+    # args.len == 1 > "^gbl(1,2,..), Localname, "
+    let ydbvar = if args.len == 1: stringToYdbVar(args[0]) else: seqToYdbVar(args)
     result = ydb_get(ydbvar.name, ydbvar.subscripts)
     if result.len == 0 and ydbvar.value.len > 0:
-        return ydbvar.value
+        return ydbvar.value # return 'default value' if nothing found
 
 proc getxbinary*(args: varargs[string]): string =
     let ydbvar = seqToYdbVar(args)

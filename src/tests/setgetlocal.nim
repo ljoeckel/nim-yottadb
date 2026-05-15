@@ -95,11 +95,11 @@ proc testSetGetLocal() =
   assert 4 == Get local(@["5", $x]).int
   assert 4.0 == Get local(@["5", $x]).float
 
-  var local = fmt"local({id3})"
-  Set: @local = "3"
-  assert "3" == Get @local
-  assert 3 == Get @local.int
-  assert 3.0 == Get @local.float
+  var local = fmt"local(3)"
+  Set: @local("x") = "3"
+  assert "3" == Get @local("x")
+  assert 3 == Get @local("x").int
+  assert 3.0 == Get @local("x").float
 
 proc setlocals() =
   Set: local(1) = 1

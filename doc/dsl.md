@@ -79,8 +79,8 @@ The global variable with its subscripts will be automatically created if it does
 ## Increment
 Atomic Increment of a global in the database
 ```nim
-let incrval = Increment: ^CNT("TXID")
-let c5 = Increment: (^CNT("AUTO"), by=5)
+let incrval = Increment ^CNT("TXID")
+let c5 = Increment (^CNT("AUTO"), by=5)
 ```
 
 ## Data
@@ -96,13 +96,13 @@ Set:
     ^X(6)="G"
     ^X(7,3)="H"
   
-var dta = Data: ^X(0)
+var dta = Data ^X(0)
 assert YdbData(dta) == YDB_DATA_UNDEF
-dta = Data: ^X(6)
+dta = Data ^X(6)
 assert YdbData(dta) == YDB_DATA_VALUE_NODESC
-dta = Data: ^X(5)
+dta = Data ^X(5)
 assert YdbData(dta) == YDB_DATA_NOVALUE_DESC
-dta = Data: ^X(7)
+dta = Data ^X(7)
 assert YdbData(dta) == YDB_DATA_VALUE_DESC
 ```
 
@@ -111,7 +111,7 @@ Delete a single node. If all nodes of a variable are removed, the variable itsel
 No descendants are removed.
 ```nim
 Set: ^X(1)="hello"
-Killnode: ^X(1) # delete only this node
+Killnode ^X(1) # delete only this node
 ```
 
 ## Kill
@@ -119,8 +119,8 @@ Delete a subtree of a variable. If all nodes are removed, the variable itself is
 ```nim
 Set: ^X(1,1)="hello"
 Set: ^X(1,2)="world"
-let dta = Data: ^X(1) # returns 10 (no Data but subtree)
-Kill: ^X(1)
+let dta = Data ^X(1) # returns 10 (no Data but subtree)
+Kill ^X(1)
 ```
 
 ## Lock
@@ -379,7 +379,7 @@ For background on YottaDB multi-threaded transactions read the YottaDB docs: htt
 # Call-In Interface
 There is a mechanism to call M-Code from Nim via DSL:
 ```nim
-let result = CallM: method2("Hello World")
+let result = CallM method2("Hello World")
 assert result == "TheResultFrom YDB CTX=Hello World"
 ```
 The `CallM` macro passes the parameter (Hello World) to the local variable `CTX` which can be then read out by the M-script:
