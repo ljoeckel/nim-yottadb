@@ -55,7 +55,7 @@ proc upcount_dsl() =
     # dsl
     Kill: ^CNT("upcount")
     for cnt in 0..<MAX:
-        discard Increment: ^CNT("upcount")
+        discard Increment ^CNT("upcount")
     assert MAX == Get ^CNT("upcount").int
 
 proc setSimple_dsl() =
@@ -88,7 +88,7 @@ proc upcount_indirect() =
     var gblcnt = "^CNT(upcount)"
     Kill: @gblcnt
     for cnt in 0..<MAX:
-        discard Increment: @gblcnt
+        discard Increment @gblcnt
     assert MAX == Get @gblcnt.int
 
 proc setSimple_indirect() =

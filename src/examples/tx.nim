@@ -18,7 +18,7 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
   let someParam = $cast[cstring](p0)
   let restarted = Get $TRESTART().int
   if restarted > 0:
-    discard Increment: ^TXS("restarted")
+    discard Increment ^TXS("restarted")
 
   try:
     let (ms, fibresult) = timed_rc:
@@ -26,7 +26,7 @@ proc myTxn(p0: pointer): cint {.cdecl.} =
       fibonacci_recursive(fib) # do some cpu intense work
     
     # Increment transaction counter and save application Data
-    let txid = Increment: ^CNT(THS)
+    let txid = Increment ^CNT(THS)
     let data = fmt"{someParam}, restarts:{restarted}, fib:{fib} result:{fibresult} time:{ms}"
     Set: ^TXS(txid)=data
   except:

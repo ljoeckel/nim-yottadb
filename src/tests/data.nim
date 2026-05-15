@@ -103,7 +103,7 @@ proc testData() =
 
 
 proc testData3() =
-  var dta = Data: ^X(0)
+  var dta = Data ^X(0)
   assert dta == YDB_DATA_UNDEF
   assert YDB_DATA_UNDEF == Data ^x(0)
   assert YDB_DATA_VALUE_NODESC == Data ^X(6)

@@ -53,7 +53,7 @@ proc testQuery() =
   var nodeseq: seq[string]
 
   # as full qualified global/subscript
-  node = Query: ^LL
+  node = Query ^LL
   assert node == "^LL(HAUS)"
 
   # as seq[string]

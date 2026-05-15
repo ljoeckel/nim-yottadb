@@ -36,21 +36,21 @@ proc setup() =
 proc showOrder() =
   block:
     echo "\nIterate with Order CUSTOMER"
-    var id = Order: ^CUSTOMER("")
+    var id = Order ^CUSTOMER("")
     while id.len > 0:
       let name = Get ^CUSTOMER(id, "Name")
       let email = Get ^CUSTOMER(id, "Email")
       echo fmt"Customer {id}: {name} <{email}>"
-      id = Order: ^CUSTOMER(id) # Read next
+      id = Order ^CUSTOMER(id) # Read next
 
   block:
     echo "\nIterate with Order CUSTOMER.keys"
-    var subs = Order: ^CUSTOMER("").keys
+    var subs = Order ^CUSTOMER("").keys
     while subs.len > 0:
       let name = Get ^CUSTOMER(subs, "Name")
       let email = Get ^CUSTOMER(subs, "Email")
       echo fmt"Customer {subs[0]}: {name} <{email}>"
-      subs = Order: ^CUSTOMER(subs).keys # Read next
+      subs = Order ^CUSTOMER(subs).keys # Read next
 
 
   block:

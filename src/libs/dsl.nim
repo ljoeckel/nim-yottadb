@@ -58,7 +58,7 @@ template transformCallNode(node: NimNode) =
 
 proc transform(node: NimNode, args: var seq[NimNode], attributes: seq[string] = @[]) =
     case node.kind
-    of nnkStmtList, nnkTupleConstr:
+    of nnkTupleConstr:        
         for i in 0..<node.len:
             transform(node[i], args, attributes)
     of nnkCurly:
@@ -124,10 +124,14 @@ proc transform(node: NimNode, args: var seq[NimNode], attributes: seq[string] = 
     else:
         raise newException(Exception, "Unsupported node.kind:" & $node.kind)
 
+
 template processStmtList(body: NimNode) =
-    for i in 0..<body.len:
-        transform(body[i], args)
-        if i < body.len-1: args.add(newLit(FIELDMARK))
+    if body.kind == nnkStmtList:
+        for i in 0..<body.len:
+            transform(body[i], args)
+            if i < body.len-1: args.add(newLit(FIELDMARK))
+    else:
+        transform(body, args)
 
 # ----------------------------
 # proc related helper proc's
@@ -331,7 +335,7 @@ proc datax*(args: varargs[string]): int =
 macro Data*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args)
-    result = newCall(ident"datax", args)
+    newCall(ident"datax", args)
 
 #================
 # Get
@@ -368,7 +372,7 @@ macro Get*(body: untyped): untyped =
     if args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
         typename.add(args[^1][1].strVal)
         args = args[0..^3] # remove TD,int
-    result = newCall(ident(typename), args)
+    newCall(ident(typename), args)
 
 
 # -------------------------------------
@@ -415,7 +419,7 @@ proc killnodex*(args: varargs[string]) =
 macro Killnode*(body: untyped): untyped =
     var args: seq[NimNode]
     processStmtList(body)
-    result = newCall(ident"killnodex", args)
+    newCall(ident"killnodex", args)
 
 
 #================
@@ -428,7 +432,7 @@ proc killx*(args: varargs[string]) =
 macro Kill*(body: untyped): untyped =
     var args: seq[NimNode]
     processStmtList(body)
-    result = newCall(ident"killx", args)
+    newCall(ident"killx", args)
 
 
 #================
@@ -443,7 +447,7 @@ proc delexclx*(args: varargs[string]) =
 macro Delexcl*(body: untyped): untyped =
     var args: seq[NimNode]
     processStmtList(body)
-    return newCall(ident"delexclx", args)
+    newCall(ident"delexclx", args)
 
 
 #================
@@ -459,7 +463,7 @@ proc incrementx*(args: varargs[string]): int =
 macro Increment*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args, @[BY])
-    result = newCall(ident"incrementx", args)
+    newCall(ident"incrementx", args)
 
 
 #================
@@ -525,7 +529,7 @@ proc lockx*(args: varargs[string]) =
 macro Lock*(body: untyped): untyped =
     var args: seq[NimNode]
     processStmtList(body)
-    return newCall(ident"lockx", args)
+    newCall(ident"lockx", args)
 
 
 #================
@@ -536,9 +540,11 @@ proc setx*(args: varargs[string]) =
         ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
 
 macro Set*(body: untyped): untyped =
+    # Set MUST be used in the form 'Set: <varname> = <value>'
+    # The Nim compiler will not allow 'Set <varname> = <value>'
     var args: seq[NimNode]
     processStmtList(body)
-    result = newCall(ident"setx", args)
+    newCall(ident"setx", args)
 
 # --------------------
 # Query Iterators
@@ -828,18 +834,19 @@ proc setupCTX(node: JsonNode, level: var int, subs: var seq[string]) =
   else:
     # (String, Int, etc.) einfach ausgeben
     if node.kind == JString:
-        Set: CTX(subs) = node.getStr()
+        ydb_set("CTX", subs, node.getStr())
     elif node.kind == JInt:
-        Set: CTX(subs) = node.getInt()
+        ydb_set("CTX", subs, $node.getInt())
     elif node.kind == JFloat:
-        Set: CTX(subs) = node.getFloat()
+        ydb_set("CTX", subs, $node.getFloat())
     elif node.kind == JBool:
-        Set: CTX(subs) = node.getBool()
+        ydb_set("CTX", subs, $node.getBool())
     else:
         echo "Unknown datatype ", node.kind
 
 proc callmx*(args: varargs[string]): string =
-    Kill CTX
+    ydb_delete_node("CTX", @[])
+
     if args.len == 2 and args[1][0] == '{' and args[1][^1] == '}': # Try to parse Json
         # JSON passed
         let data = parseJson(args[1])
@@ -849,20 +856,21 @@ proc callmx*(args: varargs[string]): string =
         # call the callin interface, The RESULT local variable can be readout with Get LOCAL(,,)
     elif args.len == 2:
         # Single argument
-        Set: CTX = args[1]
+        ydb_set("CTX", @[], args[1])
     else:
         # Multiple arguments
         for i in 1..<args.len:
-            Set: CTX(i) = args[i]
+            ydb_set("CTX", @[$i], args[i])
 
     ydb_ci(args[0])
-    result = Get RESULT
+    #result = Get RESULT
+    result = ydb_get("RESULT")
 
 
 macro CallM*(body: untyped): untyped =
     var args: seq[NimNode]
     processStmtList(body)
-    result = newCall(ident"callmx", args)
+    newCall(ident"callmx", args)
 
 
 # --------------------------------

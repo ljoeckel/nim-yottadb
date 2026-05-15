@@ -4,21 +4,21 @@ import malebolgia
 
 proc demoUpdate1(cnt: int, tn: int) =
     withlock 4711:
-        discard Increment: ^CNT(4711)
-        discard Increment: ^CNT(4711, tn)
+        discard Increment ^CNT(4711)
+        discard Increment ^CNT(4711, tn)
         withlock "4711,1":
-            discard Increment: ^CNT("TEMPLATE_TEST")
-            discard Increment: ^CNT(4711.1)
-            discard Increment: ^CNT(4711.1, tn)
+            discard Increment ^CNT("TEMPLATE_TEST")
+            discard Increment ^CNT(4711.1)
+            discard Increment ^CNT(4711.1, tn)
 
 proc demoUpdate2(cnt: int, tn: int) =
     withlock "4711,1":
-        discard Increment: ^CNT(4711.1)
-        discard Increment: ^CNT(4711.1, tn)
+        discard Increment ^CNT(4711.1)
+        discard Increment ^CNT(4711.1, tn)
         withlock 4711:
-            discard Increment: ^CNT("TEMPLATE_TEST")
-            discard Increment: ^CNT(4711)
-            discard Increment: ^CNT(4711, tn)
+            discard Increment ^CNT("TEMPLATE_TEST")
+            discard Increment ^CNT(4711)
+            discard Increment ^CNT(4711, tn)
 
 
 proc createThreads(cnt: int, numOfThreads: int) =

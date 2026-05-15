@@ -32,7 +32,7 @@ proc testIncrement(tn: int) =
   ## For each thread iterate to MAX and calculate the fibonacci and save in db
   for i in 0..<MAX:
     withlock(0):
-      discard Increment: COUNTER(0)     # Increment thread shared counter
+      discard Increment COUNTER(0)     # Increment thread shared counter
 
     let result = Increment @counter
     let sum = calcFibonacciSum()

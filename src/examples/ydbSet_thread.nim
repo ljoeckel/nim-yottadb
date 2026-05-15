@@ -26,7 +26,7 @@ proc api(tn: int) =
 
 proc dsl(tn: int) =
   worker:
-    let txid = Increment: ^CNT("ydb_set")
+    let txid = Increment ^CNT("ydb_set")
     Set: ^YDB(txid) = "This is some test from dsl thread " & $tn
 
 template main(workerProc: untyped) =

@@ -88,7 +88,7 @@ proc testKill3() =
   Set: ^X(1,1)="hello"
   Set: ^X(1,2)="world"
   Set: ^X(2) = "hello world"
-  let dta = Data: ^X(1) 
+  let dta = Data ^X(1) 
   assert 10 == dta # Expect no Data but subtree
   Kill: ^X(1)
   assert "" == Get ^X(1)

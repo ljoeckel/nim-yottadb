@@ -49,7 +49,7 @@ const
     bidders = 30
     duration = 5  # Seconds
 
-let pid = Get: $JOB
+let pid = Get $JOB
 const auction = "^Auction(1)"
 
 # -----------------
@@ -57,7 +57,7 @@ const auction = "^Auction(1)"
 # -----------------
 
 proc Auction() =
-    Kill: ^Auction
+    Kill ^Auction
     Set:
         @auction = "R2D2"        # Astromech droid up for sale
         @auction("Active") = ""  # Begun, the auction has not
