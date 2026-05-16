@@ -32,6 +32,13 @@ const
 const
   MAX_RESTARTS = 4
 
+func trim(str: string): string =
+    # remove \":  ^GBL(\"os\") -> ^GBL("os")
+    let s = str.strip()
+    if s.len > 0 and s[0] == '\"' and s[^1] == '\"':
+        s[1..^2]
+    else:
+        s
 
 # ------------------
 # Macro procs
@@ -204,21 +211,15 @@ func seqToYdbVars(args: varargs[string]): seq[YdbVar] =
 
 func resolveSubscripts(arg: string): (string, seq[string]) =
   var subs: seq[string]
-  var name: string
   let openPar = arg.find('(') # handle subscripts
   if openPar != -1:
-      let closePar = arg.find(')', openPar)
+      let closePar = arg.rfind(')')
       let index = arg[openPar + 1 ..< closePar]
       for idx in split(index, ','):
-          var s = idx.strip()
-          if s.len > 0:
-              if s[0] == '\"' and s[^1] == '\"': # remove \" (let gbl = "^GBL(\"os\")"
-                  s = s[1..^2]
-          subs.add(s)
-      name = arg[0..<openPar]
+        subs.add(trim(idx))
+      (arg[0..<openPar], subs)
   else:
-      name = arg
-  return (name, subs)
+      (arg, subs)
 
 
 func seqToYdbVar(args: varargs[string]): YdbVar =
@@ -239,14 +240,10 @@ func seqToYdbVar(args: varargs[string]): YdbVar =
         if result.prefix == INDIRECTION:
             let openPar = arg.find('(') # handle subscripts
             if openPar != -1:
-                let closePar = arg.find(')', openPar)
+                let closePar = arg.rfind(')')
                 let index = arg[openPar + 1 ..< closePar]
                 for idx in split(index, ','):
-                    var s = idx.strip()
-                    if s.len > 0:
-                        if s[0] == '\"' and s[^1] == '\"': # remove \" (let gbl = "^GBL(\"os\")"
-                            s = s[1..^2]
-                    result.subscripts.add(s)
+                    result.subscripts.add(trim(idx))
                     result.subscripts.add(args[2..^1]) # add the restly keyparts if any (Get @gbl(1,2,3))
                 result.name = arg[0..<openPar]
             else:
@@ -268,7 +265,7 @@ func seqToYdbVar(args: varargs[string]): YdbVar =
         else:
             if result.subscripts.len == 0: result.subscripts = args[2..^1]
     elif args.len >= 2 and args[0] == INDIRECTION:
-        if args[1].len > 0 and args[1][^1] == ')':            
+        if args[1].len > 0 and args[1][^1] == ')':  
             var subs: Subscripts
             let open = args[1].find("(")
             if open > 0:
@@ -293,21 +290,17 @@ func seqToYdbVar(args: varargs[string]): YdbVar =
             newsubs.add(sub)
     result.subscripts = newsubs
 
-# "^global(1,2,..)" -> ydbvar
 func stringToYdbVar(name: string): YdbVar =
-  let openPar = name.find('(') # handle subscripts
-  if openPar != -1:
-      let closePar = name.find(')', openPar)
-      let index = name[openPar + 1 ..< closePar]
-      for idx in split(index, ','):
-          var s = idx.strip()
-          if s.len > 0:
-              if s[0] == '\"' and s[^1] == '\"': # remove \" (let gbl = "^GBL(\"os\")"
-                  s = s[1..^2]
-          result.subscripts.add(s)
-      result.name = name[0..<openPar]
-  else: # no index (1,..)
-    result.name = name
+    # "^global(1,2,..)" -> ydbvar
+    let openPar = name.find('(') # handle subscripts
+    if openPar != -1:
+        let closePar = name.find(')', openPar)
+        let index = name[openPar + 1 ..< closePar]
+        for idx in split(index, ','):
+            result.subscripts.add(trim(idx))
+        result.name = name[0..<openPar]
+    else: # no index (1,..)
+        result.name = name
 
 func getTimeout(arg: string): int =
     result = YDB_LOCK_TIMEOUT

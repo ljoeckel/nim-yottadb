@@ -104,7 +104,7 @@ proc setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string]) =
 # ----------------------------------
 # Buffer initialization & cleanup
 # ----------------------------------
-template check() =
+proc check() =
   ## Ensure buffers are allocated before first use.
   if not buf_initialized:
     ERRMSG = stringToYdbBuffer(zeroBuffer(YDB_MAX_ERRORMSG))
