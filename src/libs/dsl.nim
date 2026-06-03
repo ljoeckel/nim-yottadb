@@ -185,7 +185,7 @@ func seqToYdbVars(args: varargs[string]): seq[YdbVar] =
       if ydbvar.prefix == INDIRECTION:
         let openPar = arg.find('(')
         if openPar != -1:
-          let closePar = arg.find(')', openPar)
+          let closePar = arg.rfind(')')
           let subsStr = arg[openPar + 1 ..< closePar]
           ydbvar.subscripts.add(stringToSeq(subsStr))
           ydbvar.name = arg[0..<openPar]
@@ -294,7 +294,7 @@ func stringToYdbVar(name: string): YdbVar =
     # "^global(1,2,..)" -> ydbvar
     let openPar = name.find('(') # handle subscripts
     if openPar != -1:
-        let closePar = name.find(')', openPar)
+        let closePar = name.rfind(')')
         let index = name[openPar + 1 ..< closePar]
         for idx in split(index, ','):
             result.subscripts.add(trim(idx))

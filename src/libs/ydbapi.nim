@@ -3,21 +3,13 @@ import ydbtypes
 import ydbimpl
 import libydb
 
-proc keysToString*(global: string, subs: Subscripts): string {.inline.} =
+func keysToString*(global: string, subs: Subscripts): string {.inline.} =
   result = global
   result.add("(")
   result.add(subs.join(","))
   result.add(")")
 
-proc keysToString*(global: string, subs: Subscripts, value:string): string {.inline.} =
-  result = global
-  result.add("(")
-  result.add(subs.join(","))
-  result.add(")")
-  if value.len > 0:
-    result.add("=" & value)
-
-func stringToSeq*(s: string): Subscripts =
+func stringToSeq*(s: string): Subscripts {.inline.} =
     # Convert ^Global(1,2,3) -> @["1", "2", "3"]
     var str: string = newString(s.len)
     var idx = 0
@@ -39,7 +31,7 @@ func stringToSeq*(s: string): Subscripts =
         str.setLen(idx)
         result.add(str)
 
-func stringToSeq*(subs: Subscripts): Subscripts =
+func stringToSeq*(subs: Subscripts): Subscripts {.inline.} =
     # seq @["@[\"4712\"]"] -> @["4712"]
     for sub in subs:
         result.add(stringToSeq(sub))
