@@ -60,11 +60,11 @@ proc ydb_data*(name: string, keys: Subscripts): int =
 
 
 proc ydb_delete_node*(name: string, keys: Subscripts) =
-  ydb_delete_node_db(name, keys)
+  ydb_delete(name, keys, YDB_DEL_NODE)
 
 
 proc ydb_delete_tree*(name: string, keys: Subscripts) =
-  ydb_delete_tree_db(name, keys)
+  ydb_delete(name, keys, YDB_DEL_TREE)
 
 
 proc ydb_delete_excl*(names: seq[string] = @[]) =
@@ -72,8 +72,8 @@ proc ydb_delete_excl*(names: seq[string] = @[]) =
   ydb_delete_excl_db(names)
 
 
-proc ydb_increment*(name: string, keys: Subscripts, Increment: int = 1): int =
-  ydb_increment_db(name, keys, Increment)
+proc ydb_increment*(name: string, keys: Subscripts, increment: int = 1): int =
+  ydb_increment_db(name, keys, increment)
 
 
 proc ydb_tp_mt*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string = "", transid: string = ""): int =
@@ -157,7 +157,6 @@ proc `[]=`*(v: var YdbVar; val: string) =
   v.value = val
 
 
-
 proc deleteGlobal*(global: string) =
   ydb_delete_tree(global, @[])
   # test if really empty
@@ -167,15 +166,10 @@ proc deleteGlobal*(global: string) =
 
 
 proc subscriptsToValue*(global: string, subscript: Subscripts): string =
-  var value: string
   try:
-    value = ydb_get(global, subscript)
+    keysToString(global, subscript) & "=" & ydb_get(global, subscript)
   except:
-    discard
-  if value.len == 0:
-    result = keysToString(global, subscript)
-  else:
-    result = keysToString(global, subscript) & "=" & value
+    keysToString(global, subscript)
 
 
 proc trimString*(s: string): string =

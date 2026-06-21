@@ -119,11 +119,9 @@ proc testNextNode(global: string, start: Subscripts = @[]) =
 proc testPreviousNode(global: string, start: Subscripts = @[]) =
   var cnt = 0
   var (rc, subs) = ydb_node_previous(global, start)
-  echo "1rc=", rc, " subs=", subs
   while rc == YDB_OK:
     inc(cnt)
     (rc, subs) = ydb_node_previous(global, subs)
-    echo "2rc=", rc, " subs=", subs
   doAssert cnt == MAX * 2 + 2
 
 proc testNextNodeIterator() =

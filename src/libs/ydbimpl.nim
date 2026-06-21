@@ -236,7 +236,7 @@ proc ydb_data_db*(name: string, keys: Subscripts): int =
 
 
 # --- Delete node/tree ---
-proc ydb_delete(name: string, keys: Subscripts, deltype: uint) =
+proc ydb_delete*(name: string, keys: Subscripts, deltype: uint) =
   ## Internal helper to delete either a node or a subtree
   check()
   setYdbBuffer(GLOBAL, name)
@@ -248,14 +248,6 @@ proc ydb_delete(name: string, keys: Subscripts, deltype: uint) =
     rc = ydb_delete_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, deltype.cint)
   
   checkRC()
-
-proc ydb_delete_node_db*(name: string, keys: Subscripts) =
-  ## Delete a single node
-  ydb_delete(name, keys, YDB_DEL_NODE)
-
-proc ydb_delete_tree_db*(name: string, keys: Subscripts) =
-  ## Delete a node and its subtree  
-  ydb_delete(name, keys, YDB_DEL_TREE)
 
 
 proc ydb_delete_excl_db*(names: seq[string]) =
