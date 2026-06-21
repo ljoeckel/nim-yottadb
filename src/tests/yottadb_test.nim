@@ -6,28 +6,32 @@ const
   MAX = 10
 
 proc setupLL() =
+  Kill:
+    ^LL
+    ^LJ
+    
   let global = "^LL"
-  ydb_set(global, @["HAUS"])
-  ydb_set(global, @["HAUS", "ELEKTRIK"])
-  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN"])
+  ydb_set(global, @["HAUS"], "")
+  ydb_set(global, @["HAUS", "ELEKTRIK"], "")
+  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN"], "")
   ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "1"], "Telefondose")
   ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "2"], "Steckdose")
   ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "3"], "IP-Dose")
   ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "4"], "KFZ-Dose")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL"])
-  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL", "FARBEN"])
-  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL", "STAERKEN"])
-  ydb_set(global, @["HAUS", "ELEKTRIK", "SICHERUNGEN"])
-  ydb_set(global, @["HAUS", "FLAECHEN", "RAUM1"])
-  ydb_set(global, @["HAUS", "FLAECHEN", "RAUM2"])
-  ydb_set(global, @["HAUS", "FLAECHEN", "RAUM2"])
-  ydb_set(global, @["HAUS", "HEIZUNG"])
-  ydb_set(global, @["HAUS", "HEIZUNG", "MESSGERAETE"])
-  ydb_set(global, @["HAUS", "HEIZUNG", "ROHRE"])
-  ydb_set(global, @["LAND"])
-  ydb_set(global, @["LAND", "FLAECHEN"])
-  ydb_set(global, @["LAND", "NUTZUNG"])
-  ydb_set(global, @["ORT"])
+  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL"], "")
+  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL", "FARBEN"], "")
+  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL", "STAERKEN"], "")
+  ydb_set(global, @["HAUS", "ELEKTRIK", "SICHERUNGEN"], "")
+  ydb_set(global, @["HAUS", "FLAECHEN", "RAUM1"], "")
+  ydb_set(global, @["HAUS", "FLAECHEN", "RAUM2"], "")
+  ydb_set(global, @["HAUS", "FLAECHEN", "RAUM2"], "")
+  ydb_set(global, @["HAUS", "HEIZUNG"], "")
+  ydb_set(global, @["HAUS", "HEIZUNG", "MESSGERAETE"], "")
+  ydb_set(global, @["HAUS", "HEIZUNG", "ROHRE"], "")
+  ydb_set(global, @["LAND"], "")
+  ydb_set(global, @["LAND", "FLAECHEN"], "")
+  ydb_set(global, @["LAND", "NUTZUNG"], "")
+  ydb_set(global, @["ORT"], "")
 
 
 # ------------- Test cases are here ---------------------
@@ -64,7 +68,7 @@ proc setWithError() =
   assert "x" == ydb_get("^x", @[])
 
   # Write global without value
-  ydb_set("^x", @["x"])
+  ydb_set("^x", @["x"], "")
   assert "" == ydb_get("^x", @["x"])
 
 
@@ -115,9 +119,11 @@ proc testNextNode(global: string, start: Subscripts = @[]) =
 proc testPreviousNode(global: string, start: Subscripts = @[]) =
   var cnt = 0
   var (rc, subs) = ydb_node_previous(global, start)
+  echo "1rc=", rc, " subs=", subs
   while rc == YDB_OK:
     inc(cnt)
     (rc, subs) = ydb_node_previous(global, subs)
+    echo "2rc=", rc, " subs=", subs
   doAssert cnt == MAX * 2 + 2
 
 proc testNextNodeIterator() =
@@ -192,7 +198,7 @@ proc testSpecialVariables() =
               "$ZUSEDSTOR", "$ZUT", "$ZVERSION", "$ZYERROR", "$ZYINTRSIG", "$ZYRELEASE", 
               "$ZYSQLNULL"]
   for variable in vars:
-    discard ydb_get(variable)
+    discard ydb_get(variable, @[])
 
 
 proc testSetAndGetiable() =
@@ -204,7 +210,7 @@ proc testSetAndGetiable() =
   ydb_set("X", @["2"], "hello X(2)")
   ydb_set("X", @["2","3"], "hello X(2,3)")
 
-  doAssert ydb_get("X") == "hello"
+  doAssert ydb_get("X", @[]) == "hello"
   doAssert ydb_get("X", @["1"]) == "hello X(1)"
   doAssert ydb_get("X", @["1","1"]) == "hello X(1,1)"
 

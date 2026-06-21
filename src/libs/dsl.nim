@@ -860,7 +860,7 @@ proc callmx*(args: varargs[string]): string =
 
     ydb_ci(args[0])
     #result = Get RESULT
-    result = ydb_get("RESULT")
+    result = ydb_get("RESULT", @[])
 
 
 macro CallM*(body: untyped): untyped =
@@ -914,7 +914,7 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
                 echo "TPTOKEN=", TPTOKEN, " Exception in transaction:", getCurrentExceptionMsg()
             
             try:
-                let restarted = parseInt(ydb_get("$TRESTART")) # How many times the proc was called from yottadb
+                let restarted = parseInt(ydb_get("$TRESTART", @[])) # How many times the proc was called from yottadb
                 if restarted >= MAX_RESTARTS: 
                     echo "Too many transaction restarts, Rolling back.", getCurrentExceptionMsg()
                     return YDB_TP_ROLLBACK
@@ -939,7 +939,7 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
                 echo "Exception in transaction:", getCurrentExceptionMsg()
             
             try:
-                let restarted = parseInt(ydb_get("$TRESTART")) # How many times the proc was called from yottadb
+                let restarted = parseInt(ydb_get("$TRESTART", @[])) # How many times the proc was called from yottadb
                 if restarted >= MAX_RESTARTS: 
                     echo "Too many transaction restarts, Rolling back.", getCurrentExceptionMsg()
                     return YDB_TP_ROLLBACK

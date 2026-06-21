@@ -41,17 +41,17 @@ proc ydbMessage*(status: cint): string =
   ydbMessage_db(status)
 
 
-proc ydb_set*(name: string, keys: Subscripts = @[]; value: string = "") =
+proc ydb_set*(name: string, keys: Subscripts, value: string) =
     if value.len <= YDB_MAX_BUF_SIZE:
         ydb_set_db(name, keys, value)
     else:
         ydb_set_binary_db(name, keys, value)
 
 
-proc ydb_get*(name: string, keys: Subscripts = @[]): string =
+proc ydb_get*(name: string, keys: Subscripts): string =
   ydb_get_db(name, keys)
 
-proc ydb_getbinary*(name: string, keys: Subscripts = @[]): string =
+proc ydb_getbinary*(name: string, keys: Subscripts): string =
   ydb_getbinary_db(name, keys)
 
 

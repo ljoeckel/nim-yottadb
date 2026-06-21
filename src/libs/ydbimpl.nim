@@ -40,12 +40,12 @@ proc atexit(f: proc() {.noconv.}) {.importc.}
 # -----------------------------------
 # Buffer allocation and management
 # -----------------------------------
-proc allocCString*(s: string): cstring =
+template allocCString*(s: string): cstring =
   ## Allocate a new C-string (null-terminated) from a Nim string.
   let buf = cast[ptr UncheckedArray[char]](alloc(s.len + 1))
   for i in 0..<s.len:
     buf[i] = s[i]
-  result = cast[cstring](buf)
+  cast[cstring](buf)
 
 proc deallocBuffer(buffer: ydb_buffer_t) =
   ## Free a single ydb_buffer_t if allocated  
@@ -75,25 +75,22 @@ func zeroBuffer(size: int): string =
 # ------------
 proc stringToYdbBuffer(name: string): ydb_buffer_t =
   ## Create a new ydb_buffer_t initialized from a Nim string
-  result = ydb_buffer_t()
-  result.len_alloc = name.len.uint32
-  result.len_used = name.len.uint32
-  result.buf_addr = allocCString(name)
+  ydb_buffer_t(len_alloc: name.len.uint32, len_used: name.len.uint32, buf_addr: allocCString(name))
 
-proc setYdbBuffer(buffer: var ydb_buffer_t, name: string) =
+template setYdbBuffer(buffer: var ydb_buffer_t, name: string) =
   ## Assign a string value to an existing ydb_buffer_t
   buffer.len_used = name.len.uint32
   for i in 0..<name.len:
     buffer.buf_addr[i] = name[i]
 
-proc setYdbBuffer(buffer: var openArray[ydb_buffer_t], names: seq[string]) =
+template setYdbBuffer(buffer: var openArray[ydb_buffer_t], names: seq[string]) =
   ## Assign multiple string values to an array of ydb_buffer_t
   for idx in 0..<names.len:
     setYdbBuffer(buffer[idx], names[idx])
   for idx in names.len..<buffer.len:
     setYdbBuffer(buffer[idx], EMPTY_STRING)
 
-proc setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string]) =
+template setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string]) =
   # Populate a fixed-size buffer array with keys (subscripts)
   for idx in 0..<keys.len:
     setYdbBuffer(arr[idx], keys[idx])
@@ -104,18 +101,21 @@ proc setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string]) =
 # ----------------------------------
 # Buffer initialization & cleanup
 # ----------------------------------
-proc check() =
+proc initBuffers() =
   ## Ensure buffers are allocated before first use.
-  if not buf_initialized:
-    ERRMSG = stringToYdbBuffer(zeroBuffer(YDB_MAX_ERRORMSG))
-    DATABUF = stringToYdbBuffer(zeroBuffer(YDB_MAX_BUF_SIZE))
-    INCRBUF = stringToYdbBuffer(zeroBuffer(INCRBUF_SIZE))    
-    GLOBAL = stringToYdbBuffer(zeroBuffer(BUFFER_GLOBAL_SIZE))
-    for idx in 0..<IDXARR.len:
-      IDXARR[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
-    for idx in 0..<YDB_MAX_NAMES:
-      NAMES[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
-    buf_initialized = true
+  ERRMSG = stringToYdbBuffer(zeroBuffer(YDB_MAX_ERRORMSG))
+  DATABUF = stringToYdbBuffer(zeroBuffer(YDB_MAX_BUF_SIZE))
+  INCRBUF = stringToYdbBuffer(zeroBuffer(INCRBUF_SIZE))    
+  GLOBAL = stringToYdbBuffer(zeroBuffer(BUFFER_GLOBAL_SIZE))
+  for idx in 0..<IDXARR.len:
+    IDXARR[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
+  for idx in 0..<YDB_MAX_NAMES:
+    NAMES[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
+
+template check() =
+    if not buf_initialized:
+        initBuffers()
+        buf_initialized = true
 
 proc cleanupBuffers() {.noconv} =
   # Free all thread-local buffers at exit
@@ -385,7 +385,7 @@ proc ydb_subscript_previous_db*(name: string, keys: Subscripts): string =
   subscript_traverse(Direction.Previous, name, keys)
 
 
-proc ydb_get_db*(name: string, keys: Subscripts = @[], binary: bool = false): string =
+proc ydb_get_db*(name: string, keys: Subscripts): string =
   ## Retrieve a value from a local or global node
   check()
   setYdbBuffer(GLOBAL, name)
@@ -397,15 +397,31 @@ proc ydb_get_db*(name: string, keys: Subscripts = @[], binary: bool = false): st
     rc = ydb_get_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
 
   if rc == YDB_OK:
-    if binary:
+      if DATABUF.len_used >= YDB_MAX_BUF_SIZE:
+        raise newException(YdbError, "Record too long. Use \'.binary\' postfix" & " name:" & name & " keys:" & $keys)  
+      else:
+        DATABUF.buf_addr[DATABUF.len_used] = '\0'
+        return $DATABUF.buf_addr
+  elif rc == YDB_ERR_GVUNDEF:
+    return EMPTY_STRING
+  else:
+    checkRC()
+
+proc ydb_get_db*(name: string, keys: Subscripts, binary: bool): string =
+  ## Retrieve a value from a local or global node
+  check()
+  setYdbBuffer(GLOBAL, name)
+  setIdxArr(IDXARR, keys)
+
+  when compileOption("threads"):
+    rc = ydb_get_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
+  else:
+    rc = ydb_get_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
+
+  if rc == YDB_OK:
       result = newString(DATABUF.len_used)
       for idx in 0..<DATABUF.len_used:
         result[idx] = DATABUF.buf_addr[idx].char
-    else:
-      if DATABUF.len_used >= YDB_MAX_BUF_SIZE:
-        raise newException(YdbError, "Record too long. Use \'.binary\' postfix" & " name:" & name & " keys:" & $keys)  
-      DATABUF.buf_addr[DATABUF.len_used] = '\0'
-      return $DATABUF.buf_addr
   elif rc == YDB_ERR_GVUNDEF:
     return EMPTY_STRING
   else:

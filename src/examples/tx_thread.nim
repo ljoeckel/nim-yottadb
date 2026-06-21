@@ -38,7 +38,7 @@ proc worker(tn: int, iterations: int) =
       let tnr = info.split(",")[0]
       let fibresult = info.split(",")[1]
       let ms = info.split(",")[2]
-      let restarted = parseInt(ydb_get("$TRESTART")) # How many times the proc was called from yottadb
+      let restarted = parseInt(ydb_get("$TRESTART", @[])) # How many times the proc was called from yottadb
       let txid = ydb_increment("^CNT", @[THS, tnr], 1)
       let data = fmt"tn:{tnr}, restarts:{restarted}, fibresult:{fibresult}, ms:{ms}, tptoken:{TPTOKEN}"
       ydb_set(GLOBAL, @[$txid, $tnr], $data)
