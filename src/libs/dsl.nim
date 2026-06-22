@@ -63,7 +63,7 @@ template transformCallNode(node: NimNode) =
         raise newException(Exception, "transformCallNode: node.kind:" & $node.kind & " not supported! node=" & repr(node))
 
 
-proc transform(node: NimNode, args: var seq[NimNode], attributes: seq[string] = @[]) =
+func transform(node: NimNode, args: var seq[NimNode], attributes: seq[string] = @[]) =
     case node.kind
     of nnkTupleConstr:        
         for i in 0..<node.len:
@@ -215,7 +215,7 @@ func resolveSubscripts(arg: string): (string, seq[string]) =
   if openPar != -1:
       let closePar = arg.rfind(')')
       let index = arg[openPar + 1 ..< closePar]
-      for idx in split(index, ','):
+      for idx in index.split(','):
         subs.add(trim(idx))
       (arg[0..<openPar], subs)
   else:
@@ -242,7 +242,7 @@ func seqToYdbVar(args: varargs[string]): YdbVar =
             if openPar != -1:
                 let closePar = arg.rfind(')')
                 let index = arg[openPar + 1 ..< closePar]
-                for idx in split(index, ','):
+                for idx in index.split(','):                    
                     result.subscripts.add(trim(idx))
                     result.subscripts.add(args[2..^1]) # add the restly keyparts if any (Get @gbl(1,2,3))
                 result.name = arg[0..<openPar]
@@ -296,7 +296,7 @@ func stringToYdbVar(name: string): YdbVar =
     if openPar != -1:
         let closePar = name.rfind(')')
         let index = name[openPar + 1 ..< closePar]
-        for idx in split(index, ','):
+        for idx in index.split(','):
             result.subscripts.add(trim(idx))
         result.name = name[0..<openPar]
     else: # no index (1,..)
@@ -354,10 +354,10 @@ proc getxOrderedSet*(args: varargs[string]): OrderedSet[int] =
     let str = getx(args)
     result = initOrderedSet[int]()
     if str[0] == '{' and str[^1] == '}':
-        for s in split(str[1 .. ^2], ","):
+        for s in str[1 .. ^2].split(','):            
             result.incl(parseInt(strip(s)))
     else:
-        for s in split(str, ","):
+        for s in str.split(','):
             result.incl(parseInt(strip(s)))
 
 macro Get*(body: untyped): untyped =
