@@ -112,11 +112,12 @@ proc initBuffers() =
     IDXARR[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
   for idx in 0..<YDB_MAX_NAMES:
     NAMES[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
+  
+  buf_initialized = true
 
 template check() =
     if not buf_initialized:
         initBuffers()
-        buf_initialized = true
 
 proc cleanupBuffers() {.noconv} =
   # Free all thread-local buffers at exit
