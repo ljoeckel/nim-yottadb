@@ -45,6 +45,7 @@ template allocCString*(s: string): cstring =
   let buf = cast[ptr UncheckedArray[char]](alloc(s.len + 1))
   for i in 0..<s.len:
     buf[i] = s[i]
+  buf[s.len] = '\0'
   cast[cstring](buf)
 
 proc deallocBuffer(buffer: ydb_buffer_t) =
