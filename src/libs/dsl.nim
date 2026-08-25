@@ -468,8 +468,6 @@ macro Kill*(body: untyped): untyped =
 #================
 proc delexclx*(args: varargs[string]) =
     var names: seq[string]
-    echo "args=", args
-    echo "seqtoYdbVars=", seqToYdbVars(args)
     for ydbvar in seqToYdbVars(args):
         names.add(ydbvar.name)
     ydb_delete_excl(names)
