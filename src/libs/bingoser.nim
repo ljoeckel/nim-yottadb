@@ -1,5 +1,5 @@
 import macros, strutils, strformat, options, tables, sets, json, sequtils
-import ydbapi
+import ydbimpl
 
 # Public API
 proc saveObject*[T: object](subs: seq[string]; o: T);

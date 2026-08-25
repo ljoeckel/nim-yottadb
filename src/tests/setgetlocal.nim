@@ -118,7 +118,7 @@ proc setlocals() =
   assert $id == Get local(id)
   assert $id == Get local(id, id)
   assert $id == Get local(id, "X")
-  doAssertRaises(YdbError): discard Get local(id, "Y")
+  assert 0 == Data local(id, "Y")
 
 proc testLocals2() =
   Set: gbl(1)=1

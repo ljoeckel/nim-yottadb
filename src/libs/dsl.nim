@@ -4,7 +4,8 @@ import std/strformat
 import std/sets
 import std/[json]
 import libs/ydbtypes
-import libs/ydbapi
+import libs/ydbimpl
+
 when compileOption("profiler"):
   import std/nimprof
 
@@ -39,6 +40,40 @@ func trim(str: string): string =
         s[1..^2]
     else:
         s
+
+
+func keysToString(global: string, subs: Subscripts): string {.inline.} =
+  result = global
+  result.add("(")
+  result.add(subs.join(","))
+  result.add(")")
+
+func stringToSeq(s: string): Subscripts {.inline.} =
+    # Convert ^Global(1,2,3) -> @["1", "2", "3"]
+    var str: string = newString(s.len)
+    var idx = 0
+    for c in s:
+        if c == ',':
+            str[idx] = c
+            str.setLen(idx)
+            result.add(str)
+            str.setLen(str.capacity)
+            idx = 0
+            continue
+        elif c in {'@', '[', ']', '\\', ' ', '"'} :            
+            continue
+        else:
+            str[idx] = c
+            inc idx
+
+    if idx > 0:
+        str.setLen(idx)
+        result.add(str)
+
+func stringToSeq(subs: Subscripts): Subscripts {.inline.} =
+    # seq @["@[\"4712\"]"] -> @["4712"]
+    for sub in subs:
+        result.add(stringToSeq(sub))
 
 # ------------------
 # Macro procs
@@ -346,9 +381,6 @@ proc getx*(args: varargs[string]): string =
     if result.len == 0 and ydbvar.value.len > 0:
         return ydbvar.value # return 'default value' if nothing found
 
-proc getxbinary*(args: varargs[string]): string =
-    let ydbvar = seqToYdbVar(args)
-    ydb_getbinary(ydbvar.name, ydbvar.subscripts)
 
 proc getxOrderedSet*(args: varargs[string]): OrderedSet[int] =
     let str = getx(args)
@@ -436,6 +468,8 @@ macro Kill*(body: untyped): untyped =
 #================
 proc delexclx*(args: varargs[string]) =
     var names: seq[string]
+    echo "args=", args
+    echo "seqtoYdbVars=", seqToYdbVars(args)
     for ydbvar in seqToYdbVars(args):
         names.add(ydbvar.name)
     ydb_delete_excl(names)

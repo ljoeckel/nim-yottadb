@@ -32,7 +32,7 @@ proc saveImageToFilesystem(target:  string, path: string, img: string) =
 proc readImagesFromDb(target: string): uint =
     var totalBytes: uint
     for key in OrderItr ^images.key:
-        let img     = Get @key.binary
+        let img     = Get @key
         let path    = Get @key("path")
         echo fmt"Read image {path} ({img.len} bytes)"
         saveImageToFilesystem(target, path, img)

@@ -184,19 +184,30 @@ proc deleteNode() =
 
 
 proc testSpecialVariables() =
-  let vars = ["$DEVICE", "$ECODE","$ESTACK", "$ETRAP", "$HOROLOG",
-              "$IO", "$JOB", "$KEY", "$PRINCIPAL", "$QUIT", "$REFERENCE", "$STACK", "$STORAGE",
-              "$SYSTEM", "$TLEVEL", "$TRESTART", "$X", "$Y", "$ZA", "$ZALLOCSTOR", "$ZAUDIT",
-              "$ZB", "$ZCHSET", "$ZCLOSE", "$ZCMDLINE", "$ZCOMPILE", "$ZCSTATUS", "$ZDATEFORM",
-              "$ZDIRECTORY", "$ZEDITOR", "$ZEOF", "$ZERROR", "$ZGBLDIR", "$ZHOROLOG", 
-              "$ZININTERRUPT", "$ZINTERRUPT", "$ZIO", "$ZJOB", "$ZKEY", "$ZLEVEL", "$ZMALLOCLIM",
-              "$ZMAXTPTIME", "$ZMODE", "$ZONLNRLBK", "$ZPATNUMERIC", "$ZPIN", "$ZPOSITION",
-              "$ZPOUT", "$ZPROMPT", "$ZQUIT", "$ZREALSTOR", "$ZRELDATE", "$ZROUTINES", "$ZSOURCE", 
-              "$ZSTATUS", "$ZSTEP", "$ZSTRPLLIM", "$ZSYSTEM", "$ZTEXIT", "$ZTIMEOUT", "$ZTRAP",
-              "$ZUSEDSTOR", "$ZUT", "$ZVERSION", "$ZYERROR", "$ZYINTRSIG", "$ZYRELEASE", 
-              "$ZYSQLNULL"]
+
+  let vars = [
+    "$ESTACK", "$ETRAP", "$HOROLOG", "$IO", "$JOB", "$PRINCIPAL", "$QUIT", "$REFERENCE", "$STACK", "$STORAGE", "$SYSTEM",
+    "$TLEVEL", "$TRESTART", "$X", "$Y", "$ZA", "$ZALLOCSTOR", "$ZAUDIT", "$ZCHSET", "$ZCLOSE", "$ZCSTATUS", "$ZDATEFORM",
+    "$ZDIRECTORY", "$ZEDITOR", "$ZEOF", "$ZERROR", "$ZGBLDIR", "$ZHOROLOG", "$ZININTERRUPT", "$ZINTERRUPT", "$ZIO",
+    "$ZJOB", "$ZLEVEL", "$ZMALLOCLIM", "$ZMAXTPTIME", "$ZMODE", "$ZONLNRLBK", "$ZPATNUMERIC", "$ZPIN", "$ZPOSITION", "$ZPOUT",
+    "$ZPROMPT", "$ZQUIT", "$ZREALSTOR", "$ZRELDATE", "$ZROUTINES", "$ZSTATUS", "$ZSTEP", "$ZSTRPLLIM", "$ZSYSTEM", "$ZTIMEOUT",
+    "$ZUSEDSTOR", "$ZUT", "$ZVERSION", "$ZYRELEASE"]
+
+  let xvars = [
+    "$DEVICE", "$ECODE", "$KEY", "$ZCMDLINE", "$ZKEY", "$ZCOMPILE", "$ZB", "$ZTEXIT",
+    "$ZYSQLNULL", "$ZSOURCE", "$ZYERROR", "$ZYINTRSIG", "$ZTRAP"
+  ]
+
   for variable in vars:
-    discard ydb_get(variable, @[])
+    assert "" != ydb_get(variable, @[])
+
+  for variable in xvars:
+    var raised: bool
+    try:
+        discard ydb_get(variable, @[])
+    except:
+        raised = true
+    assert raised == true
 
 
 proc testSetAndGetiable() =
@@ -322,12 +333,12 @@ proc testDeleteExcl() =
   doAssert ydb_get("DELTEST1", @["A"]) == "1"
   doAssert ydb_get("DELTEST3", @["A"]) == "1"
   doAssert ydb_get("DELTEST5", @["A"]) == "1"
-  doAssertRaises(YdbError): discard ydb_get("DELTEST2", @["A"])
-  doAssertRaises(YdbError): discard ydb_get("DELTEST4", @["A"])
+  assert 0 == ydb_data("DELTEST2", @["A"])
+  assert 0 == ydb_data("DELTEST4", @["A"])
 
   # delete all variables
   ydb_delete_excl()
-  doAssertRaises(YdbError): discard ydb_get("DELTEST1", @["A"])
+  assert 0 == ydb_data("DELTEST1", @["A"])
 
 # -------------------------------------------------------------------
 

@@ -34,13 +34,13 @@ proc testDeleteExcl() =
   discard Get DELTEST3
   discard Get DELTEST5
 
-  # Removed vars should raise exception on access
-  doAssertRaises(YdbError): discard Get DELTEST2
-  doAssertRaises(YdbError): discard Get DELTEST4
+  # Removed vars should be empty
+  assert 0 == Data DELTEST2
+  assert 0 == Data DELTEST2
 
   # delete all variables
   Delexcl: {}
-  doAssertRaises(YdbError): discard Get DELTEST1
+  assert 0 == Data DELTEST1
 
 if isMainModule:
   test "DeleteExcl": testDeleteExcl()

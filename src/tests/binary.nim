@@ -27,16 +27,18 @@ proc createBinData(kb: int): string =
 
 proc testBinaryPostfix() =
   Set: ^tmp("binary") = createBinData(1)
-  let dbval = Get ^tmp("binary").binary
+  let dbval = Get ^tmp("binary")
   assert dbval == createBinData(1)
+    
 
   # Create binary Data upto 1MB
   for i in 4095 .. 4096:
-    Set: ^tmp("binary", i) = createBinData(i)
-
+    let data = createBinData(i)
+    Set: ^tmp("binary", i) = data
+  
   # Read back an compare
   for i in 4095 .. 4096:
-    let dbval = Get ^tmp("binary", i).binary
+    let dbval = Get ^tmp("binary", i)
     assert dbval == createBinData(i)
 
 
@@ -52,7 +54,7 @@ proc testBinaryPostfixHugeWrite(): int =
 proc testBinaryPostfixHugeRead(): int =
   var totalBytes = 0
   for size in BLOCKSIZES:
-    let data = Get ^tmphuge(size).binary
+    let data = Get ^tmphuge(size)
     inc(totalBytes, data.len)
   return totalBytes
 
@@ -60,7 +62,7 @@ proc testBinaryPostfixHugeVerify(): int =
   var totalBytes = 0
   for size in BLOCKSIZES:
     let data = createBinData(size)
-    let dbval = Get ^tmphuge(size).binary
+    let dbval = Get ^tmphuge(size)
     inc(totalBytes, dbval.len)
     assert data == dbval
   return totalBytes
@@ -89,10 +91,10 @@ proc testOrderedSetPostfix() =
 
 proc testGetFast(iterations: int) =
   Set: ^tmp(4711)="01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-  echo "Using 'get.binary' with ", iterations, " iterations."
+  echo "Using 'get' with ", iterations, " iterations."
   timed:
     for i in 0 .. iterations:
-      discard Get ^tmp(4711).binary
+      discard Get ^tmp(4711)
 
   echo "Using 'get' with ", iterations, " iterations."
   timed:
@@ -107,10 +109,12 @@ proc testGetWithException() =
   assert val.len == maxlen
 
   Set: ^tmp(4712) = repeat(".", maxlen+1)
-  doAssertRaises(YdbError): val = Get ^tmp(4712)
+  val = Get ^tmp(4712)
+  assert val.len == maxlen + 1
 
 if isMainModule:
   test "binary": testBinaryPostfix()
+
   test "binary huge write": 
       var (ms, rc) = timed_rc: testBinaryPostfixHugeWrite()
       let bps = rc / ms * 1000

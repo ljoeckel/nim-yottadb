@@ -187,12 +187,12 @@ proc testDelexcl() =
   discard Get DELTEST5
 
   # Removed vars should raise exception on access
-  doAssertRaises(YdbError): discard Get DELTEST2
-  doAssertRaises(YdbError): discard Get DELTEST4
+  assert 0 == Data DELTEST2
+  assert 0 == Data DELTEST4
 
   # delete all variables
   Delexcl: {}
-  doAssertRaises(YdbError): discard Get DELTEST1
+  assert 0 == Data DELTEST1
 
 proc testNextNode() =
     var 
