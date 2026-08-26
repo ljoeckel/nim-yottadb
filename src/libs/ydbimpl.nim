@@ -88,8 +88,6 @@ template setYdbBuffer(buffer: var openArray[ydb_buffer_t], names: seq[string]) =
   ## Assign multiple string values to an array of ydb_buffer_t
   for idx in 0..<names.len:
     setYdbBuffer(buffer[idx], names[idx])
-  for idx in names.len..<buffer.len:
-    setYdbBuffer(buffer[idx], EMPTY_STRING)
 
 template setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string]) =
   # Populate a fixed-size buffer array with keys (subscripts)

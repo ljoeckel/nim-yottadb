@@ -325,17 +325,6 @@ func seqToYdbVar(args: varargs[string]): YdbVar =
             newsubs.add(sub)
     result.subscripts = newsubs
 
-func stringToYdbVar(name: string): YdbVar =
-    # "^global(1,2,..)" -> ydbvar
-    let openPar = name.find('(') # handle subscripts
-    if openPar != -1:
-        let closePar = name.rfind(')')
-        let index = name[openPar + 1 ..< closePar]
-        for idx in index.split(','):
-            result.subscripts.add(trim(idx))
-        result.name = name[0..<openPar]
-    else: # no index (1,..)
-        result.name = name
 
 func getTimeout(arg: string): int =
     result = YDB_LOCK_TIMEOUT
@@ -375,8 +364,7 @@ macro Data*(body: untyped): untyped =
 # Get
 #================
 proc getx*(args: varargs[string]): string =
-    # args.len == 1 > "^gbl(1,2,..), Localname, "
-    let ydbvar = if args.len == 1: stringToYdbVar(args[0]) else: seqToYdbVar(args)
+    let ydbvar = seqToYdbVar(args)
     result = ydb_get(ydbvar.name, ydbvar.subscripts)
     if result.len == 0 and ydbvar.value.len > 0:
         return ydbvar.value # return 'default value' if nothing found
