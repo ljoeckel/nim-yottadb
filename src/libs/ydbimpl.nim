@@ -95,9 +95,6 @@ template setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string]) =
   # Populate a fixed-size buffer array with keys (subscripts)
   for idx in 0..<keys.len:
     setYdbBuffer(arr[idx], keys[idx])
-  # clear to the end   
-  for idx in keys.len..<arr.len:
-    arr[idx].len_used = 0.uint32
 
 # ----------------------------------
 # Buffer initialization & cleanup
