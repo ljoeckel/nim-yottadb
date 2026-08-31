@@ -53,15 +53,14 @@ func stringToSeq(s: string): Subscripts {.inline.} =
     var str: string = newString(s.len)
     var idx = 0
     for c in s:
-        if c == ',':
+        if c in {'@', '[', ']', '\\', ' ', '"'} :            
+            continue
+        elif c == ',':
             str[idx] = c
             str.setLen(idx)
             result.add(str)
             str.setLen(str.capacity)
             idx = 0
-            continue
-        elif c in {'@', '[', ']', '\\', ' ', '"'} :            
-            continue
         else:
             str[idx] = c
             inc idx

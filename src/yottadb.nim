@@ -3,12 +3,14 @@ import libs/ydbtypes
 import libs/ydbimpl
 import libs/dsl
 import libs/bingoser
+import dbstats
 
 export libydb
 export ydbtypes
 export ydbimpl
 export dsl
 export bingoser
+export dbstats
 
 
 # ------------------ YdbVar ----------------
