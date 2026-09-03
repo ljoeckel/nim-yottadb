@@ -63,10 +63,10 @@ proc testGetWithType() =
     #assert 3.1414.float32 == Get ^GBL("float32").float32    #TODO: float32 cast gives strange result
     assert 3.1414.float64 == Get ^GBL("float64").float64
     
-    let os = toOrderedSet([1,2,3,4,5,6,7,8,9,10])
-    let gbl = "^GBL(\"os\")"
-    Set: @gbl = $os
-    let osdb = Get @gbl.OrderedSet
+    let os = @[1,2,3,4,5,6,7,8,9,10]
+    let gbl = "^GBL(os)"
+    Set: @gbl = join(os, ",")
+    let osdb = Get @gbl.seqInt
     assert os == osdb
 
 

@@ -1,12 +1,16 @@
 import yottadb
 import std/sets 
+import std/tables
 import std/strutils
 import std/cmdline
 import ydbutils
     
 # First draft for the 3n+1 problem
 var 
-    numbers_found, numbers_solved, dbwrites, dbdata, dbnext, verifyread: int
+    numbers_found, numbers_solved, dbwrites, dbdata, dbnext, verifyread, cachehits: int
+
+const MAX_CACHESIZE = 1024*128
+var cache = initTable[int, seq[int]](MAX_CACHESIZE+1)
 
 func calc(n: int): int =
     # Calculate 3n+1
@@ -57,11 +61,18 @@ proc reconstruct(n: int, depth: int = 0): seq[int] =
 
     # Reconstruct the sequence from the db to the full sequence
     inc verifyread
-    for num in Get ^solver(n).OrderedSet:
-        result.add(num)
+    result = Get ^solver(n).seqInt
     let lastnum = result[^1]
     if lastnum > 1:
-        result.add(reconstruct(lastnum, depth + 1)[1..^1])
+        if cache.contains(lastnum):
+            result.add(cache[lastnum])
+            inc cachehits
+        else:
+            let values = reconstruct(lastnum, depth + 1)[1..^1]
+            result.add(values)
+            if lastnum < MAX_CACHESIZE:
+                cache[lastnum] = values
+
 
 proc check(fromN: int, toN: int) =
     # Compute 3n+1 again and verify the calculated with the truncated results on the db.
@@ -79,6 +90,7 @@ proc statistics(fromN: int, toN: int) =
     echo "solver from: ", fromN, " to: ", toN
     echo "Found : ", numbers_found, " Solved: ", numbers_solved
     echo "dbwrites: ", dbwrites, ", dbdata: ", dbdata, ", dbnext: ", dbnext, " verifyread: ", verifyread
+    echo "cachesize:", cache.len, ", cachehits:", cachehits
 
 
 when isMainModule:

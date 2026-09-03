@@ -50,6 +50,8 @@ task test, "Run nimyottadb unittests":
   exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/yottadb_test.nim"
   echo "zwr"
   exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/zwr.nim"
+  echo "sequences"
+  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/sequences.nim"
 
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/binary.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/callin.nim"
@@ -71,9 +73,9 @@ task test, "Run nimyottadb unittests":
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/ydbdsl_test.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/zwr.nim"
-
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test.nim"
   exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test_threaded.nim"
+  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/sequences.nim"
 
   const progs = @[
     "src/tests/binary",
@@ -97,7 +99,8 @@ task test, "Run nimyottadb unittests":
     "src/tests/yottadb_test",
     "src/tests/zwr",
     "src/tests/yottadb_test",
-    "src/tests/yottadb_test_threaded"
+    "src/tests/yottadb_test_threaded",
+    "src/tests/sequences"
   ]
   for prog in progs:
     exec "rm -f " & prog

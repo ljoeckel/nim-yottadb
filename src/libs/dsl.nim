@@ -69,11 +69,6 @@ func stringToSeq(s: string): Subscripts {.inline.} =
         str.setLen(idx)
         result.add(str)
 
-func stringToSeq(subs: Subscripts): Subscripts {.inline.} =
-    # seq @["@[\"4712\"]"] -> @["4712"]
-    for sub in subs:
-        result.add(stringToSeq(sub))
-
 # ------------------
 # Macro procs
 # ------------------
@@ -369,15 +364,41 @@ proc getx*(args: varargs[string]): string =
         return ydbvar.value # return 'default value' if nothing found
 
 
-proc getxOrderedSet*(args: varargs[string]): OrderedSet[int] =
-    let str = getx(args)
-    result = initOrderedSet[int]()
-    if str[0] == '{' and str[^1] == '}':
-        for s in str[1 .. ^2].split(','):            
-            result.incl(parseInt(strip(s)))
-    else:
-        for s in str.split(','):
-            result.incl(parseInt(strip(s)))
+proc parseSeq[T](args: varargs[string]): seq[T] =
+    let str = getx(args).split(',')
+    result = newSeq[T](str.len)
+
+    try:
+        for i in 0..<str.len:
+            when T is string:
+                result[i] = str[i]
+            when T is int:
+                result[i] = parseInt(str[i])
+            when T is float:
+                result[i] = parseFloat(str[i])
+            when T is bool:
+                let s = toUpper(str[i])
+                result[i] = if s == "1" or s == "T" or s == "TRUE": true else: false
+    except:
+        echo "ERROR: Could not parse seq to numbers: ", str
+
+
+proc getxseqStr*(args: varargs[string]): seq[string] =
+    # Postfix: .seqStr
+    parseSeq[string](args)
+
+proc getxseqInt*(args: varargs[string]): seq[int] =
+    # Postfix: .seqInt
+    parseSeq[int](args)
+
+proc getxseqFloat*(args: varargs[string]): seq[float] =
+    # Postfix: .seqFloat
+    parseSeq[float](args)
+
+proc getxseqBool*(args: varargs[string]): seq[bool] =
+    # Postfix: .seqBool
+    parseSeq[bool](args)
+
 
 macro Get*(body: untyped): untyped =
     var args: seq[NimNode]
