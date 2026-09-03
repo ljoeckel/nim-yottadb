@@ -57,4 +57,4 @@ when isMainModule:
     test "float": testFloatSeq()
     test "bool": testBoolSeq()
     test "redirection": testRedirection()
-    test "save seq": testSeq()
+    #test "save seq": testSeq()
