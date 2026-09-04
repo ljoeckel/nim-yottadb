@@ -3,6 +3,7 @@ import std/strutils
 import std/strformat
 import std/sets
 import std/[json]
+import std/enumerate
 import libs/ydbtypes
 import libs/ydbimpl
 
@@ -33,7 +34,8 @@ const
 const
   MAX_RESTARTS = 4
 
-func trim(str: string): string =
+
+func trim(str: string): string {.inline.} =
     # remove \":  ^GBL(\"os\") -> ^GBL("os")
     let s = str.strip()
     if s.len > 0 and s[0] == '\"' and s[^1] == '\"':
@@ -48,6 +50,7 @@ func keysToString(global: string, subs: Subscripts): string {.inline.} =
   result.add(subs.join(","))
   result.add(")")
 
+
 func stringToSeq(s: string): Subscripts {.inline.} =
     # Convert ^Global(1,2,3) -> @["1", "2", "3"]
     var str: string = newString(s.len)
@@ -56,18 +59,15 @@ func stringToSeq(s: string): Subscripts {.inline.} =
         if c in {'@', '[', ']', '\\', ' ', '"'} :            
             continue
         elif c == ',':
-            str[idx] = c
-            str.setLen(idx)
-            result.add(str)
-            str.setLen(str.capacity)
+            result.add(str[0..idx-1])
             idx = 0
         else:
             str[idx] = c
             inc idx
 
     if idx > 0:
-        str.setLen(idx)
-        result.add(str)
+        result.add(str[0..idx-1])
+        
 
 # ------------------
 # Macro procs
@@ -133,8 +133,8 @@ func transform(node: NimNode, args: var seq[NimNode], attributes: seq[string] = 
                 transformCallNode(node[i])
     of nnkAsgn:
         transform(node[0], args, attributes) # resolve lhs
-        args.add(newCall(ident"$", node[1])) # add value
         args.add(newLit(VALUEMARK))
+        args.add(newCall(ident"$", node[1])) # add value
     of nnkIntLit, nnkFloatLit, nnkCharLit:
         args.add(newCall(ident"$", node))
     of nnkStrLit:
@@ -173,31 +173,30 @@ template processStmtList(body: NimNode) =
 # proc related helper proc's
 # ----------------------------
 
-func seqToYdbVars(args: varargs[string]): seq[YdbVar] =
+proc seqToYdbVars(args: varargs[string]): seq[YdbVar] =
   var
     ydbvar: YdbVar
     subs: Subscripts
+    valueset: bool
 
-  var lastArg: string
-  for arg in args:
+  for (idx, arg) in enumerate(args):
     case arg 
     of FIELDMARK:
       # End of one YdbVar group
-      if ydbvar.name.len > 0:
-        if ydbvar.subscripts.len == 0:
-          ydbvar.subscripts = subs
-        result.add(ydbvar)
+      if ydbvar.subscripts.len == 0:
+        ydbvar.subscripts = subs
+      result.add(ydbvar)
       # Reset for next
       ydbvar = YdbVar()
-      subs = @[]
+      subs.setLen(0)
+      valueset = false
       continue
     of VALUEMARK:
       # End of value-based YdbVar
-      ydbvar.value = lastArg
-      ydbvar.subscripts.add(subs[0..^2])
-      result.add(ydbvar)
-      ydbvar = YdbVar()
-      subs = @[]
+      ydbvar.value = args[idx+1]
+      valueset = true
+      ydbvar.subscripts.add(subs)
+      subs.setLen(0)
       continue
 
     # Set the prefix field (1..2 bytes)
@@ -229,14 +228,15 @@ func seqToYdbVars(args: varargs[string]): seq[YdbVar] =
       if arg.startsWith(INDIRECTION_KEYS):
           subs.add(stringToSeq(arg))
       else:
-        subs.add(arg)
-      lastArg = arg
+        if not valueset:
+            subs.add(arg)
 
   # Final flush if any
   if ydbvar.name.len > 0:
     if ydbvar.subscripts.len == 0:
       ydbvar.subscripts = subs
     result.add(ydbvar)
+
 
 func resolveSubscripts(arg: string): (string, seq[string]) =
   var subs: seq[string]

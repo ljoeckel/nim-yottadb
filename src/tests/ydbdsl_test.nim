@@ -1,5 +1,4 @@
 import std/strutils
-import std/sets
 import std/unittest
 import yottadb
 import ydbutils

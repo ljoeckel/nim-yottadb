@@ -1,5 +1,7 @@
-import std/[unittest, strformat]
 import yottadb
+import std/[unittest]
+when compileOption("threads"):
+    import std/strformat
 
 const qItr = @["^AAA(1)","^AAA(1,1)","^AAA(2)","^AAA(2,1)","^AAA(3)","^AAA(3,1)","^AAA(5)"]
 const qItrRv = @["^AAA(5)","^AAA(3,1)","^AAA(3)","^AAA(2,1)","^AAA(2)","^AAA(1,1)","^AAA(1)"]
