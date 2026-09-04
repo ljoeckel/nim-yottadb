@@ -1,20 +1,6 @@
 # DSL Statements and Expressions
 
-## setvar / Get / .binary
-```nim
-Set:
-    ^XX(1,2,3)=123
-    ^XX(1,2,3,7)=1237
-    ^XX(1,2,4)=124
-    ^XX(1,2,5,9)=1259
-    ^XX(1,6)=16
-    ^XX("B",1)="AB"
-```
-Get already converted Data (string/int/float)
-
-# DSL Statements and Expressions
-
-## setvar / Get / .binary
+## setvar / Get
 ```nim
 Set:
     ^XX(1,2,3)=123
@@ -63,9 +49,9 @@ Up to 31 index levels are possible
 Set: ^CUST(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,"Z")="xxx"
 ```
 
-nim-yottadb supports binary Data and can handle very large record sizes (practically limited by available memory). You can read back binary Data with the `.binary` postfix.
+nim-yottadb supports binary Data and can handle very large record sizes (practically limited by available memory). You can read back binary Data transparently with a standard `Get`
 ```nim
-let image = Get ^images(4711).binary
+let image = Get ^images(4711)
 ```
 
 ## Get - 'default'
@@ -273,19 +259,18 @@ for cnt in OrderItr ^LL("HAUS", "ELEKTRIK", "DOSEN", "").count:
 ```
 
 ## str2zwr
-Save binary Data through YottaDB's API. This API is provided for compatibility; for most modern use cases the `binary` postfix is the preferred approach.
+Save binary Data through YottaDB's API. This API is provided for compatibility; for most modern use cases simple Set/Get can do.
 ```nim
 let x = str2zwr("hello\9World")
 assert str2zwr("hello\9World") == """"hello""_$C(9)_"""World""""
 ```
-Use the `binary` postfix as an alternative for binary Data.
 
 ## zwr2str
 Read back Data stored in the `str2zwr` format.
 ```nim
 assert zwr2str(""""hello""_$C(9)_"""World"""") == "hello\9World"
 ```
-The `str2zwr` and `zwr2str` functions exist for compatibility. For new applications prefer the `binary` postfix or other modern APIs. The historical 1 MB record-size limit no longer applies; nim-yottadb can handle much larger records, practically limited by available memory. A streaming interface may be provided in the future to support effectively unlimited record sizes.
+The `str2zwr` and `zwr2str` functions exist for compatibility. The historical 1 MB record-size limit no longer applies; nim-yottadb can handle much larger records, practically limited by available memory.
 
 # 'Get' with postfix
 You can enforce an expected type when reading Data from YottaDB using a postfix. If the stored value is out of the specified type range, a `ValueError` is raised.
@@ -299,16 +284,15 @@ Supported postfixes include:
 - uint, uint8, uint16, uint32, uint64
 - float, float32, float64
 
-# .OrderedSet Postfix
-Allows reading back an `OrderedSet` saved as a string. The saved form may be `{9, 5, 1}` or the more efficient `9,5,1`; the `.OrderedSet` postfix handles both formats.
+# .seqStr, .seqInt, seqFloat, seqBool Postfix
+Allows reading back a set of the given type.
+Data must be saved as comma separated list.
 ```nim
-var os = toOrderedSet([9, 5, 1])
-# os: {9, 5, 1}
-Set: ^tmp("set1") = $os
-let osdb: OrderedSet[int] = Get ^tmp("set1").OrderedSet
+var os = @[9, 5, 1]
+Set: ^tmp("seq") = os
+let osdb = Get ^tmp("seq").seqInt
 assert osdb == os
 ```
-Currently only `int` is supported for this postfix. This feature is experimental and may change or be removed in the future.
 
 # Local Variables
 All methods available for globals can also be applied to local variables.

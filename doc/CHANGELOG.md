@@ -1,3 +1,12 @@
+# Changelog for version 0.4.6
+- .binary postfix has been removed. Handling of data sizes > 1MB now fully transparent with Set / Get
+- .OrderedSet postfix has been removed and replaced through the seqStr/seqInt/seqFloat/seqBool family.
+- Each postfix returns a sequence of the given type for data that is stored in a comma separated list
+  Set: ^data("int")="1,2,3,4,5"
+  let s = Get ^data("int").seqInt 
+  echo s -> @[1,2,3,4,5]
+- dbstats added to simply write a snapshot of database statistics of the current process
+
 # Changelog for version 0.4.5
 - Serialization now supports an .INDEX. pragma on data fields. The index is automatically created, modified or deleted for each field.
 ```nim

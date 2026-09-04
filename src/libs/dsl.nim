@@ -482,20 +482,44 @@ proc getx*(ydbvar: YdbVar): string =
 
 
 proc parseSeq[T](ydbvar: YdbVar): seq[T] =
-    let str = getx(ydbvar).split(',')
+    var mustTrim: bool
+    # Creates a seq[T] from a string in the forms
+    #    A,B,C,D,E...  # craeted with Set: ^x(1) = join(seqData, ",")
+    # or @["A", "B", "C", "D", "E",...]  # created with Set: ^x(1) = seqData
+    var s = getx(ydbvar)
+
+    if s.startsWith(INDIRECTION_KEYS):
+        # @["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]  # Saved as Set: ^x(1) = someSeqStr, better Set: ^x(1) = join(someSeqStr,",")
+        s = s[2..^2] # remove @[ ]
+        mustTrim = true
+        # "A", "B", "C", "D", "E", "F", "G", "H", "I", "J"
+
+    let str = s.split(',')
     result = newSeq[T](str.len)
 
     try:
-        for i in 0..<str.len:
-            when T is string:
-                result[i] = str[i]
-            when T is int:
-                result[i] = parseInt(str[i])
-            when T is float:
-                result[i] = parseFloat(str[i])
-            when T is bool:
-                let s = toUpper(str[i])
-                result[i] = if s == "1" or s == "T" or s == "TRUE": true else: false
+        if mustTrim:
+            for i in 0..<str.len:
+                when T is string:
+                    result[i] = trim(str[i])
+                when T is int:
+                    result[i] = parseInt(trim(str[i]))
+                when T is float:
+                    result[i] = parseFloat(trim(str[i]))
+                when T is bool:
+                    let sup = toUpper(trim(str[i]))
+                    result[i] = if sup == "1" or sup == "T" or sup == "TRUE": true else: false
+        else:
+            for i in 0..<str.len:
+                when T is string:
+                    result[i] = str[i]
+                when T is int:
+                    result[i] = parseInt(str[i])
+                when T is float:
+                    result[i] = parseFloat(str[i])
+                when T is bool:
+                    let sup = toUpper(str[i])
+                    result[i] = if sup == "1" or sup == "T" or sup == "TRUE": true else: false
     except:
         echo "ERROR: Could not parse seq to numbers: ", str
 

@@ -11,6 +11,10 @@ proc dumpData() =
     for (k,v) in QueryItr ^Sequence.kv:
         echo k,"=",v
 
+proc dumpKeys() =
+    for key in QueryItr ^Sequence:
+        echo "key=", key
+
 
 proc testStringSeq() =
     Set: ^Sequence(1) = join(strSeq, ",")
@@ -30,9 +34,20 @@ proc testBoolSeq() =
 
 proc testSeq() =
     Set: ^Sequence(10) = strSeq
-    dumpData()
     assert strSeq == Get ^Sequence(10).seqStr
+    Set: ^Sequence(11) = intSeq
+    assert intSeq == Get ^Sequence(11).seqInt
+    Set: ^Sequence(12) = floatSeq
+    assert floatSeq == Get ^Sequence(12).seqFloat
+    Set: ^Sequence(13) = boolSeq
+    assert boolSeq == Get ^Sequence(13).seqBool
 
+proc testHugeSeq() =
+    var hugeInt: seq[int]
+    for i in 0..500_000:
+        hugeInt.add(i)
+    Set: ^Sequence("huge") = hugeInt
+    assert hugeInt == Get ^Sequence("huge").seqInt
 
 proc testRedirection() =
     var global = "^Sequence"
@@ -57,4 +72,8 @@ when isMainModule:
     test "float": testFloatSeq()
     test "bool": testBoolSeq()
     test "redirection": testRedirection()
-    #test "save seq": testSeq()
+    test "save seq direct": testSeq()
+    test "Huge Sequence": testHugeSeq()
+  
+  #dumpData()
+  #dumpKeys()

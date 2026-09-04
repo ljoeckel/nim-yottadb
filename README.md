@@ -29,7 +29,7 @@ The nim-yottadb implementation delievers the following features:
 
 ### Extensions to the Simple-API
 - Support for binary data > 1MB
-- [DSL](doc/dsl.md) (Domain Specific Language to simplify coding)
+- [DSL](doc/user_guide.md) (Domain Specific Language to simplify coding)
 - Iterators for 'Query' and 'Order'
 - Indirection with @
 - YdbVar with $ and [] operator
@@ -56,7 +56,7 @@ Records larger than 1 MB are split into subrecords. To do this, an additional ke
 ```nim
 "___$00000000$___"
 ```
-When reading back with Get and the `.binary` postfix, nim-yottadb automatically checks whether such index keys exist and loads the data accordingly.
+When reading back with Get is transparent. No extra handling required.
 The processing of strings and binary data is also automatic.
 
 ### Sample to load / restore images into YottaDb
@@ -101,7 +101,7 @@ proc saveImageToFilesystem(target:  string, path: string, img: string) =
 proc readImagesFromDb(target: string): uint =
     var totalBytes: uint
     for key in OrderItr ^images.key:
-        let img     = Get @key.binary
+        let img     = Get @key
         let path    = Get @key("path")
         echo fmt"Read image {path} ({img.len} bytes)"
         saveImageToFilesystem(target, path, img)

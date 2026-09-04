@@ -195,13 +195,13 @@ you can write
 Set: ^building("Room", 1, "Window")=22.5
 ```
 
-#### setvar / get / .binary
+#### setvar / get
 ```nim
 Set:
     ^XX(1,2,3)=123
     ^XX("B",1)="AB"
 let var1 = Get ^XX(1,2,3)
-let image = Get ^images(4711).binary
+let image = Get ^images(4711)
 ```
 #### Support for mixed type subscripts
 ```nim
