@@ -1,6 +1,7 @@
 import yottadb
 import std/unittest
 import std/strutils
+import ydbutils
 
 let strSeq = @["A","B","C","D","E","F","G","H","I","J"]
 let intSeq = @[1,2,3,4,5,6,7,8,9,10]
@@ -44,10 +45,37 @@ proc testSeq() =
 
 proc testHugeSeq() =
     var hugeInt: seq[int]
+    var hugeStr: seq[string]
+    var hugeFloat: seq[float]
+    var hugeBool: seq[bool]
+
     for i in 0..500_000:
         hugeInt.add(i)
-    Set: ^Sequence("huge") = hugeInt
-    assert hugeInt == Get ^Sequence("huge").seqInt
+        hugeStr.add($i)
+        hugeFloat.add(i.float * 1.25)
+        hugeBool.add(if i mod 3 == 0: true else: false)
+
+    timed:
+        Set: ^Sequence("hugeStr") = hugeStr
+        assert hugeStr == Get ^Sequence("hugeStr").seqStr
+        echo hugeStr[0..10]
+
+    timed:
+        Set: ^Sequence("hugeInt") = hugeInt
+        assert hugeInt == Get ^Sequence("hugeInt").seqInt
+        echo hugeInt[0..10]
+
+    timed:
+        Set: ^Sequence("hugeFloat") = hugeFloat
+        assert hugeFloat == Get ^Sequence("hugeFloat").seqFloat
+        echo hugeFloat[0..10]
+
+    timed:
+        Set: ^Sequence("hugeBool") = hugeBool
+        assert hugeBool == Get ^Sequence("hugeBool").seqBool
+        echo hugeBool[0..10]
+
+
 
 proc testRedirection() =
     var global = "^Sequence"

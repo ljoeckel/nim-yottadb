@@ -52,6 +52,74 @@ func trim(str: string): string {.inline.} =
     else:
         str[first .. last]
 
+func parseFastInt(s: string): int =
+  # Fast path for plain base-10 integers (optional sign + ASCII digits).
+  # Falls back to strutils.parseInt for anything unusual.
+  let L = s.len
+  if L == 0: return parseInt(s)
+  var i = 0
+  var neg = false
+  if s[0] == '-': neg = true; inc i
+  elif s[0] == '+': inc i
+  if i == L: return parseInt(s)          # just "-" / "+"
+  var r = 0
+  while i < L:
+    let c = s[i]
+    if c < '0' or c > '9':
+      return parseInt(s)                 # non-digit -> fallback
+    let d = ord(c) - ord('0')
+    if r > (high(int) - d) div 10:
+      return parseInt(s)                 # overflow -> fallback (raises like parseInt)
+    r = r * 10 + d
+    inc i
+  if neg: -r else: r
+
+
+func parseFastFloat(s: string): float =
+  # Fast path for plain decimals: [sign] digits [. digits]  (no exponent).
+  # Falls back to strutils.parseFloat for anything unusual (e/E, inf, nan, ...).
+  let L = s.len
+  if L == 0: return parseFloat(s)
+  var i = 0
+  var neg = false
+  if s[0] == '-': neg = true; inc i
+  elif s[0] == '+': inc i
+
+  var ip = 0.0
+  var digits = 0
+  while i < L and s[i] >= '0' and s[i] <= '9':
+    if digits >= 14: return parseFloat(s)   # precision guard
+    ip = ip * 10.0 + float(ord(s[i]) - ord('0'))
+    inc i; inc digits
+
+  var frac = 0.0
+  var scale = 1.0
+  if i < L and s[i] == '.':
+    inc i
+    while i < L and s[i] >= '0' and s[i] <= '9':
+      if digits >= 14: return parseFloat(s) # precision guard
+      frac = frac * 10.0 + float(ord(s[i]) - ord('0'))
+      scale *= 10.0
+      inc i; inc digits
+
+  if digits == 0 or i != L:
+    return parseFloat(s)                    # no digits / trailing junk / exponent
+
+  let r = ip + frac / scale
+  if neg: -r else: r
+
+
+func parseFastBool(s: string): bool =
+  # case-insensitive "1", "T", "TRUE" without allocating an upper-case copy
+  if s.len == 1:
+    return s[0] == '1' or s[0] == 'T' or s[0] == 't'
+  if s.len == 4:
+    return (s[0] == 't' or s[0] == 'T') and
+           (s[1] == 'r' or s[1] == 'R') and
+           (s[2] == 'u' or s[2] == 'U') and
+           (s[3] == 'e' or s[3] == 'E')
+  false
+
 
 func keysToString(global: string, subs: Subscripts): string {.inline.} =
   result = global
@@ -481,47 +549,36 @@ proc getx*(ydbvar: YdbVar): string =
         return ydbvar.value # return 'default value' if nothing found
 
 
-proc parseSeq[T](ydbvar: YdbVar): seq[T] =
-    var mustTrim: bool
-    # Creates a seq[T] from a string in the forms
-    #    A,B,C,D,E...  # craeted with Set: ^x(1) = join(seqData, ",")
-    # or @["A", "B", "C", "D", "E",...]  # created with Set: ^x(1) = seqData
-    var s = getx(ydbvar)
-
+func splitSeqValue(s: string): seq[string] =
+    # Normalize the two storage formats of a comma-separated value into clean
+    # tokens, deciding the format only once:
+    #   A,B,C,D...          (saved via `join(seq, ",")`)    -> @["A","B","C",...]
+    #   @["A", "B", "C", ...]  (saved via `Set: ^x(1) = seq`) -> @["A","B","C",...]
     if s.startsWith(INDIRECTION_KEYS):
-        # @["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]  # Saved as Set: ^x(1) = someSeqStr, better Set: ^x(1) = join(someSeqStr,",")
-        s = s[2..^2] # remove @[ ]
-        mustTrim = true
-        # "A", "B", "C", "D", "E", "F", "G", "H", "I", "J"
+        # strip the surrounding @[ ] and trim quotes/whitespace per element
+        result = s[2 .. ^2].split(',')
+        for i in 0 ..< result.len:
+            result[i] = trim(result[i])
+    else:
+        result = s.split(',')
 
-    let str = s.split(',')
-    result = newSeq[T](str.len)
 
-    try:
-        if mustTrim:
-            for i in 0..<str.len:
-                when T is string:
-                    result[i] = trim(str[i])
+proc parseSeq[T](ydbvar: YdbVar): seq[T] =
+    when T is string:
+        result = splitSeqValue(getx(ydbvar))
+    else:
+        let tokens = splitSeqValue(getx(ydbvar))
+        result = newSeq[T](tokens.len)
+        try:
+            for i in 0 ..< tokens.len:
                 when T is int:
-                    result[i] = parseInt(trim(str[i]))
+                    result[i] = parseFastInt(tokens[i])
                 when T is float:
-                    result[i] = parseFloat(trim(str[i]))
+                    result[i] = parseFastFloat(tokens[i])
                 when T is bool:
-                    let sup = toUpper(trim(str[i]))
-                    result[i] = if sup == "1" or sup == "T" or sup == "TRUE": true else: false
-        else:
-            for i in 0..<str.len:
-                when T is string:
-                    result[i] = str[i]
-                when T is int:
-                    result[i] = parseInt(str[i])
-                when T is float:
-                    result[i] = parseFloat(str[i])
-                when T is bool:
-                    let sup = toUpper(str[i])
-                    result[i] = if sup == "1" or sup == "T" or sup == "TRUE": true else: false
-    except:
-        echo "ERROR: Could not parse seq to numbers: ", str
+                    result[i] = parseFastBool(tokens[i])
+        except:
+            echo "ERROR: Could not parse seq to numbers: ", tokens
 
 
 proc getxseqStr*(ydbvar: YdbVar): seq[string] =
