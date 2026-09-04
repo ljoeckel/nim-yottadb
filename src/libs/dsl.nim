@@ -53,6 +53,12 @@ func keysToString(global: string, subs: Subscripts): string {.inline.} =
 
 func stringToSeq(s: string): Subscripts {.inline.} =
     # Convert ^Global(1,2,3) -> @["1", "2", "3"]
+    # Pre-count subscripts so the result seq never needs to reallocate
+    var cap = 1
+    for c in s:
+        if c == ',': inc cap
+    result = newSeqOfCap[string](cap)
+
     var str: string = newString(s.len)
     var idx = 0
     for c in s:
