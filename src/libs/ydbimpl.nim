@@ -253,8 +253,7 @@ proc ydb_set*(name: string, keys: Subscripts, value: string) =
       setIdxArr(IDXARR, subs)
       let endpos = min(value.len, offset + YDB_MAX_BUF_SIZE) - 1
       if endpos > offset:
-        let v = value[offset .. endpos]
-        setYdbBuffer(DATABUF, v)
+        setYdbBuffer(DATABUF, value[offset .. endpos])
         when compileOption("threads"):
             rc = ydb_set_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, cast[cint](subs.len), IDXARR[0].addr, DATABUF.addr)
         else:
