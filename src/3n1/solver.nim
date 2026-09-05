@@ -98,10 +98,15 @@ when isMainModule:
     var clean = true
     var verifycheck = false
     for param in commandLineParams():
+        if param.contains("-h"):
+            echo "-from=n -to=n -clean -verify"
         if param.contains("-from="): fromN = parseInt(param.split("=")[1])
         if param.contains("-to="): toN = parseInt(param.split("=")[1])
-        if param.contains("-clean="): clean = if param.split("=")[1] == "true": true else: false
-        if param.contains("-verify="): verifycheck = if param.split("=")[1] == "true": true else: false
+        if param.contains("-clean"):
+            clean = true
+        if param.contains("-verify"): 
+            verifycheck = true
+            clean = false
 
     if clean:
         timed("cleanDb")   : cleanDb()
