@@ -77,11 +77,17 @@ proc stringToYdbBuffer(name: string): ydb_buffer_t =
   ## Create a new ydb_buffer_t initialized from a Nim string
   ydb_buffer_t(len_alloc: name.len.uint32, len_used: name.len.uint32, buf_addr: allocCString(name))
 
-func setYdbBuffer(buffer: var ydb_buffer_t, name: string) =    
-  ## Assign a string value to an existing ydb_buffer_t
-  buffer.len_used = name.len.uint32
-  if buffer.len_used > 0:
-    copyMem(addr(buffer.buf_addr[0]),name[0].addr, name.len)
+proc setYdbBuffer(buffer: var ydb_buffer_t, name: string) =
+  ## Assign a string value to an existing ydb_buffer_t. If the value does not fit
+  ## the buffer's capacity, the buffer is replaced by a larger one (so the common
+  ## case stays allocation-free while long names/subscripts no longer overflow).
+  if name.len <= int(buffer.len_alloc):
+    buffer.len_used = name.len.uint32
+    if buffer.len_used > 0:
+      copyMem(addr(buffer.buf_addr[0]), name[0].addr, name.len)
+  else:
+    deallocBuffer(buffer)
+    buffer = stringToYdbBuffer(name)
     
 
 template setYdbBuffer(buffer: var openArray[ydb_buffer_t], names: seq[string]) =
@@ -339,7 +345,7 @@ proc node_traverse(direction: Direction, name: string, keys: Subscripts): (int, 
 
   # construct the return key sequence
   if rc == YDB_OK:
-    var sbscr:seq[string]
+    var sbscr = newSeqOfCap[string](ret_subs_used)
     for i in 0..<ret_subs_used:
       let len_used = IDXARR[i].len_used
       if len_used > 0:
@@ -439,17 +445,15 @@ proc ydb_get*(name: string, keys: Subscripts): string =
         #raise newException(YdbError, "Record not found")
         return EMPTY_STRING
       elif data == 10:  # process binary data
-          var sb = newStringStream()
+          var sb = newStringOfCap(1024*1024*2)
           rc = YDB_OK
           var subs = keys
           subs.add("___$00000000$___") # marker for first huge block
           while rc == YDB_OK:
             if subs[^1].startsWith("___$0"):
-              let val = ydb_get_db(name, subs)
-              sb.write(val)
+              sb.add(ydb_get_db(name, subs))
             subs[^1] = ydb_subscript_next(name, subs)
-          sb.setPosition(0)
-          return sb.readAll()
+          return sb
 
   elif rc == YDB_OK:
     result.setLen(DATABUF.len_used)

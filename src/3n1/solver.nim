@@ -1,5 +1,4 @@
 import yottadb
-import std/sets 
 import std/tables
 import std/strutils
 import std/cmdline
