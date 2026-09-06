@@ -11,11 +11,16 @@ proc setup() =
 const
     BLOCKSIZES = [1024, 1025, 2048, 2049, 65536]
 
+var TOTAL_BYTES = 0
+
 var KB = newStringOfCap(1024)
 for j in 0..<4:
     for i in 0 .. 255:
         KB.add(i.char)
 
+proc dumpKeys() =
+    for (k,v) in QueryItr ^tmp.kv:
+        echo k," len=", v.len
 
 proc createBinData(kb: int): string =
   # create a binary string of 'kb' kilobytes
@@ -42,6 +47,7 @@ proc testBinaryHugeWrite(): int =
   for size in BLOCKSIZES:
     let data = createBinData(size)
     inc(totalBytes, data.len)
+    inc(TOTAL_BYTES, data.len)
     Set: ^tmp(size) = data
     let dbdata = Get ^tmp(size)
     assert data == dbdata
@@ -52,15 +58,69 @@ proc testBinaryHugeRead(): int =
   for size in BLOCKSIZES:
     let data = Get ^tmp(size)
     inc(totalBytes, data.len)
+  assert totalBytes == TOTAL_BYTES
   return totalBytes
 
-proc testBinaryHugeVerify(): int =
+
+proc testBinaryHugeWriteGzip(): int =
+  Kill ^tmp
   var totalBytes = 0
   for size in BLOCKSIZES:
-    let dbdata = Get ^tmp(size)
-    inc(totalBytes, dbdata.len)
-    assert createBinData(size) == dbdata
+    let data = createBinData(size)
+    inc(totalBytes, data.len)
+    Set: ^tmp(size) = data.gzip
+    let dbdata = Get ^tmp(size).gzip
+    assert data == dbdata
   return totalBytes
+
+proc testBinaryHugeReadGzip(): int =
+  var totalBytes = 0
+  for size in BLOCKSIZES:
+    let data = Get ^tmp(size).gzip
+    inc(totalBytes, data.len)
+  assert totalBytes == TOTAL_BYTES
+  return totalBytes
+
+proc testBinaryHugeReadGzipVerify(): int =
+  var totalBytes = 0
+  for size in BLOCKSIZES:
+    let data = createBinData(size)
+    let dbdata = Get ^tmp(size).gzip
+    assert dbdata == data
+    inc(totalBytes, dbdata.len)
+  assert totalBytes == TOTAL_BYTES
+  return totalBytes
+
+
+proc testBinaryHugeWriteZlib(): int =
+  Kill ^tmp
+  var totalBytes = 0
+  for size in BLOCKSIZES:
+    let data = createBinData(size)
+    inc(totalBytes, data.len)
+    Set: ^tmp(size) = data.zlib
+    let dbdata = Get ^tmp(size).zlib
+    assert data == dbdata
+  return totalBytes
+
+proc testBinaryHugeReadZlib(): int =
+  var totalBytes = 0
+  for size in BLOCKSIZES:
+    let data = Get ^tmp(size).zlib
+    inc(totalBytes, data.len)
+  assert totalBytes == TOTAL_BYTES    
+  return totalBytes
+
+proc testBinaryHugeReadZlibVerify(): int =
+  var totalBytes = 0
+  for size in BLOCKSIZES:
+    let data = createBinData(size)
+    let dbdata = Get ^tmp(size).zlib
+    assert data == dbdata
+    inc(totalBytes, dbdata.len)
+  assert totalBytes == TOTAL_BYTES    
+  return totalBytes
+
 
 
 if isMainModule:
@@ -76,8 +136,33 @@ if isMainModule:
       let bps = rc / ms * 1000
       echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
 
-    test "binary huge verify": 
-      var (ms, rc) = timed_rc: testBinaryHugeVerify()
+    test "binary huge write GZIP": 
+      var (ms, rc) = timed_rc: testBinaryHugeWriteGzip()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " written in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
+    test "binary huge read GZIP": 
+      var (ms, rc) = timed_rc: testBinaryHugeReadGzip()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
+    test "binary huge read GZIP Verify": 
+      var (ms, rc) = timed_rc: testBinaryHugeReadGzipVerify()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
+    test "binary huge write ZLIB": 
+      var (ms, rc) = timed_rc: testBinaryHugeWriteZlib()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " written in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
+    test "binary huge read ZLIB": 
+      var (ms, rc) = timed_rc: testBinaryHugeReadZlib()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
+    test "binary huge read ZLIB Verify": 
+      var (ms, rc) = timed_rc: testBinaryHugeReadZlibVerify()
       let bps = rc / ms * 1000
       echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
 

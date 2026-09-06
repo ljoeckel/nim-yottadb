@@ -1,11 +1,19 @@
 # Changelog for version 0.4.6
 - .binary postfix has been removed. Handling of data sizes > 1MB now fully transparent with Set / Get
-- .OrderedSet postfix has been removed and replaced through the seqStr/seqInt/seqFloat/seqBool family.
+- .OrderedSet postfix has been removed and replaced through the seqString/seqInt/seqFloat/seqBool family.
 - Each postfix returns a sequence of the given type for data that is stored in a comma separated list
   Set: ^data("int")="1,2,3,4,5"
   let s = Get ^data("int").seqInt 
   echo s -> @[1,2,3,4,5]
 - dbstats added to simply write a snapshot of database statistics of the current process
+- Set can now compress the value with a '.gzip' or '.zlib' postfix. This will also work for sequences.
+    var data: seq[int]
+    ... fill data[0]..[n] ...
+    Set: ^Sequence(1) = data.gzip
+    assert data == Get ^Sequence(1).seqInt.gzip
+  The Get operation needs to be correctly used. In future versions there may be a Meta-Data driven approach to handle this kind of data automatically.
+  The compression ratio is around 4:1 with gzip and may be faster (depends on size)
+- ydb_delete_node and ydb_delete_tree are now unified to ydb_delete(.., YDB_DEL_NODE | YDB_DEL_TREE)
 
 # Changelog for version 0.4.5
 - Serialization now supports an .INDEX. pragma on data fields. The index is automatically created, modified or deleted for each field.

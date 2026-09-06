@@ -47,7 +47,7 @@ proc order() =
 
 proc killnode() =
     for id in 0..<MAX:
-        ydb_delete_node("^BENCHMARK1", @[$id])
+        ydb_delete("^BENCHMARK1", @[$id], YDB_DEL_NODE)
     assert isEmpty("^BENCHMARK1")
 
 

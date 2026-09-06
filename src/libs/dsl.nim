@@ -4,6 +4,9 @@ import std/strformat
 import std/[json]
 import libs/ydbtypes
 import libs/ydbimpl
+import libs/parsers
+import libs/libydb
+import zippy
 
 when compileOption("profiler"):
   import std/nimprof
@@ -28,10 +31,31 @@ const
     KV = "KV"
     REVERSE = "REVERSE"
     VAL = "VAL"
+    # type postfix
+    INT = "INT"
+    INT8 = "INT8"
+    INT16 = "INT16"
+    INT32 = "INT32"
+    INT64 = "INT64"
+    UINT = "UINT"
+    UINT8 = "UINT8"
+    UINT16 = "UINT16"
+    UINT32 = "UINT32"
+    UINT64 = "UINT64"
+    FLOAT = "FLOAT"
+    FLOAT64 = "FLOAT64"
+    BOOL = "BOOL"
+    # for seq[str|int|float]bool]
+    SEQSTRING = "SEQSTRING"
+    SEQINT = "SEQINT"
+    SEQFLOAT = "SEQFLOAT"
+    SEQBOOL = "SEQBOOL"
+    GZIP = "GZIP"
+    ZLIB = "ZLIB"
+
 
 const
   MAX_RESTARTS = 4
-
 
 func trim(str: string): string {.inline.} =
     # remove surrounding whitespace and a pair of double quotes:
@@ -51,75 +75,6 @@ func trim(str: string): string {.inline.} =
         str                     # unchanged -> return the original string, no copy
     else:
         str[first .. last]
-
-func parseFastInt(s: string): int =
-  # Fast path for plain base-10 integers (optional sign + ASCII digits).
-  # Falls back to strutils.parseInt for anything unusual.
-  let L = s.len
-  if L == 0: return parseInt(s)
-  var i = 0
-  var neg = false
-  if s[0] == '-': neg = true; inc i
-  elif s[0] == '+': inc i
-  if i == L: return parseInt(s)          # just "-" / "+"
-  var r = 0
-  while i < L:
-    let c = s[i]
-    if c < '0' or c > '9':
-      return parseInt(s)                 # non-digit -> fallback
-    let d = ord(c) - ord('0')
-    if r > (high(int) - d) div 10:
-      return parseInt(s)                 # overflow -> fallback (raises like parseInt)
-    r = r * 10 + d
-    inc i
-  if neg: -r else: r
-
-
-func parseFastFloat(s: string): float =
-  # Fast path for plain decimals: [sign] digits [. digits]  (no exponent).
-  # Falls back to strutils.parseFloat for anything unusual (e/E, inf, nan, ...).
-  let L = s.len
-  if L == 0: return parseFloat(s)
-  var i = 0
-  var neg = false
-  if s[0] == '-': neg = true; inc i
-  elif s[0] == '+': inc i
-
-  var ip = 0.0
-  var digits = 0
-  while i < L and s[i] >= '0' and s[i] <= '9':
-    if digits >= 14: return parseFloat(s)   # precision guard
-    ip = ip * 10.0 + float(ord(s[i]) - ord('0'))
-    inc i; inc digits
-
-  var frac = 0.0
-  var scale = 1.0
-  if i < L and s[i] == '.':
-    inc i
-    while i < L and s[i] >= '0' and s[i] <= '9':
-      if digits >= 14: return parseFloat(s) # precision guard
-      frac = frac * 10.0 + float(ord(s[i]) - ord('0'))
-      scale *= 10.0
-      inc i; inc digits
-
-  if digits == 0 or i != L:
-    return parseFloat(s)                    # no digits / trailing junk / exponent
-
-  let r = ip + frac / scale
-  if neg: -r else: r
-
-
-func parseFastBool(s: string): bool =
-  # case-insensitive "1", "T", "TRUE" without allocating an upper-case copy
-  if s.len == 1:
-    return s[0] == '1' or s[0] == 'T' or s[0] == 't'
-  if s.len == 4:
-    return (s[0] == 't' or s[0] == 'T') and
-           (s[1] == 'r' or s[1] == 'R') and
-           (s[2] == 'u' or s[2] == 'U') and
-           (s[3] == 'e' or s[3] == 'E')
-  false
-
 
 func keysToString(global: string, subs: Subscripts): string {.inline.} =
   result = global
@@ -223,6 +178,41 @@ proc resolveVarPrefix(ydbvar: YdbVar): YdbVar =
       result.subscripts = stringToSeq(ydbvar.name[openPar + 1 ..< closePar]) & ydbvar.subscripts
   result.subscripts = expandSubsPrefix(result.subscripts)
 
+
+proc getApiName(basename: string; args: var seq[NimNode]): (string, bool) =
+  ## Compose the runtime proc name from the trailing `.postfix` pairs that
+  ## `transform` appended as (`TYPEDESC`, `$postfix`), e.g. for
+  ##   Get ^Seq(1).seqInt.gzip  ->  [.., "†", seqInt, "†", gzip]
+  ## GZIP/ZLIB are collected into `secondArg` and appended last, so the
+  ## compression postfix is position-independent (.seqInt.gzip == .gzip.seqInt).
+  var reverse: bool
+  var apiName = basename & "x"
+  var secondArg: string
+
+  # Scan from the end (outermost postfix first) and drop the consumed pairs with
+  # a single `setLen`, instead of re-slicing the whole seq on every postfix.
+  var i = args.high
+  while i >= 2 and args[i-1].kind == nnkStrLit and args[i-1].strVal == TYPEDESC:
+    let arg = args[i][1].strVal.toUpperAscii()
+    case arg
+    of INT, INT8, INT16, INT32, INT64,
+       UINT, UINT8, UINT16, UINT32, UINT64,
+       FLOAT, FLOAT64, BOOL,
+       KEY, KEYS, KV, COUNT, VAL,
+       SEQSTRING, SEQINT, SEQFLOAT, SEQBOOL:
+      apiName.add(arg)
+    of REVERSE:
+      reverse = true
+    of GZIP, ZLIB:
+      secondArg = arg
+    else:
+      raise newException(YdbError, fmt"Unsupported postfix '{arg}'")
+    dec i, 2
+
+  args.setLen(i + 1)
+  if secondArg.len > 0:
+    apiName.add(secondArg)
+  (apiName, reverse)
 
 # ------------------
 # Macro procs
@@ -392,8 +382,7 @@ proc buildYdbVar(args: seq[NimNode]): NimNode =
     prefix = args[0]
     let arg = args[1]
     if prefix.strVal == INDIRECTION:
-      # Indirection: the name (and possibly embedded subscripts) is resolved at
-      # runtime by `resolveVar`.
+      # Indirection: the name (and possibly embedded subscripts) is resolved at runtime by `resolveVar`.
       name = arg
     else:
       let pfx = prefix.strVal
@@ -563,11 +552,12 @@ func splitSeqValue(s: string): seq[string] =
         result = s.split(',')
 
 
-proc parseSeq[T](ydbvar: YdbVar): seq[T] =
+proc parseSeq[T](ydbvar: YdbVar, uncompress: bool = false): seq[T] =
+    let dbdata = if uncompress: uncompress(getx(ydbvar)) else: getx(ydbvar)
     when T is string:
-        result = splitSeqValue(getx(ydbvar))
+        result = splitSeqValue(dbdata)
     else:
-        let tokens = splitSeqValue(getx(ydbvar))
+        let tokens = splitSeqValue(dbdata)
         result = newSeq[T](tokens.len)
         try:
             for i in 0 ..< tokens.len:
@@ -578,44 +568,44 @@ proc parseSeq[T](ydbvar: YdbVar): seq[T] =
                 when T is bool:
                     result[i] = parseFastBool(tokens[i])
         except:
-            echo "ERROR: Could not parse seq to numbers: ", tokens
+            echo "ERROR: parseSeq: Could not parse seq to numbers"
 
 
-proc getxseqStr*(ydbvar: YdbVar): seq[string] =
-    # Postfix: .seqStr
-    parseSeq[string](ydbvar)
+# The second parameter is the short postfix token used in the macro name:
+# .seqString -> getxSEQSTRING, .seqInt -> getxSEQINT, etc.
+template defineGetSeq(typeName, alias: untyped) =
+  proc `getxseq typename`*(ydbvar: YdbVar): seq[typeName] =
+    parseSeq[typeName](ydbvar)
+  # Postfix: .seqString.gzip / .seqInt.gzip / ...
+  proc `getxseq typeName gzip`*(ydbvar: YdbVar): seq[typeName] =    
+    parseSeq[typeName](ydbvar, uncompress=true)
+  # Postfix: .seqString.zlib / .seqInt.zlib / ...    
+  proc `getxseq typeName zlib`*(ydbvar: YdbVar): seq[typeName] =    
+    parseSeq[typeName](ydbvar, uncompress=true)
 
-proc getxseqInt*(ydbvar: YdbVar): seq[int] =
-    # Postfix: .seqInt
-    parseSeq[int](ydbvar)
+defineGetSeq(string, str)
+defineGetSeq(int, int)
+defineGetSeq(float, float)
+defineGetSeq(bool, bool)
 
-proc getxseqFloat*(ydbvar: YdbVar): seq[float] =
-    # Postfix: .seqFloat
-    parseSeq[float](ydbvar)
 
-proc getxseqBool*(ydbvar: YdbVar): seq[bool] =
-    # Postfix: .seqBool
-    parseSeq[bool](ydbvar)
+proc getxgzip*(ydbvar: YdbVar): string =
+    uncompress(getx(ydbvar))
+
+proc getxzlib*(ydbvar: YdbVar): string =
+    uncompress(getx(ydbvar))
 
 
 macro Get*(body: untyped): untyped =
     var args: seq[NimNode]
     transform(body, args, @[DEFAULT])
-    # check for type conversion
-    var typename = "getx"
-    if args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
-        typename.add(args[^1][1].strVal)
-        args = args[0..^3] # remove TD,int
+    let (typename, _) = getApiName("get", args)
     newCall(ident(typename), buildYdbVar(args))
 
 
 # -------------------------------------
 # Int / Uint / Float / Bool conversions
 # -------------------------------------
-proc parseBool(value: string): bool =
-    var b = toUpper(value)
-    if b == "TRUE" or b == "T" or b == "1":
-        result = true
         
 template defineGetX(typeName, parseFunc: untyped) =
   proc `getx typeName`*(ydbvar: YdbVar): typeName =
@@ -640,7 +630,7 @@ defineGetX(uint64, parseUInt)
 defineGetX(float, parseFloat)
 #defineGetX(float32, parseFloat) #TODO: cast gives strange results
 defineGetX(float64, parseFloat)
-defineGetX(bool, parseBool)
+defineGetX(bool, parseFastBool)
 
 
 #================
@@ -649,7 +639,7 @@ defineGetX(bool, parseBool)
 proc killnodex*(ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
         let v = resolveVarPrefix(ydbvar)
-        ydb_delete_node(v.name, v.subscripts)
+        ydb_delete(v.name, v.subscripts, YDB_DEL_NODE)
 
 macro Killnode*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -663,7 +653,7 @@ macro Killnode*(body: untyped): untyped =
 proc killx*(ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
         let v = resolveVarPrefix(ydbvar)
-        ydb_delete_tree(v.name, v.subscripts)
+        ydb_delete(v.name, v.subscripts, YDB_DEL_TREE)
 
 macro Kill*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -792,38 +782,53 @@ macro Set*(body: untyped): untyped =
 # --------------------
 template walkNodes(nextProc: untyped, ydbvar: YdbVar, body: untyped) =
   let v = resolveVar(ydbvar)
-  let name {.inject.} = v.name
+  let gblName {.inject.} = v.name
   var rc {.inject.}: int
   var subs {.inject.}: seq[string]
-  (rc, subs) = nextProc(name, v.subscripts)
+  (rc, subs) = nextProc(gblName, v.subscripts)
   while rc == YDB_OK:
     body
-    (rc, subs) = nextProc(name, subs)
+    (rc, subs) = nextProc(gblName, subs)
 
 # returns ^global(key,..)
-iterator QueryItrx*(reverse: bool, ydbvar: YdbVar): string =
-  let procedure = if reverse: ydb_node_previous else: ydb_node_next
+iterator QueryItrx*(reverse: static bool, ydbvar: YdbVar): string =
+  when reverse:
+    let procedure = ydb_node_previous
+  else:
+    let procedure = ydb_node_next
   walkNodes(procedure, ydbvar):
-    yield keysToString(name, subs)
+    yield keysToString(gblName, subs)
 
 # returns @["1"], @["2"], ...
-iterator QueryItrxKEYS*(reverse: bool, ydbvar: YdbVar): seq[string] =
-  let procedure = if reverse: ydb_node_previous else: ydb_node_next
+iterator QueryItrxKEYS*(reverse: static bool, ydbvar: YdbVar): seq[string] =
+  when reverse:
+    let procedure = ydb_node_previous
+  else:
+    let procedure = ydb_node_next
   walkNodes(procedure, ydbvar):
     yield subs
 
-iterator QueryItrxKV*(reverse: bool, ydbvar: YdbVar): (string, string) =
-  let procedure = if reverse: ydb_node_previous else: ydb_node_next
+iterator QueryItrxKV*(reverse: static bool, ydbvar: YdbVar): (string, string) =
+  when reverse:
+    let procedure = ydb_node_previous
+  else:
+    let procedure = ydb_node_next
   walkNodes(procedure, ydbvar):
-    yield (keysToString(name, subs), ydb_get(name, subs))
+    yield (keysToString(gblName, subs), ydb_get(gblName, subs))
 
-iterator QueryItrxVAL*(reverse: bool, ydbvar: YdbVar): string =
-  let procedure = if reverse: ydb_node_previous else: ydb_node_next
+iterator QueryItrxVAL*(reverse: static bool, ydbvar: YdbVar): string =
+  when reverse:
+    let procedure = ydb_node_previous
+  else:
+    let procedure = ydb_node_next
   walkNodes(procedure, ydbvar):
-    yield ydb_get(name, subs)
+    yield ydb_get(gblName, subs)
 
-iterator QueryItrxCOUNT*(reverse: bool, ydbvar: YdbVar): int =
-  let procedure = if reverse: ydb_node_previous else: ydb_node_next
+iterator QueryItrxCOUNT*(reverse: static bool, ydbvar: YdbVar): int =
+  when reverse:
+    let procedure = ydb_node_previous
+  else:
+    let procedure = ydb_node_next
   var cnt = 0
   walkNodes(procedure, ydbvar):
     inc cnt
@@ -835,43 +840,61 @@ iterator QueryItrxCOUNT*(reverse: bool, ydbvar: YdbVar): int =
 # --------------------
 template walkOrderNodes(nextProc: untyped, ydbvar: YdbVar, body: untyped) =
   let v = resolveVar(ydbvar)
-  let name {.inject.} = v.name
+  let gblName {.inject.} = v.name
   var subs {.inject.} = v.subscripts
-  var key {.inject.} = nextProc(name, v.subscripts)
+  var key {.inject.} = nextProc(gblName, v.subscripts)
   while key.len > 0:
     if subs.len > 0: subs[^1] = key
     else: subs.add(key)
     body
-    key = nextProc(name, subs)
+    key = nextProc(gblName, subs)
 
 # returns ^global(key,..)
-iterator OrderItrx*(reverse: bool, ydbvar: YdbVar): string =
-  let procedure = if reverse: ydb_subscript_previous else: ydb_subscript_next
+iterator OrderItrx*(reverse: static bool, ydbvar: YdbVar): string =
+  when reverse:
+    let procedure = ydb_subscript_previous
+  else:
+    let procedure = ydb_subscript_next
   walkOrderNodes(procedure, ydbvar):
     yield key
 
-iterator OrderItrxKEYS*(reverse: bool, ydbvar: YdbVar): seq[string] =
-  let procedure = if reverse: ydb_subscript_previous else: ydb_subscript_next
+iterator OrderItrxKEYS*(reverse: static bool, ydbvar: YdbVar): seq[string] =
+  when reverse:
+    let procedure = ydb_subscript_previous
+  else:
+    let procedure = ydb_subscript_next
   walkOrderNodes(procedure, ydbvar):
     yield subs
 
-iterator OrderItrxVAL*(reverse: bool, ydbvar: YdbVar): string =
-  let procedure = if reverse: ydb_subscript_previous else: ydb_subscript_next
+iterator OrderItrxVAL*(reverse: static bool, ydbvar: YdbVar): string =
+  when reverse:
+    let procedure = ydb_subscript_previous
+  else:
+    let procedure = ydb_subscript_next
   walkOrderNodes(procedure, ydbvar):
-    yield ydb_get(name, subs)
+    yield ydb_get(gblName, subs)
 
-iterator OrderItrxKV*(reverse: bool, ydbvar: YdbVar): (string, string) =
-  let procedure = if reverse: ydb_subscript_previous else: ydb_subscript_next
+iterator OrderItrxKV*(reverse: static bool, ydbvar: YdbVar): (string, string) =
+  when reverse:
+    let procedure = ydb_subscript_previous
+  else:
+    let procedure = ydb_subscript_next
   walkOrderNodes(procedure, ydbvar):
-    yield (key, ydb_get(name, subs))
+    yield (key, ydb_get(gblName, subs))
 
-iterator OrderItrxKEY*(reverse: bool, ydbvar: YdbVar): string =
-  let procedure = if reverse: ydb_subscript_previous else: ydb_subscript_next
+iterator OrderItrxKEY*(reverse: static bool, ydbvar: YdbVar): string =
+  when reverse:
+    let procedure = ydb_subscript_previous
+  else:
+    let procedure = ydb_subscript_next
   walkOrderNodes(procedure, ydbvar):
-    yield keysToString(name, subs)
+    yield keysToString(gblName, subs)
 
-iterator OrderItrxCOUNT*(reverse: bool, ydbvar: YdbVar): int =
-  let procedure = if reverse: ydb_subscript_previous else: ydb_subscript_next
+iterator OrderItrxCOUNT*(reverse: static bool, ydbvar: YdbVar): int =
+  when reverse:
+    let procedure = ydb_subscript_previous
+  else:
+    let procedure = ydb_subscript_next
   var cnt = 0
   walkOrderNodes(procedure, ydbvar):
     inc cnt
@@ -969,40 +992,42 @@ template walkO[T](qt: static QueryType, ydbvar: YdbVar, nodeProc: untyped): T =
     else:
         default(T)
 
-proc getApiName(basename: string, args: var seq[NimNode]): (string, bool) =
-  var reverse: bool
-  var apiName = basename & "x"
-  while args.len > 2 and args[^2].kind == nnkStrLit and args[^2].strVal == TYPEDESC:
-    let arg = args[^1][1].strVal.toUpper()
-    case  arg
-    of REVERSE: reverse = true
-    of KEY, KEYS, KV, COUNT, VAL: apiName.add(arg)
-    else: raise newException(YdbError, fmt"Unsupported postfix '{arg}'")
-    args = args[0..^3]
-   
-  return (apiName, reverse)
-
 #================
 # Query:
 #================
-proc Queryx*(isReverse: bool, ydbvar: YdbVar): string =
-    let procedure = if isReverse: ydb_node_previous else: ydb_node_next
-    walkQ[string](qtNext, ydbvar, procedure)
+proc Queryx*(isReverse: static bool, ydbvar: YdbVar): string =
+  when isReverse:
+    let procedure = ydb_node_previous
+  else:
+    let procedure = ydb_node_next
+  walkQ[string](qtNext, ydbvar, procedure)
 
-proc QueryxKEYS*(isReverse: bool, ydbvar: YdbVar): seq[string] =
-  let procedure = if isReverse: ydb_node_previous else: ydb_node_next
+proc QueryxKEYS*(isReverse: static bool, ydbvar: YdbVar): seq[string] =
+  when isReverse:
+    let procedure = ydb_node_previous
+  else:
+    let procedure = ydb_node_next
   walkQ[seq[string]](qtKeys, ydbvar, procedure)
 
-proc QueryxKV*(isReverse: bool, ydbvar: YdbVar): (string, string) =
-  let procedure = if isReverse: ydb_node_previous else: ydb_node_next
+proc QueryxKV*(isReverse: static bool, ydbvar: YdbVar): (string, string) =
+  when isReverse:
+    let procedure = ydb_node_previous
+  else:
+    let procedure = ydb_node_next
   walkQ[(string, string)](qtKv, ydbvar, procedure)
 
-proc QueryxVAL*(isReverse: bool, ydbvar: YdbVar): string =
-  let procedure = if isReverse: ydb_node_previous else: ydb_node_next
+proc QueryxVAL*(isReverse: static bool, ydbvar: YdbVar): string =
+  when isReverse:
+    let procedure = ydb_node_previous
+  else:
+    let procedure = ydb_node_next
   walkQ[string](qtValue, ydbvar, procedure)
 
-proc QueryxCOUNT*(isReverse: bool, ydbvar: YdbVar): int =
-  let procedure = if isReverse: ydb_node_previous else: ydb_node_next
+proc QueryxCOUNT*(isReverse: static bool, ydbvar: YdbVar): int =
+  when isReverse:
+    let procedure = ydb_node_previous
+  else:
+    let procedure = ydb_node_next
   walkQ[int](qtCount, ydbvar, procedure)
 
 macro Query*(body: untyped): untyped =
@@ -1021,28 +1046,46 @@ macro QueryItr*(body: untyped): untyped =
 #================
 # Order:
 #================
-proc Orderx*(isReverse: bool, ydbvar: YdbVar): string =
-    let procedure = if isReverse: ydb_subscript_previous else: ydb_subscript_next
-    walkO[string](qtNext, ydbvar, procedure)
+proc Orderx*(isReverse: static bool, ydbvar: YdbVar): string =
+  when isReverse:
+    let procedure = ydb_subscript_previous
+  else:
+    let procedure = ydb_subscript_next
+  walkO[string](qtNext, ydbvar, procedure)
 
-proc OrderxKEY*(isReverse: bool, ydbvar: YdbVar): string =
-  let procedure = if isReverse: ydb_subscript_previous else: ydb_subscript_next
+proc OrderxKEY*(isReverse: static bool, ydbvar: YdbVar): string =
+  when isReverse:
+    let procedure = ydb_subscript_previous
+  else:
+    let procedure = ydb_subscript_next
   walkO[string](qtKey, ydbvar, procedure)
 
-proc OrderxKEYS*(isReverse: bool, ydbvar: YdbVar): seq[string] =
-  let procedure = if isReverse: ydb_subscript_previous else: ydb_subscript_next
+proc OrderxKEYS*(isReverse: static bool, ydbvar: YdbVar): seq[string] =
+  when isReverse:
+    let procedure = ydb_subscript_previous
+  else:
+    let procedure = ydb_subscript_next
   walkO[seq[string]](qtKeys, ydbvar, procedure)
 
-proc OrderxKV*(isReverse: bool, ydbvar: YdbVar): (string, string) =
-  let procedure = if isReverse: ydb_subscript_previous else: ydb_subscript_next
+proc OrderxKV*(isReverse: static bool, ydbvar: YdbVar): (string, string) =
+  when isReverse:
+    let procedure = ydb_subscript_previous
+  else:
+    let procedure = ydb_subscript_next
   walkO[(string, string)](qtKv, ydbvar, procedure)
 
-proc OrderxVAL*(isReverse: bool, ydbvar: YdbVar): string =
-  let procedure = if isReverse: ydb_subscript_previous else: ydb_subscript_next
+proc OrderxVAL*(isReverse: static bool, ydbvar: YdbVar): string =
+  when isReverse:
+    let procedure = ydb_subscript_previous
+  else:
+    let procedure = ydb_subscript_next
   walkO[string](qtValue, ydbvar, procedure)
 
-proc OrderxCOUNT*(isReverse: bool, ydbvar: YdbVar): int =
-  let procedure = if isReverse: ydb_subscript_previous else: ydb_subscript_next
+proc OrderxCOUNT*(isReverse: static bool, ydbvar: YdbVar): int =
+  when isReverse:
+    let procedure = ydb_subscript_previous
+  else:
+    let procedure = ydb_subscript_next
   walkO[int](qtCount, ydbvar, procedure)
 
 macro Order*(body: untyped): untyped =
@@ -1087,7 +1130,7 @@ proc setupCTX(node: JsonNode, level: var int, subs: var seq[string]) =
         echo "Unknown datatype ", node.kind
 
 proc callmx*(args: varargs[string]): string =
-    ydb_delete_node("CTX", @[])
+    ydb_delete("CTX", @[], YDB_DEL_NODE)
 
     if args.len == 2 and args[1][0] == '{' and args[1][^1] == '}': # Try to parse Json
         # JSON passed

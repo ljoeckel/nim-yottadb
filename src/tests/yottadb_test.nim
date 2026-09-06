@@ -56,7 +56,7 @@ proc simpleDelete(global: string, cnt: int) =
   var subs:seq[string]
   for i in 0..cnt:
     subs.add($i)
-    ydb_delete_node(global, subs)
+    ydb_delete(global, subs, YDB_DEL_NODE)
     discard subs.pop()
 
 proc setWithError() =
@@ -166,18 +166,18 @@ proc nextSubscript(global: string, start: Subscripts, expected: string) =
   doAssert subscript == expected
 
 proc deleteTree() =
-  ydb_delete_node("^LJ", @["LAND", "STRASSE"])
+  ydb_delete("^LJ", @["LAND", "STRASSE"], YDB_DEL_NODE)
   for i in 0..MAX:
-    ydb_delete_tree("^LJ", @["LAND", "ORT", $i, $i])
+    ydb_delete("^LJ", @["LAND", "ORT", $i, $i], YDB_DEL_TREE)
 
 # Delete all globals from ^LJ, ^LJ will be removed from %GD
 proc testDeleteTree() =
-  ydb_delete_tree("^LJ", @["LAND"])
+  ydb_delete("^LJ", @["LAND"], YDB_DEL_TREE)
   let globals = getGlobals()
   assert globals.find("^LJ") == -1
 
 proc deleteNode() =
-    ydb_delete_node("^CNT", @["CHANNEL", "INPUT"])
+    ydb_delete("^CNT", @["CHANNEL", "INPUT"], YDB_DEL_NODE)
     var result = ydb_increment("^CNT", @["CHANNEL", "INPUT"], 1)
     assert ydb_get("^CNT", @["CHANNEL", "INPUT"]) == $result
 

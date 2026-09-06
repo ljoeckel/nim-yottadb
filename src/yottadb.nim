@@ -4,6 +4,7 @@ import libs/ydbimpl
 import libs/dsl
 import libs/bingoser
 import dbstats
+import zippy 
 
 export libydb
 export ydbtypes
@@ -12,8 +13,21 @@ export dsl
 export bingoser
 export dbstats
 
+# --- Compression with .gzip and .zlib postfix
+const DEFAULT_LEVEL = BestSpeed # NoCompression, BestSpeed, BestCompression, DefaultCompression, HuffmanOnly
 
-# ------------------ YdbVar ----------------
+proc gzip*(s: string, level: int = DEFAULT_LEVEL): string =
+    compress(s, level, CompressedDataFormat.dfGzip)
+proc gzip*[T](s: seq[T], level: int = DEFAULT_LEVEL): string =
+    compress($s, level, CompressedDataFormat.dfGzip)
+
+proc zlib*(s: string, level: int = DEFAULT_LEVEL): string =
+    compress(s, level, CompressedDataFormat.dfZlib)
+proc zlib*[T](s: seq[T], level: int = DEFAULT_LEVEL): string =
+    compress($s, level, CompressedDataFormat.dfZlib)
+
+
+# --- YdbVar
 
 proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = ""): YdbVar =
   if global.len == 0: raise newException(YdbError, "Empty 'global' param")

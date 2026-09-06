@@ -1,6 +1,7 @@
 import std/[strutils, strformat]
 import ydbtypes
 import libydb
+import libs/parsers
 
 # Constants for buffer sizes used throughout YottaDB API calls
 const
@@ -40,7 +41,7 @@ proc atexit(f: proc() {.noconv.}) {.importc.}
 # -----------------------------------
 # Buffer allocation and management
 # -----------------------------------
-template allocCString*(s: string): cstring =
+template allocCString(s: string): cstring =
   ## Allocate a new C-string (null-terminated) from a Nim string.
   let buf = cast[ptr UncheckedArray[char]](alloc(s.len + 1))
   if s.len > 0:
@@ -104,19 +105,19 @@ template setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string]) =
 # Buffer initialization & cleanup
 # ----------------------------------
 proc initBuffers() =
-  ## Ensure buffers are allocated before first use.
-  ERRMSG = stringToYdbBuffer(zeroBuffer(YDB_MAX_ERRORMSG))
-  DATABUF = stringToYdbBuffer(zeroBuffer(YDB_MAX_BUF_SIZE))
-  INCRBUF = stringToYdbBuffer(zeroBuffer(INCRBUF_SIZE))    
-  GLOBAL = stringToYdbBuffer(zeroBuffer(BUFFER_GLOBAL_SIZE))
-  for idx in 0..<IDXARR.len:
-    IDXARR[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
-  for idx in 0..<YDB_MAX_NAMES:
-    NAMES[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
-  
-  buf_initialized = true
+    ## Ensure buffers are allocated before first use.
+    ERRMSG = stringToYdbBuffer(zeroBuffer(YDB_MAX_ERRORMSG))
+    DATABUF = stringToYdbBuffer(zeroBuffer(YDB_MAX_BUF_SIZE))
+    INCRBUF = stringToYdbBuffer(zeroBuffer(INCRBUF_SIZE))    
+    GLOBAL = stringToYdbBuffer(zeroBuffer(BUFFER_GLOBAL_SIZE))
+    for idx in 0..<IDXARR.len:
+        IDXARR[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
+    for idx in 0..<YDB_MAX_NAMES:
+        NAMES[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
 
-template check() =
+    buf_initialized = true
+
+template checkBuffers() =
     if not buf_initialized:
         initBuffers()
 
@@ -138,7 +139,7 @@ atexit(cleanupBuffers)
 proc ydbMessage*(status: int, ): string =
   ## Return error message text for given status code
   if status == YDB_OK: return
-  check()
+  checkBuffers()
   when compileOption("threads"):
     rc = ydb_message_t(TPTOKEN, ERRMSG.addr, status.cint, ERRMSG.addr)
   else:
@@ -168,26 +169,26 @@ template checkRC() =
 
 proc ydb_tp_start(myTxn: ydb_tpfnptr_t, param: string, transid:string): int =
   ## Start a single-threaded transaction
-  check()
+  checkBuffers()
   result = ydb_tp_s(myTxn, cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
   checkRC()
 
 proc ydb_tp_start(myTxn: ydb_tpfnptr_t, param: int, transid:string): int =
   ## Start a single-threaded transaction
-  check()
+  checkBuffers()
   result = ydb_tp_s(myTxn, cast[pointer](param.cint), transid, 0, GLOBAL.addr)
   checkRC()
 
 
 proc ydb_tp2_start(myTxn: YDB_tp2fnptr_t, param:string, transid:string): int =
   ## Start a multi-threaded transaction
-  check()
+  checkBuffers()
   result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
   checkRC()
 
 proc ydb_tp2_start(myTxn: YDB_tp2fnptr_t, param:int, transid:string): int =
   ## Start a multi-threaded transaction
-  check()
+  checkBuffers()
   result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cint), transid, 0, GLOBAL.addr)
   checkRC()
 
@@ -207,9 +208,9 @@ proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: int, transid: string = ""): int =
 
 
 # --- Delete node/tree ---
-proc ydb_delete(name: string, keys: Subscripts, deltype: uint) =
+proc ydb_delete*(name: string, keys: Subscripts, deltype: uint) =
   ## Internal helper to delete either a node or a subtree
-  check()
+  checkBuffers()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
@@ -220,15 +221,9 @@ proc ydb_delete(name: string, keys: Subscripts, deltype: uint) =
   
   checkRC()
 
-proc ydb_delete_node*(name: string, keys: Subscripts) =
-    ydb_delete(name, keys, YDB_DEL_NODE)
-
-proc ydb_delete_tree*(name: string, keys: Subscripts) =
-    ydb_delete(name, keys, YDB_DEL_TREE)
-
 
 proc ydb_set*(name: string, keys: Subscripts, value: string) =
-  check()
+  checkBuffers()
   if value.len <= YDB_MAX_BUF_SIZE:
       setIdxArr(IDXARR, keys)
       setYdbBuffer(GLOBAL, name)
@@ -240,7 +235,7 @@ proc ydb_set*(name: string, keys: Subscripts, value: string) =
       checkRC()
   else:
     # wipe out any previous existing record < YDB_MAX_BUF_SIZE
-    ydb_delete(name, keys, YDB_DEL_NODE)
+    ydb_delete(name, keys, YDB_DEL_TREE)
     
     # update with new binary data
     setYdbBuffer(GLOBAL, name)
@@ -267,7 +262,7 @@ proc ydb_set*(name: string, keys: Subscripts, value: string) =
 proc ydb_data*(name: string, keys: Subscripts): int =
   ## Check existence/type of a global node
   ## Return codes: 0 = no Data, 1 = Data, 10 = child nodes, 11 = both
-  check()
+  checkBuffers()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
   var value: cuint = 0
@@ -283,7 +278,7 @@ proc ydb_data*(name: string, keys: Subscripts): int =
 
 proc ydb_delete_excl*(names: seq[string] = @[]) =
   ## Delete all locals except the specified names  
-  check()
+  checkBuffers()
   setYdbBuffer(NAMES, names)
   
   when compileOption("threads"):
@@ -296,7 +291,7 @@ proc ydb_delete_excl*(names: seq[string] = @[]) =
 
 proc ydb_increment*(name: string, keys: Subscripts, value: int = 1): int =
   ## Increment a node value and return new value  
-  check()
+  checkBuffers()
   setYdbBuffer(GLOBAL, name)
   setYdbBuffer(DATABUF, $value)
   setIdxArr(IDXARR, keys)
@@ -311,7 +306,7 @@ proc ydb_increment*(name: string, keys: Subscripts, value: int = 1): int =
   INCRBUF.buf_addr[INCRBUF.len_used] = '\0' # null terminate
   let buf = $INCRBUF.buf_addr
   try:
-    result = parseInt(buf)
+    result = parseFastInt(buf)
   except:
     raise newException(YdbError, "Illegal Number. Tried to parseInt(" & buf & ")")
 
@@ -319,7 +314,7 @@ proc ydb_increment*(name: string, keys: Subscripts, value: int = 1): int =
 # --- Node traversal (next/previous) ---
 proc node_traverse(direction: Direction, name: string, keys: Subscripts): (int, Subscripts) =
   ## Traverse to the next/previous node and return subscripts  
-  check()
+  checkBuffers()
   setYdbBuffer(GLOBAL, name)
 
   var subs: Subscripts
@@ -369,7 +364,7 @@ proc ydb_node_previous*(name: string, keys: Subscripts = @[]): (int, Subscripts)
 # --- Subscript traversal (next/previous) ---
 proc subscript_traverse(direction: Direction, name: string, keys: Subscripts): string =
   ## Traverse subscripts at current level  
-  check()
+  checkBuffers()
   setYdbBuffer(GLOBAL, name)
   var subs: Subscripts
   if keys.len == 0:
@@ -429,7 +424,7 @@ proc ydb_get_db(name: string, keys: Subscripts): string =
 
 proc ydb_get*(name: string, keys: Subscripts): string =
   ## Retrieve a value from a local or global node
-  check()
+  checkBuffers()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
   DATABUF.len_used = 0
@@ -467,7 +462,7 @@ proc ydb_get*(name: string, keys: Subscripts): string =
 # --- Locks ---
 proc ydb_lock_incr*(timeout_nsec: int, name: string, keys: Subscripts) =
   ## Increment Lock for variable
-  check()
+  checkBuffers()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
@@ -490,7 +485,7 @@ proc ydb_lock_incr*(timeout_nsec: int, name: string, keys: Subscripts) =
 
 proc ydb_lock_decr*(name: string, keys: Subscripts) =
   ## Increment Lock variable
-  check()
+  checkBuffers()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
 
@@ -610,7 +605,7 @@ proc ydb_lock*(timeout_nsec: int, keys: seq[Subscripts]) =
   if keys.len > YDB_MAX_NAMES:
     raise newException(YdbError, fmt"Too many arguments. Only {YDB_MAX_NAMES} are allowed")    
 
-  check()
+  checkBuffers()
 
   var locknames: seq[ydb_buffer_t] = newSeq[ydb_buffer_t]()
   var locksubs: seq[seq[ydb_buffer_t]] = newSeq[newSeq[ydb_buffer_t]()]()
@@ -644,7 +639,7 @@ proc ydb_lock*(timeout_nsec: int, keys: seq[Subscripts]) =
 proc ydb_ci*(name: string) =
   ## Call into a M routine (CI = call-in) with NO arguments, and NO return argument  
   ## Pass variables via local or global variables back and forth
-  check()
+  checkBuffers()
 
   let c_call_name = allocCstring(name)
   defer:
@@ -660,7 +655,7 @@ proc ydb_ci*(name: string) =
 
 proc str2zwr*(name: string): string =
   ## Convert binary string: "hello\9World" -> "hello"_$C(9)_"World"
-  check()
+  checkBuffers()
   let bufsize = min( (name.len.float * 2.5).int , YDB_MAX_BUF_SIZE)
   var ZWRBUF = stringToYdbBuffer(zeroBuffer(bufsize))
   setYdbBuffer(ZWRBUF, EMPTY_STRING)
@@ -681,7 +676,7 @@ proc str2zwr*(name: string): string =
 
 proc zwr2str*(name: string): string =
   ## Convert converted binary string: "hello"_$C(9)_"World" -> "hello\9World"
-  check()
+  checkBuffers()
   setYdbBuffer(DATABUF, name)
   when compileOption("threads"):
     rc = ydb_zwr2str_st(TPTOKEN, ERRMSG.addr, DATABUF.addr, DATABUF.addr)

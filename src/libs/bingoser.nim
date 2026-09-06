@@ -1,5 +1,6 @@
 import macros, strutils, strformat, options, tables, sets, json, sequtils
 import ydbimpl
+import libs/libydb
 
 # Public API
 proc saveObject*[T: object](subs: seq[string]; o: T);
@@ -154,13 +155,13 @@ proc updateIndex[T](o: T, updateMode: UpdateMode) =
     #   if updateMode == Update:
     #     ydb_set(gblname, @["%", field.idValue], "") # prevent emptyindex error
     #   else:
-    #     ydb_delete_node(gblname, @["%", field.idValue]) # prevent emptyindex error
+    #     ydb_delete(gblname, @["%", field.idValue], YDB_DEL_NODE) # prevent emptyindex error
       discard
     else: # string
       if updateMode == Update:
           ydb_set(gblname, @[field.value, field.idValue], "")
       else:
-        ydb_delete_node(gblname, @[field.value, field.idValue])  
+        ydb_delete(gblname, @[field.value, field.idValue], YDB_DEL_NODE)  
 
 #----------------------------
 # Field management
@@ -491,7 +492,7 @@ proc deleteObject*[T](subs: seq[string]) =
   load(gbl, subs, obj)
   updateIndex(obj, Delete)
   # Delete the basic object tree (TODO: recursive scan)
-  ydb_delete_tree(gbl, subs)
+  ydb_delete(gbl, subs, YDB_DEL_TREE)
 
 proc deleteObject*[T](id: int) =
   deleteObject[T](@[$id])
