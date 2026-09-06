@@ -11,128 +11,48 @@ requires "nim >= 2.2.4"
 requires "malebolgia >=1.3.2"
 requires "zippy >=0.10.20"
 
-task test, "Run nimyottadb unittests":
-  echo "binary"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/binary.nim"
-  echo "callin"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/callin.nim"
-  echo "Data"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/data.nim"
-  echo "delete"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/delete.nim"
-  echo "Delexcl"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/delexcl.nim"
-  echo "dsl_test"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/dsl_test.nim"
-  echo "dsl_iterators"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/dsliterators.nim"
-  echo "Increment"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/increment.nim"
-  echo "iterator"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/iterator.nim"
-  echo "kill"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/kill.nim"
-  echo "locks"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/locks.nim"
-  echo "nextnode"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/nextnode.nim"
-  echo "serialization"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/serialization_test.nim"
-  echo "setget"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/setget.nim"
-  echo "setgetlocal"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/setgetlocal.nim"
-  echo "specialvars"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/special_vars.nim"
-  echo "dsl_test"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/transaction.nim"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/ydbdsl_test.nim"
-  echo "yottadb_test"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/yottadb_test.nim"
-  echo "zwr"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/zwr.nim"
-  echo "sequences"
-  exec "nim c -r -d:release --threads:off --hints:off --verbosity:0 src/tests/sequences.nim"
+import std/strformat
+const names = @[
+    "binary",  "callin",  "data",  "delete",  "delexcl",  "dsl_test",  "dsliterators",  "increment",  "iterator",
+    "kill",  "locks",  "nextnode",  "serialization_test",  "setget",  "setgetlocal",  "special_vars",  "transaction",
+    "ydbdsl_test",  "yottadb_test",  "zwr",  "sequences",  "indirection" 
+    ]
 
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/binary.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/callin.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/data.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/delete.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/delexcl.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/dsl_test.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/dsliterators.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/increment.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/iterator.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/kill.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/locks.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/nextnode.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/serialization_test.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/setget.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/setgetlocal.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/special_vars.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/transaction.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/ydbdsl_test.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/zwr.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/yottadb_test_threaded.nim"
-  exec "nim c -r -d:release --threads:on --hints:off --verbosity:0 src/tests/sequences.nim"
-
-  const progs = @[
-    "src/tests/binary",
-    "src/tests/callin",
-    "src/tests/data",
-    "src/tests/delete",
-    "src/tests/delexcl",
-    "src/tests/dsl_test",
-    "src/tests/dsliterators",
-    "src/tests/increment",
-    "src/tests/iterator",
-    "src/tests/kill",
-    "src/tests/locks",
-    "src/tests/nextnode",
-    "src/tests/serialization_test",
-    "src/tests/setget",
-    "src/tests/setgetlocal",
-    "src/tests/special_vars",
-    "src/tests/transaction",
-    "src/tests/ydbdsl_test",
-    "src/tests/yottadb_test",
-    "src/tests/zwr",
-    "src/tests/yottadb_test",
-    "src/tests/yottadb_test_threaded",
-    "src/tests/sequences"
-  ]
-  for prog in progs:
-    exec "rm -f " & prog
-
-task examples, "Compile the example apps":
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/sayHello"
-  exec "nim c -r -d:release -d:danger --hints:off --verbosity:0 --threads:off src/examples/benchmark"
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/clientser"
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/hello_customer"
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/tx"
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:on src/examples/dsl_lock_test"
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:on src/examples/tx_thread"
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:on src/examples/tx_thread_dsl"
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:on src/examples/tx_upcount_thread"
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:on src/examples/ydbSet_thread"
-  exec "nim c -r -d:release --hints:off --verbosity:0 --threads:off src/examples/image_loader"
-  exec "nim c -r -d:release -d:danger --hints:off --verbosity:0 --threads:off src/3n1/solver"
-
-  const progs = @[
+const examples = @[
     "src/examples/sayHello",
     "src/examples/benchmark",
     "src/examples/clientser",
     "src/examples/hello_customer",
     "src/examples/tx",
+    "src/examples/image_loader",
+    "src/3n1/solver",
+    #"m/bidwars",
+    ]
+
+const examples_threaded = @[
     "src/examples/dsl_lock_test",
     "src/examples/tx_thread",
     "src/examples/tx_thread_dsl",
     "src/examples/tx_upcount_thread",
     "src/examples/ydbSet_thread",
-    "src/examples/image_loader",
-    "src/3n1/solver"
-  ]  
-  for prog in progs:
-    exec "rm -f " & prog
+    ]
+
+task test, "Run nimyottadb unittests":
+  for name in names:
+    echo fmt"Test {name}"
+    exec fmt"nim c -r --stackTrace:on --lineTrace:on --threads:off --hints:off --verbosity:0 src/tests/{name}.nim"
+    echo fmt"Test {name} --threads:on"
+    exec fmt"nim c -r --stackTrace:on --lineTrace:on --threads:on  --hints:off --verbosity:0 src/tests/{name}.nim"
+    exec fmt"rm -f src/tests/{name}"
+
+
+task examples, "Run example apps":
+    for name in examples:
+        echo fmt"Run {name} example"
+        exec fmt"nim c -r -d:release --hints:off --verbosity:0 {name}"
+        exec fmt"rm -f {name}"
+
+    for name in examples_threaded:
+        echo fmt"Run {name} multi-threaded example"
+        exec fmt"nim c -r -d:release --hints:off --verbosity:0 --threads:on {name}"
+        exec fmt"rm -f {name}"

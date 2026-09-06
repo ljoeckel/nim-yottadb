@@ -58,23 +58,34 @@ const
   MAX_RESTARTS = 4
 
 func trim(str: string): string {.inline.} =
-    # remove surrounding whitespace and a pair of double quotes:
-    #   ^GBL("os")  ->  os
-    var first = 0
-    var last = str.len - 1
-    while first <= last and str[first] in Whitespace:
-        inc first
-    while last >= first and str[last] in Whitespace:
-        dec last
-    if first <= last and str[first] == '"' and str[last] == '"':
-        inc first
-        dec last
-    if first > last:
-        return ""
-    if first == 0 and last == str.len - 1:
-        str                     # unchanged -> return the original string, no copy
-    else:
-        str[first .. last]
+  # remove surrounding whitespace and a pair of double quotes:
+  #   ^GBL("os")  ->  os
+  var first = 0
+  var last = str.len - 1
+
+  # Fast skip whitespace from start
+  while first <= last and str[first] == ' ':  # in Whitespace:
+    inc first
+
+  # Fast skip whitespace from end
+  while last >= first and str[last] == ' ':  # in Whitespace:
+    dec last
+
+  # Strip matching double quotes if they exist
+  if first < last and str[first] == '"' and str[last] == '"':
+    inc first
+    dec last
+
+  if first > last:
+    return ""
+    
+  # str.substr(first, last) is cleaner and avoids the extra allocation overhead 
+  # of the explicit slice `str[first .. last]` in older Nim versions.
+  if first == 0 and last == str.len - 1:
+    return str
+  else:
+    return str.substr(first, last)
+
 
 func keysToString(global: string, subs: Subscripts): string {.inline.} =
   result = global
@@ -505,7 +516,7 @@ func getTimeout(arg: string): int =
         discard
     else:
       try:  # int numeric timeout value?
-        let i = parseInt(arg)
+        let i = parseFastInt(arg)
         if i <= YDB_LOCK_TIMEOUT:
           result = i
       except:
@@ -617,11 +628,11 @@ template defineGetX(typeName, parseFunc: untyped) =
     else:
       result = cast[typeName](tmpvar)
 
-defineGetX(int, parseInt)
-defineGetX(int8, parseInt)
-defineGetX(int16, parseInt)
-defineGetX(int32, parseInt)
-defineGetX(int64, parseInt)
+defineGetX(int, parseFastInt)
+defineGetX(int8, parseFastInt)
+defineGetX(int16, parseFastInt)
+defineGetX(int32, parseFastInt)
+defineGetX(int64, parseFastInt)
 defineGetX(uint, parseUInt)
 defineGetX(uint8, parseUInt)
 defineGetX(uint16, parseUInt)
@@ -684,7 +695,7 @@ proc incrementx*(ydbvar: YdbVar): int =
     if ydbvar.value.len == 0:
         ydb_increment(v.name, v.subscripts, 1)
     else:
-        ydb_increment(v.name, v.subscripts, parseInt(ydbvar.value))
+        ydb_increment(v.name, v.subscripts, parseFastInt(ydbvar.value))
 
 macro Increment*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -1203,7 +1214,7 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
                 echo "TPTOKEN=", TPTOKEN, " Exception in transaction:", getCurrentExceptionMsg()
             
             try:
-                let restarted = parseInt(ydb_get("$TRESTART", @[])) # How many times the proc was called from yottadb
+                let restarted = parseFastInt(ydb_get("$TRESTART", @[])) # How many times the proc was called from yottadb
                 if restarted >= MAX_RESTARTS: 
                     echo "Too many transaction restarts, Rolling back.", getCurrentExceptionMsg()
                     return YDB_TP_ROLLBACK
@@ -1228,7 +1239,7 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
                 echo "Exception in transaction:", getCurrentExceptionMsg()
             
             try:
-                let restarted = parseInt(ydb_get("$TRESTART", @[])) # How many times the proc was called from yottadb
+                let restarted = parseFastInt(ydb_get("$TRESTART", @[])) # How many times the proc was called from yottadb
                 if restarted >= MAX_RESTARTS: 
                     echo "Too many transaction restarts, Rolling back.", getCurrentExceptionMsg()
                     return YDB_TP_ROLLBACK
