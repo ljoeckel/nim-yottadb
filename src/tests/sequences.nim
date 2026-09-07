@@ -101,6 +101,25 @@ proc testHugeSeqZlib() =
         Set: ^Sequence("hugeBool") = hugeBool.zlib
         assert hugeBool == Get ^Sequence("hugeBool").seqBool.zlib
 
+proc testHugeSeqLZ4() =
+    Kill ^Sequence
+    timed:
+        Set: ^Sequence("hugeStr") = hugeStr.lz4
+        assert hugeStr == Get ^Sequence("hugeStr").seqString.lz4
+
+    timed:
+        Set: ^Sequence("hugeInt") = hugeInt.lz4
+        assert hugeInt == Get ^Sequence("hugeInt").seqInt.lz4
+
+    timed:
+        Set: ^Sequence("hugeFloat") = hugeFloat.lz4
+        assert hugeFloat == Get ^Sequence("hugeFloat").seqFloat.lz4
+
+    timed:
+        Set: ^Sequence("hugeBool") = hugeBool.lz4
+        assert hugeBool == Get ^Sequence("hugeBool").seqBool.lz4
+
+
 
 proc testRedirection() =
     var global = "^Sequence"
@@ -127,5 +146,10 @@ when isMainModule:
     test "redirection": testRedirection()
     test "save seq direct": testSeq()
     test "Huge Sequence": testHugeSeq()
+    calcSpace("^Sequence")
     test "Huge Sequence GZIP": testHugeSeqGzip()
+    calcSpace("^Sequence")
     test "Huge Sequence ZLIB": testHugeSeqZlib()
+    calcSpace("^Sequence")
+    test "Huge Sequence LZ4": testHugeSeqLZ4()
+    calcSpace("^Sequence")

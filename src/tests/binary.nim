@@ -122,6 +122,35 @@ proc testBinaryHugeReadZlibVerify(): int =
   return totalBytes
 
 
+proc testBinaryHugeWriteLZ4(): int =
+  Kill ^tmp
+  var totalBytes = 0
+  for size in BLOCKSIZES:
+    let data = createBinData(size)
+    inc(totalBytes, data.len)
+    Set: ^tmp(size) = data.lz4
+    let dbdata = Get ^tmp(size).lz4
+    assert data == dbdata
+  return totalBytes
+
+proc testBinaryHugeReadLZ4(): int =
+  var totalBytes = 0
+  for size in BLOCKSIZES:
+    let data = Get ^tmp(size).lz4
+    inc(totalBytes, data.len)
+  assert totalBytes == TOTAL_BYTES    
+  return totalBytes
+
+proc testBinaryHugeReadVerifyLZ4(): int =
+  var totalBytes = 0
+  for size in BLOCKSIZES:
+    let data = createBinData(size)
+    let dbdata = Get ^tmp(size).lz4
+    assert data == dbdata
+    inc(totalBytes, dbdata.len)
+  assert totalBytes == TOTAL_BYTES    
+  return totalBytes
+
 
 if isMainModule:
     test "binary": testBinary()
@@ -130,6 +159,7 @@ if isMainModule:
       var (ms, rc) = timed_rc: testBinaryHugeWrite()
       let bps = rc / ms * 1000
       echo "Total bytes ", rc, " written in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+      calcSpace("^tmp")
 
     test "binary huge read": 
       var (ms, rc) = timed_rc: testBinaryHugeRead()
@@ -140,6 +170,7 @@ if isMainModule:
       var (ms, rc) = timed_rc: testBinaryHugeWriteGzip()
       let bps = rc / ms * 1000
       echo "Total bytes ", rc, " written in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+      calcSpace("^tmp")
 
     test "binary huge read GZIP": 
       var (ms, rc) = timed_rc: testBinaryHugeReadGzip()
@@ -155,6 +186,7 @@ if isMainModule:
       var (ms, rc) = timed_rc: testBinaryHugeWriteZlib()
       let bps = rc / ms * 1000
       echo "Total bytes ", rc, " written in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+      calcSpace("^tmp")
 
     test "binary huge read ZLIB": 
       var (ms, rc) = timed_rc: testBinaryHugeReadZlib()
@@ -163,6 +195,22 @@ if isMainModule:
 
     test "binary huge read ZLIB Verify": 
       var (ms, rc) = timed_rc: testBinaryHugeReadZlibVerify()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
+    test "binary huge write LZ4": 
+      var (ms, rc) = timed_rc: testBinaryHugeWriteLZ4()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " written in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+      calcSpace("^tmp")
+
+    test "binary huge read LZ4": 
+      var (ms, rc) = timed_rc: testBinaryHugeReadLZ4()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
+    test "binary huge read LZ4 Verify": 
+      var (ms, rc) = timed_rc: testBinaryHugeReadVerifyLZ4()
       let bps = rc / ms * 1000
       echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
 

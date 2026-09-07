@@ -5,6 +5,7 @@ import libs/dsl
 import libs/bingoser
 import dbstats
 import zippy 
+import lz4
 
 export libydb
 export ydbtypes
@@ -15,6 +16,7 @@ export dbstats
 
 # --- Compression with .gzip and .zlib postfix
 const DEFAULT_LEVEL = BestSpeed # NoCompression, BestSpeed, BestCompression, DefaultCompression, HuffmanOnly
+const DEFAULT_LZ4_LEVEL = 2
 
 proc gzip*(s: string, level: int = DEFAULT_LEVEL): string =
     compress(s, level, CompressedDataFormat.dfGzip)
@@ -25,6 +27,12 @@ proc zlib*(s: string, level: int = DEFAULT_LEVEL): string =
     compress(s, level, CompressedDataFormat.dfZlib)
 proc zlib*[T](s: seq[T], level: int = DEFAULT_LEVEL): string =
     compress($s, level, CompressedDataFormat.dfZlib)
+
+
+proc lz4*(s: string, level: int = DEFAULT_LZ4_LEVEL): string =
+    lz4.compress(s, level)
+proc lz4*[T](s: seq[T], level: int = DEFAULT_LEVEL): string =
+    lz4.compress($s, level)
 
 
 # --- YdbVar

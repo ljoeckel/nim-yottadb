@@ -234,3 +234,23 @@ proc directoryWalk*(path: string): seq[string] =
             result.add(path)
         of pcDir, pcLinkToDir:
             result.add(directoryWalk(path))
+
+
+# Diagnostics
+proc calcSpace*(global: string) =
+    var lastName = ""
+    var blocks, bytes = 0
+    for (k,v) in QueryItr @global.kv:
+        let name = split(k, ",")
+        if lastName != name[0]:
+            if blocks > 0:
+                echo lastName, " Blocks=", blocks, " Bytes:", bytes
+                blocks = 0
+                bytes = 0
+            lastName = name[0]
+
+        inc blocks
+        inc(bytes, v.len)
+
+    if blocks > 0:
+        echo lastName, " Blocks=", blocks, " Bytes:", bytes

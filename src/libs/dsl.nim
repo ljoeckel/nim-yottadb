@@ -7,6 +7,7 @@ import libs/ydbimpl
 import libs/parsers
 import libs/libydb
 import zippy
+import lz4
 
 when compileOption("profiler"):
   import std/nimprof
@@ -52,6 +53,7 @@ const
     SEQBOOL = "SEQBOOL"
     GZIP = "GZIP"
     ZLIB = "ZLIB"
+    LZ4 = "LZ4"
 
 
 const
@@ -214,7 +216,7 @@ proc getApiName(basename: string; args: var seq[NimNode]): (string, bool) =
       apiName.add(arg)
     of REVERSE:
       reverse = true
-    of GZIP, ZLIB:
+    of GZIP, ZLIB, LZ4:
       secondArg = arg
     else:
       raise newException(YdbError, fmt"Unsupported postfix '{arg}'")
@@ -563,8 +565,13 @@ func splitSeqValue(s: string): seq[string] =
         result = s.split(',')
 
 
-proc parseSeq[T](ydbvar: YdbVar, uncompress: bool = false): seq[T] =
-    let dbdata = if uncompress: uncompress(getx(ydbvar)) else: getx(ydbvar)
+proc parseSeq[T](algo: string, ydbvar: YdbVar, uncompress: bool = false): seq[T] =
+    var dbdata: string
+    if algo == "lz4":
+        dbdata = if uncompress: lz4.uncompress(getx(ydbvar)) else: getx(ydbvar)
+    else:
+        dbdata = if uncompress: zippy.uncompress(getx(ydbvar)) else: getx(ydbvar)
+
     when T is string:
         result = splitSeqValue(dbdata)
     else:
@@ -586,13 +593,15 @@ proc parseSeq[T](ydbvar: YdbVar, uncompress: bool = false): seq[T] =
 # .seqString -> getxSEQSTRING, .seqInt -> getxSEQINT, etc.
 template defineGetSeq(typeName, alias: untyped) =
   proc `getxseq typename`*(ydbvar: YdbVar): seq[typeName] =
-    parseSeq[typeName](ydbvar)
+    parseSeq[typeName]("", ydbvar)
   # Postfix: .seqString.gzip / .seqInt.gzip / ...
   proc `getxseq typeName gzip`*(ydbvar: YdbVar): seq[typeName] =    
-    parseSeq[typeName](ydbvar, uncompress=true)
+    parseSeq[typeName]("gzip", ydbvar, uncompress=true)
   # Postfix: .seqString.zlib / .seqInt.zlib / ...    
   proc `getxseq typeName zlib`*(ydbvar: YdbVar): seq[typeName] =    
-    parseSeq[typeName](ydbvar, uncompress=true)
+    parseSeq[typeName]("zlib", ydbvar, uncompress=true)
+  proc `getxseq typeName lz4`*(ydbvar: YdbVar): seq[typeName] =    
+    parseSeq[typeName]("lz4", ydbvar, uncompress=true)
 
 defineGetSeq(string, str)
 defineGetSeq(int, int)
@@ -601,10 +610,13 @@ defineGetSeq(bool, bool)
 
 
 proc getxgzip*(ydbvar: YdbVar): string =
-    uncompress(getx(ydbvar))
+    zippy.uncompress(getx(ydbvar))
 
 proc getxzlib*(ydbvar: YdbVar): string =
-    uncompress(getx(ydbvar))
+    zippy.uncompress(getx(ydbvar))
+
+proc getxlz4*(ydbvar: YdbVar): string =
+    lz4.uncompress(getx(ydbvar))
 
 
 macro Get*(body: untyped): untyped =

@@ -10,6 +10,8 @@ requires "nim >= 2.2.4"
 # Dependencies
 requires "malebolgia >=1.3.2"
 requires "zippy >=0.10.20"
+requires "https://github.com/ljoeckel/nimlz4.git"
+
 
 import std/strformat
 const names = @[
