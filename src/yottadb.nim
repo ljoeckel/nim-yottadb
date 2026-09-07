@@ -6,6 +6,7 @@ import libs/bingoser
 import dbstats
 import zippy 
 import lz4
+import zstd/compress as zstdenc   # aliased: proc `zstd` below would shadow the module name
 
 export libydb
 export ydbtypes
@@ -17,6 +18,7 @@ export dbstats
 # --- Compression with .gzip and .zlib postfix
 const DEFAULT_LEVEL = BestSpeed # NoCompression, BestSpeed, BestCompression, DefaultCompression, HuffmanOnly
 const DEFAULT_LZ4_LEVEL = 2
+const DEFAULT_ZSTD_LEVEL = 3
 
 proc gzip*(s: string, level: int = DEFAULT_LEVEL): string =
     compress(s, level, CompressedDataFormat.dfGzip)
@@ -33,6 +35,20 @@ proc lz4*(s: string, level: int = DEFAULT_LZ4_LEVEL): string =
     lz4.compress(s, level)
 proc lz4*[T](s: seq[T], level: int = DEFAULT_LEVEL): string =
     lz4.compress($s, level)
+
+proc zstd*(s: string, level: int = DEFAULT_ZSTD_LEVEL): string =
+    let cctx = zstdenc.new_compress_context()
+    let buf = zstdenc.compress(cctx, s, level)   # returns seq[byte]
+    result = newString(buf.len)
+    copyMem(result[0].addr, buf[0].unsafeAddr, buf.len)
+    discard zstdenc.free_context(cctx)
+
+proc zstd*[T](s: seq[T], level: int = DEFAULT_ZSTD_LEVEL): string =
+    let cctx = zstdenc.new_compress_context()
+    let buf = zstdenc.compress(cctx, $s, level)  # returns seq[byte]
+    result = newString(buf.len)
+    copyMem(result[0].addr, buf[0].unsafeAddr, buf.len)
+    discard zstdenc.free_context(cctx)
 
 
 # --- YdbVar
@@ -55,3 +71,6 @@ proc `$`*(v: YdbVar): string =
 proc `[]=`*(v: var YdbVar; val: string) =
   ydb_set(v.name, v.subscripts, val)
   v.value = val
+
+
+

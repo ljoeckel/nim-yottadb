@@ -8,6 +8,7 @@ import libs/parsers
 import libs/libydb
 import zippy
 import lz4
+import zstd/decompress
 
 when compileOption("profiler"):
   import std/nimprof
@@ -54,6 +55,7 @@ const
     GZIP = "GZIP"
     ZLIB = "ZLIB"
     LZ4 = "LZ4"
+    ZSTD = "ZSTD"
 
 
 const
@@ -216,7 +218,7 @@ proc getApiName(basename: string; args: var seq[NimNode]): (string, bool) =
       apiName.add(arg)
     of REVERSE:
       reverse = true
-    of GZIP, ZLIB, LZ4:
+    of GZIP, ZLIB, LZ4, ZSTD:
       secondArg = arg
     else:
       raise newException(YdbError, fmt"Unsupported postfix '{arg}'")
@@ -569,6 +571,15 @@ proc parseSeq[T](algo: string, ydbvar: YdbVar, uncompress: bool = false): seq[T]
     var dbdata: string
     if algo == "lz4":
         dbdata = if uncompress: lz4.uncompress(getx(ydbvar)) else: getx(ydbvar)
+    elif algo == "zstd":
+        if uncompress: 
+            var dctx = new_decompress_context()
+            let buf = decompress(dctx, getx(ydbvar))
+            dbdata = newString(buf.len)
+            copyMem(dbdata[0].addr, buf[0].unsafeAddr, buf.len)    
+            discard free_context(dctx)
+        else:
+            dbdata = getx(ydbvar)
     else:
         dbdata = if uncompress: zippy.uncompress(getx(ydbvar)) else: getx(ydbvar)
 
@@ -602,6 +613,8 @@ template defineGetSeq(typeName, alias: untyped) =
     parseSeq[typeName]("zlib", ydbvar, uncompress=true)
   proc `getxseq typeName lz4`*(ydbvar: YdbVar): seq[typeName] =    
     parseSeq[typeName]("lz4", ydbvar, uncompress=true)
+  proc `getxseq typeName zstd`*(ydbvar: YdbVar): seq[typeName] =    
+    parseSeq[typeName]("zstd", ydbvar, uncompress=true)
 
 defineGetSeq(string, str)
 defineGetSeq(int, int)
@@ -618,6 +631,12 @@ proc getxzlib*(ydbvar: YdbVar): string =
 proc getxlz4*(ydbvar: YdbVar): string =
     lz4.uncompress(getx(ydbvar))
 
+proc getxzstd*(ydbvar: YdbVar): string =
+    var dctx = new_decompress_context()
+    let buf = decompress(dctx, getx(ydbvar))
+    result = newString(buf.len)
+    copyMem(result[0].addr, buf[0].unsafeAddr, buf.len)    
+    discard free_context(dctx)
 
 macro Get*(body: untyped): untyped =
     var args: seq[NimNode]

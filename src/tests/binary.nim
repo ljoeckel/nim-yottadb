@@ -152,6 +152,36 @@ proc testBinaryHugeReadVerifyLZ4(): int =
   return totalBytes
 
 
+proc testBinaryHugeWriteZSTD(): int =
+  Kill ^tmp
+  var totalBytes = 0
+  for size in BLOCKSIZES:
+    let data = createBinData(size)
+    inc(totalBytes, data.len)
+    Set: ^tmp(size) = data.zstd
+    let dbdata = Get ^tmp(size).zstd
+    assert data == dbdata
+  return totalBytes
+
+proc testBinaryHugeReadZSTD(): int =
+  var totalBytes = 0
+  for size in BLOCKSIZES:
+    let data = Get ^tmp(size).zstd
+    inc(totalBytes, data.len)
+  assert totalBytes == TOTAL_BYTES    
+  return totalBytes
+
+proc testBinaryHugeReadVerifyZSTD(): int =
+  var totalBytes = 0
+  for size in BLOCKSIZES:
+    let data = createBinData(size)
+    let dbdata = Get ^tmp(size).zstd
+    assert data == dbdata
+    inc(totalBytes, dbdata.len)
+  assert totalBytes == TOTAL_BYTES    
+  return totalBytes
+
+
 if isMainModule:
     test "binary": testBinary()
 
@@ -213,5 +243,22 @@ if isMainModule:
       var (ms, rc) = timed_rc: testBinaryHugeReadVerifyLZ4()
       let bps = rc / ms * 1000
       echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
+    test "binary huge write ZSTD": 
+      var (ms, rc) = timed_rc: testBinaryHugeWriteZSTD()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " written in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+      calcSpace("^tmp")
+
+    test "binary huge read ZSTD": 
+      var (ms, rc) = timed_rc: testBinaryHugeReadZSTD()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
+    test "binary huge read ZSTD Verify": 
+      var (ms, rc) = timed_rc: testBinaryHugeReadVerifyZSTD()
+      let bps = rc / ms * 1000
+      echo "Total bytes ", rc, " read in ", ms, " ms. MB/sec=", bps / 1024 / 1024
+
 
     Kill ^tmp

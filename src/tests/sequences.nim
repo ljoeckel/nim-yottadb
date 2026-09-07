@@ -1,6 +1,7 @@
 import yottadb
 import std/unittest
 import std/strutils
+import std/random
 import ydbutils
 
 let strSeq = @["A","B","C","D","E","F","G","H","I","J"]
@@ -14,9 +15,14 @@ var hugeStr = newSeqOfCap[string](MAX_ELEMENTS) # seq[int]
 var hugeFloat = newSeqOfCap[float](MAX_ELEMENTS) # seq[int]
 var hugeBool = newSeqOfCap[bool](MAX_ELEMENTS) # seq[int]
 for i in 0..MAX_ELEMENTS:
-    hugeInt.add(i)
-    hugeStr.add($i)
-    hugeFloat.add(i.float * 1.25)
+    hugeInt.add(rand(0..int.high))
+    let txtlen = rand(1..30)
+    var word: string
+    for i in 0..txtlen:
+        word.add(rand(65..90).char)
+    hugeStr.add(word)
+    let r = rand(0..int.high)
+    hugeFloat.add((r/2).float * 1.25)
     hugeBool.add(if i mod 3 == 0: true else: false)
 
 proc testStringSeq() =
@@ -120,6 +126,25 @@ proc testHugeSeqLZ4() =
         assert hugeBool == Get ^Sequence("hugeBool").seqBool.lz4
 
 
+proc testHugeSeqZSTD() =
+    Kill ^Sequence
+    timed:
+        Set: ^Sequence("hugeStr") = hugeStr.zstd
+        assert hugeStr == Get ^Sequence("hugeStr").seqString.zstd
+
+    timed:
+        Set: ^Sequence("hugeInt") = hugeInt.zstd
+        assert hugeInt == Get ^Sequence("hugeInt").seqInt.zstd
+
+    timed:
+        Set: ^Sequence("hugeFloat") = hugeFloat.zstd
+        assert hugeFloat == Get ^Sequence("hugeFloat").seqFloat.zstd
+
+    timed:
+        Set: ^Sequence("hugeBool") = hugeBool.zstd
+        assert hugeBool == Get ^Sequence("hugeBool").seqBool.zstd
+
+
 
 proc testRedirection() =
     var global = "^Sequence"
@@ -152,4 +177,6 @@ when isMainModule:
     test "Huge Sequence ZLIB": testHugeSeqZlib()
     calcSpace("^Sequence")
     test "Huge Sequence LZ4": testHugeSeqLZ4()
+    calcSpace("^Sequence")
+    test "Huge Sequence ZSTD": testHugeSeqZSTD()
     calcSpace("^Sequence")
