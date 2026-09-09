@@ -237,13 +237,13 @@ proc directoryWalk*(path: string): seq[string] =
 
 
 # Diagnostics
-proc calcSpace*(global: string) =
+proc calcSpace*(global: string, debug: bool = false):int =
     var lastName = ""
-    var blocks, bytes = 0
+    var blocks, bytes, totalBytes = 0
     for (k,v) in QueryItr @global.kv:
         let name = split(k, ",")
         if lastName != name[0]:
-            if blocks > 0:
+            if debug and blocks > 0:
                 echo lastName, " Blocks=", blocks, " Bytes:", bytes
                 blocks = 0
                 bytes = 0
@@ -251,6 +251,9 @@ proc calcSpace*(global: string) =
 
         inc blocks
         inc(bytes, v.len)
+        inc(totalBytes, v.len)
 
-    if blocks > 0:
+    if debug and blocks > 0:
         echo lastName, " Blocks=", blocks, " Bytes:", bytes
+    
+    return totalBytes

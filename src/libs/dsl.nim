@@ -9,6 +9,7 @@ import libs/libydb
 import zippy
 import lz4
 import zstd/decompress
+import brotli
 
 when compileOption("profiler"):
   import std/nimprof
@@ -56,6 +57,7 @@ const
     ZLIB = "ZLIB"
     LZ4 = "LZ4"
     ZSTD = "ZSTD"
+    BROTLI = "BROTLI"
 
 
 const
@@ -218,7 +220,7 @@ proc getApiName(basename: string; args: var seq[NimNode]): (string, bool) =
       apiName.add(arg)
     of REVERSE:
       reverse = true
-    of GZIP, ZLIB, LZ4, ZSTD:
+    of GZIP, ZLIB, LZ4, ZSTD, BROTLI:
       secondArg = arg
     else:
       raise newException(YdbError, fmt"Unsupported postfix '{arg}'")
@@ -580,6 +582,8 @@ proc parseSeq[T](algo: string, ydbvar: YdbVar, uncompress: bool = false): seq[T]
             discard free_context(dctx)
         else:
             dbdata = getx(ydbvar)
+    elif algo == "brotli":
+        dbdata = if uncompress: decompressBrotli(getx(ydbvar)) else: getx(ydbvar)
     else:
         dbdata = if uncompress: zippy.uncompress(getx(ydbvar)) else: getx(ydbvar)
 
@@ -615,6 +619,8 @@ template defineGetSeq(typeName, alias: untyped) =
     parseSeq[typeName]("lz4", ydbvar, uncompress=true)
   proc `getxseq typeName zstd`*(ydbvar: YdbVar): seq[typeName] =    
     parseSeq[typeName]("zstd", ydbvar, uncompress=true)
+  proc `getxseq typeName brotli`*(ydbvar: YdbVar): seq[typeName] =    
+    parseSeq[typeName]("brotli", ydbvar, uncompress=true)
 
 defineGetSeq(string, str)
 defineGetSeq(int, int)
@@ -630,6 +636,9 @@ proc getxzlib*(ydbvar: YdbVar): string =
 
 proc getxlz4*(ydbvar: YdbVar): string =
     lz4.uncompress(getx(ydbvar))
+
+proc getxbrotli*(ydbvar: YdbVar): string =
+    brotli.deCompressBrotli(getx(ydbvar))
 
 proc getxzstd*(ydbvar: YdbVar): string =
     var dctx = new_decompress_context()

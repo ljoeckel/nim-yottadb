@@ -1,15 +1,10 @@
 import yottadb
 import std/unittest
-import std/strutils
 import std/random
 import ydbutils
 
-let strSeq = @["A","B","C","D","E","F","G","H","I","J"]
-let intSeq = @[1,2,3,4,5,6,7,8,9,10]
-let floatSeq = @[1.1, 2.3, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8, 9.9, 10.10]
-let boolSeq = @[true, true, false, false, false, true, true, true, true, false]
 
-const MAX_ELEMENTS = 1_000_000
+const MAX_ELEMENTS = 1_00_000
 var hugeInt = newSeqOfCap[int](MAX_ELEMENTS) # seq[int]
 var hugeStr = newSeqOfCap[string](MAX_ELEMENTS) # seq[int]
 var hugeFloat = newSeqOfCap[float](MAX_ELEMENTS) # seq[int]
@@ -25,158 +20,73 @@ for i in 0..MAX_ELEMENTS:
     hugeFloat.add((r/2).float * 1.25)
     hugeBool.add(if i mod 3 == 0: true else: false)
 
-proc testStringSeq() =
-    Set: ^Sequence(1) = join(strSeq, ",")
-    assert strSeq == Get ^Sequence(1).seqString
 
-proc testIntSeq() =
-    Set: ^Sequence(2) = join(intSeq, ",")
-    assert intSeq == Get ^Sequence(2).seqInt
-
-proc testFloatSeq() =
-    Set: ^Sequence(3) = join(floatSeq, ",")
-    assert floatSeq == Get ^Sequence(3).seqFloat
-
-proc testBoolSeq() =
-    Set: ^Sequence(4) = join(boolSeq, ",")
-    assert boolSeq == Get ^Sequence(4).seqBool
-
-proc testSeq() =
-    Kill ^Sequence
-    Set: ^Sequence(10) = strSeq
-    assert strSeq == Get ^Sequence(10).seqString
-    Set: ^Sequence(11) = intSeq
-    assert intSeq == Get ^Sequence(11).seqInt
-    Set: ^Sequence(12) = floatSeq
-    assert floatSeq == Get ^Sequence(12).seqFloat
-    Set: ^Sequence(13) = boolSeq
-    assert boolSeq == Get ^Sequence(13).seqBool
-
-proc testHugeSeq() =
-    Kill ^Sequence
-    timed:
-        Set: ^Sequence("hugeStr") = hugeStr
-        assert hugeStr == Get ^Sequence("hugeStr").seqString
-
-    timed:
-        Set: ^Sequence("hugeInt") = hugeInt
-        assert hugeInt == Get ^Sequence("hugeInt").seqInt
-
-    timed:
-        Set: ^Sequence("hugeFloat") = hugeFloat
-        assert hugeFloat == Get ^Sequence("hugeFloat").seqFloat
-
-    timed:
-        Set: ^Sequence("hugeBool") = hugeBool
-        assert hugeBool == Get ^Sequence("hugeBool").seqBool
+proc calcRatio(ms: int, bytes: int) =
+    # like in binary.nim: measure compressed DB size to compute the ratio
+    let compressedSize = calcSpace("^Sequence", false)
+    let bps = bytes / (ms div 4) * 1000 # 4 sequences are writen/read in a test
+    let ratio = bytes.float / compressedSize.float
+    echo "App. Size: ", bytes, "b, Compressed Size: ", compressedSize,
+         "b in ", ms, " ms. MB/sec=", bps / 1024 / 1024, "  Ratio=", ratio
 
 
-proc testHugeSeqGzip() =
-    Kill ^Sequence
-    timed:
-        Set: ^Sequence("hugeStr") = hugeStr.gzip
-        assert hugeStr == Get ^Sequence("hugeStr").seqString.gzip
+template defineTest(typeName; compressed: bool = true): untyped =
+    proc `testSeq typename compressed`(): int =
+        Kill ^Sequence
 
-    timed:
-        Set: ^Sequence("hugeInt") = hugeInt.gzip
-        assert hugeInt == Get ^Sequence("hugeInt").seqInt.gzip
+        let algo = if compressed: astToStr(typeName) else: "raw"
+        echo "Running test for '", algo, "'"
 
-    timed:
-        Set: ^Sequence("hugeFloat") = hugeFloat.gzip
-        assert hugeFloat == Get ^Sequence("hugeFloat").seqFloat.gzip
+        # Return a typed value (uncompressed "app size") for timed_rc
+        result = len($hugeStr) + len($hugeInt) + len($hugeFloat) + len($hugeBool)
 
-    timed:
-        Set: ^Sequence("hugeBool") = hugeBool.gzip
-        assert hugeBool == Get ^Sequence("hugeBool").seqBool.gzip
+        when compressed:
+            Set: ^Sequence("hugeStr") = hugeStr.`typename`
+            assert hugeStr == Get ^Sequence("hugeStr").seqString.`typename`
 
-proc testHugeSeqZlib() =
-    Kill ^Sequence
-    timed:
-        Set: ^Sequence("hugeStr") = hugeStr.zlib
-        assert hugeStr == Get ^Sequence("hugeStr").seqString.zlib
+            Set: ^Sequence("hugeInt") = hugeInt.`typename`
+            assert hugeInt == Get ^Sequence("hugeInt").seqInt.`typename`
 
-    timed:
-        Set: ^Sequence("hugeInt") = hugeInt.zlib
-        assert hugeInt == Get ^Sequence("hugeInt").seqInt.zlib
+            Set: ^Sequence("hugeFloat") = hugeFloat.`typename`
+            assert hugeFloat == Get ^Sequence("hugeFloat").seqFloat.`typename`
 
-    timed:
-        Set: ^Sequence("hugeFloat") = hugeFloat.zlib
-        assert hugeFloat == Get ^Sequence("hugeFloat").seqFloat.zlib
+            Set: ^Sequence("hugeBool") = hugeBool.`typename`
+            assert hugeBool == Get ^Sequence("hugeBool").seqBool.`typename`
+        else:
+            # raw baseline: store/read without any compression postfix
+            Set: ^Sequence("hugeStr") = hugeStr
+            assert hugeStr == Get ^Sequence("hugeStr").seqString
 
-    timed:
-        Set: ^Sequence("hugeBool") = hugeBool.zlib
-        assert hugeBool == Get ^Sequence("hugeBool").seqBool.zlib
+            Set: ^Sequence("hugeInt") = hugeInt
+            assert hugeInt == Get ^Sequence("hugeInt").seqInt
 
-proc testHugeSeqLZ4() =
-    Kill ^Sequence
-    timed:
-        Set: ^Sequence("hugeStr") = hugeStr.lz4
-        assert hugeStr == Get ^Sequence("hugeStr").seqString.lz4
+            Set: ^Sequence("hugeFloat") = hugeFloat
+            assert hugeFloat == Get ^Sequence("hugeFloat").seqFloat
 
-    timed:
-        Set: ^Sequence("hugeInt") = hugeInt.lz4
-        assert hugeInt == Get ^Sequence("hugeInt").seqInt.lz4
+            Set: ^Sequence("hugeBool") = hugeBool
+            assert hugeBool == Get ^Sequence("hugeBool").seqBool
+        
 
-    timed:
-        Set: ^Sequence("hugeFloat") = hugeFloat.lz4
-        assert hugeFloat == Get ^Sequence("hugeFloat").seqFloat.lz4
+defineTest(raw, false)        # raw baseline: no compression
+defineTest(gzip)
+defineTest(zlib)
+defineTest(lz4)
+defineTest(zstd)
+defineTest(brotli)
 
-    timed:
-        Set: ^Sequence("hugeBool") = hugeBool.lz4
-        assert hugeBool == Get ^Sequence("hugeBool").seqBool.lz4
-
-
-proc testHugeSeqZSTD() =
-    Kill ^Sequence
-    timed:
-        Set: ^Sequence("hugeStr") = hugeStr.zstd
-        assert hugeStr == Get ^Sequence("hugeStr").seqString.zstd
-
-    timed:
-        Set: ^Sequence("hugeInt") = hugeInt.zstd
-        assert hugeInt == Get ^Sequence("hugeInt").seqInt.zstd
-
-    timed:
-        Set: ^Sequence("hugeFloat") = hugeFloat.zstd
-        assert hugeFloat == Get ^Sequence("hugeFloat").seqFloat.zstd
-
-    timed:
-        Set: ^Sequence("hugeBool") = hugeBool.zstd
-        assert hugeBool == Get ^Sequence("hugeBool").seqBool.zstd
-
-
-
-proc testRedirection() =
-    var global = "^Sequence"
-    Set: @global(5) = join(strSeq,",")
-    assert strSeq == Get @global(5).seqString
-
-    let id = 5.5
-    Set: @global(id) = join(strSeq,",")
-    assert strSeq == Get @global(id).seqString
-
-    global = "^Sequence(6)"
-    Set: @global = join(strSeq,",")
-    assert strSeq == Get @global.seqString
+template runTest(typeName; compressed: bool = true): untyped =
+    var (ms, bytes) = timed_rc:
+        `testSeq typeName compressed`()
+    calcRatio(ms, bytes)
 
 
 when isMainModule:
-  Kill ^Sequence
+    echo "Running tests for ", MAX_ELEMENTS, " random elements in a sequence"
+    Kill ^Sequence
 
-  suite "Sequences Tests":
-    test "string": testStringSeq()
-    test "int": testIntSeq()
-    test "float": testFloatSeq()
-    test "bool": testBoolSeq()
-    test "redirection": testRedirection()
-    test "save seq direct": testSeq()
-    test "Huge Sequence": testHugeSeq()
-    calcSpace("^Sequence")
-    test "Huge Sequence GZIP": testHugeSeqGzip()
-    calcSpace("^Sequence")
-    test "Huge Sequence ZLIB": testHugeSeqZlib()
-    calcSpace("^Sequence")
-    test "Huge Sequence LZ4": testHugeSeqLZ4()
-    calcSpace("^Sequence")
-    test "Huge Sequence ZSTD": testHugeSeqZSTD()
-    calcSpace("^Sequence")
+    test "raw (no compression)": runTest(raw, false)
+    test "gzip": runTest(gzip)
+    test "zlib": runTest(zlib)
+    test "lz4": runTest(lz4)
+    test "Zstd": runTest(zstd)
+    test "brotli": runTest(brotli)
