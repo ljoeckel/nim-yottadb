@@ -85,7 +85,6 @@ defineTest(gzip)
 defineTest(zlib)
 defineTest(lz4)
 defineTest(zstd)
-defineTest(brotli)
 
 
 template runTest(typeName): untyped =
@@ -108,7 +107,5 @@ if isMainModule:
         runTest(lz4)
     test "zstd":
         runTest(zstd)
-    test "brotli":
-        runTest(brotli)
 
     Kill ^tmp

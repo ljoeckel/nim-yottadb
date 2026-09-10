@@ -72,7 +72,7 @@ defineTest(gzip)
 defineTest(zlib)
 defineTest(lz4)
 defineTest(zstd)
-defineTest(brotli)
+
 
 template runTest(typeName; compressed: bool = true): untyped =
     var (ms, bytes) = timed_rc:
@@ -89,4 +89,3 @@ when isMainModule:
     test "zlib": runTest(zlib)
     test "lz4": runTest(lz4)
     test "Zstd": runTest(zstd)
-    test "brotli": runTest(brotli)

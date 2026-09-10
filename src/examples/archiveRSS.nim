@@ -22,20 +22,17 @@ template defineFileTest(typeName): untyped =
         return sumRaw
 
     proc `testUncompress typename`(): int =
-        var sumRaw = 0
+        var total = 0
         for keys in QueryItr ^RSSArchive.keys:
-            #let data = Get ^RSSArchive(keys)
-            let uncompressed = Get ^RSSArchive(keys).`typeName`
-            #inc(sumCompressed, data.len)
-            inc(sumRaw, uncompressed.len)
-        #echo "Uncompress: Raw:", sumBytes, " Compressed:", sumCompressed, " bytes. Ratio:", sumBytes.float / sumCompressed.float
-        return sumRaw
+            let lenUncompressed = (Get ^RSSArchive(keys).`typeName`).len
+            inc(total, lenUncompressed)
+        return total
 
     proc `getCompressedBytes typename`(): int =
         var sumCompressed = 0
         for keys in QueryItr ^RSSArchive.keys:
-            let data = Get ^RSSArchive(keys)
-            inc(sumCompressed, data.len)
+            let lenCompressed = (Get ^RSSArchive(keys)).len
+            inc(sumCompressed, lenCompressed)
         return sumCompressed
 
 
@@ -43,21 +40,20 @@ defineFileTest(gzip)
 defineFileTest(zlib)
 defineFileTest(lz4)
 defineFileTest(zstd)
-#defineFileTest(brotli)
 
 
 template runTest(typeName): untyped =
     var (ms, bytes) = timed_rc:
         `testCompress typeName`()
-    echo "Run in ", ms, "ms.  Number of bytes:", bytes
+    echo "File read and compression time: ", ms, "ms.  Number of bytes:", bytes
 
     var (ms2, bytes2) = timed_rc:
         `testUncompress typeName`()
-    echo "Run in ", ms2, "ms.  Number of bytes:", bytes2
+    echo "Decompression in ", ms2, "ms.  Number of bytes:", bytes2
 
     var (ms3, compressedBytes) = timed_rc:
         `getCompressedBytes typeName`()
-    echo "Run in ", ms3, "ms.  Number of compressed bytes:", compressedBytes
+    echo "Reading compressed data in ", ms3, "ms.  Number of compressed bytes:", compressedBytes
     echo "Ratio:", bytes.float / compressedBytes.float
     
     discard execShellCmd("sync")
@@ -67,4 +63,3 @@ when isMainModule:
     test "bzip": runTest(zlib)
     test "lz4": runTest(lz4)
     test "zstd": runTest(zstd)
-    #test "brotli": runTest(brotli)

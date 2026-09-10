@@ -7,7 +7,6 @@ import dbstats
 import zippy 
 import lz4
 import zstd/compress as zstdenc   # aliased: proc `zstd` below would shadow the module name
-import brotli as zbrotli
 
 export libydb
 export ydbtypes
@@ -50,11 +49,6 @@ proc zstd*[T](s: seq[T], level: int = DEFAULT_ZSTD_LEVEL): string =
     result = newString(buf.len)
     copyMem(result[0].addr, buf[0].unsafeAddr, buf.len)
     discard zstdenc.free_context(cctx)
-
-proc brotli*(s: string, level: int = DEFAULT_LZ4_LEVEL): string =
-    zbrotli.compressBrotli(s)
-proc brotli*[T](s: seq[T], level: int = DEFAULT_LEVEL): string =
-    zbrotli.compressBrotli($s)
 
 
 # --- YdbVar
