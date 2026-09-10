@@ -18,13 +18,9 @@ proc createBinData(kb: int, w3c: bool = false): string =
   # create a binary string of 'kb' kilobytes
   result = KB.repeat(kb)
 
-proc showInfo(ms: int, bytes: int) =
-    let bps = bytes / ms * 1000
-    echo "Processed ", bytes, "b, in ", ms, " ms. MB/sec=", bps / 1024 / 1024
-
 proc calcRatio(ms: int, bytes: int) =
     let compressedSize = calcSpace("^tmp", false)
-    let bps = bytes / (ms div 5) * 1000 # 5 Write/Read operations per test
+    let bps = bytes / ms * 1000
     let ratio = bytes.float / compressedSize.float
     echo "App. Size: ", bytes, "b, Compressed Size:", compressedSize, "b processed in ", ms, " ms. MB/sec=", bps / 1024 / 1024, "  Ratio=", ratio
 
