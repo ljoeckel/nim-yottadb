@@ -257,3 +257,12 @@ proc calcSpace*(global: string, debug: bool = false):int =
         echo lastName, " Blocks=", blocks, " Bytes:", bytes
     
     return totalBytes
+
+
+func hrb*(bytes: int): string =
+    # return number of bytes as b/k/m/g
+    if bytes < 1024:     return fmt"{bytes} b"
+    elif bytes < 1024^2: return fmt"{(bytes / 1024):.3f} K"
+    elif bytes < 1024^3: return fmt"{(bytes / 1024^2):.3f} M"
+    elif bytes < 1024^4: return fmt"{(bytes / 1024^3):.3f} G"
+    elif bytes < 1024^5: return fmt"{(bytes / 1024^4):.3f} T"

@@ -16,39 +16,50 @@ export bingoser
 export dbstats
 
 # --- Compression with .gzip and .zlib postfix
-const DEFAULT_LEVEL = BestSpeed # NoCompression, BestSpeed, BestCompression, DefaultCompression, HuffmanOnly
+const DEFAULT_GZIP_LEVEL = BestSpeed # NoCompression, BestSpeed, BestCompression, DefaultCompression, HuffmanOnly
 const DEFAULT_LZ4_LEVEL = 2
-const DEFAULT_ZSTD_LEVEL = 3
+const DEFAULT_ZSTD_LEVEL = 1
 
-proc gzip*(s: string, level: int = DEFAULT_LEVEL): string =
+proc gzip*(s: string, level: int = DEFAULT_GZIP_LEVEL): string =
     compress(s, level, CompressedDataFormat.dfGzip)
-proc gzip*[T](s: seq[T], level: int = DEFAULT_LEVEL): string =
+
+proc gzip*[T](s: seq[T], level: int = DEFAULT_GZIP_LEVEL): string =
     compress($s, level, CompressedDataFormat.dfGzip)
 
-proc zlib*(s: string, level: int = DEFAULT_LEVEL): string =
+proc zlib*(s: string, level: int = DEFAULT_GZIP_LEVEL): string =
     compress(s, level, CompressedDataFormat.dfZlib)
-proc zlib*[T](s: seq[T], level: int = DEFAULT_LEVEL): string =
+
+proc zlib*[T](s: seq[T], level: int = DEFAULT_GZIP_LEVEL): string =
     compress($s, level, CompressedDataFormat.dfZlib)
 
 
 proc lz4*(s: string, level: int = DEFAULT_LZ4_LEVEL): string =
     lz4.compress(s, level)
-proc lz4*[T](s: seq[T], level: int = DEFAULT_LEVEL): string =
+
+proc lz4*[T](s: seq[T], level: int = DEFAULT_LZ4_LEVEL): string =
     lz4.compress($s, level)
 
-proc zstd*(s: string, level: int = DEFAULT_ZSTD_LEVEL): string =
-    let cctx = zstdenc.new_compress_context()
-    let buf = zstdenc.compress(cctx, s, level)   # returns seq[byte]
-    result = newString(buf.len)
-    copyMem(result[0].addr, buf[0].unsafeAddr, buf.len)
-    discard zstdenc.free_context(cctx)
+# Reusable zstd compression context, one per thread. Reusing it lets zstd keep
+# its internal working buffers allocated across calls instead of re-allocating
+# them on every compress. It is intentionally never freed (lives for the thread's
+# lifetime), so it is safe to reuse but NOT to share across threads.
+var ZSTD_CCTX {.threadvar.}: ptr zstdenc.ZSTD_CCtx
 
-proc zstd*[T](s: seq[T], level: int = DEFAULT_ZSTD_LEVEL): string =
-    let cctx = zstdenc.new_compress_context()
-    let buf = zstdenc.compress(cctx, $s, level)  # returns seq[byte]
+proc zstdCctx(): ptr zstdenc.ZSTD_CCtx =
+    ## Returns this thread's reusable `ZSTD_CCtx`, creating it lazily.
+    if ZSTD_CCTX.isNil:
+        ZSTD_CCTX = zstdenc.new_compress_context()
+    ZSTD_CCTX
+
+proc zstd*(s: string, level: int = DEFAULT_ZSTD_LEVEL): string =
+    let buf = zstdenc.compress(zstdCctx(), s, level)   # returns seq[byte]
     result = newString(buf.len)
     copyMem(result[0].addr, buf[0].unsafeAddr, buf.len)
-    discard zstdenc.free_context(cctx)
+        
+proc zstd*[T](s: seq[T], level: int = DEFAULT_ZSTD_LEVEL): string =
+    let buf = zstdenc.compress(zstdCctx(), $s, level)  # returns seq[byte]
+    result = newString(buf.len)
+    copyMem(result[0].addr, buf[0].unsafeAddr, buf.len)
 
 
 # --- YdbVar
