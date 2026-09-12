@@ -75,3 +75,40 @@ The dsl adds a small amount of additional work.
 
 With some memory management configurations, Nim outperforms Rust in this scenario. The practical implications may be minimal. The difference per iteration is extremly low.
 
+
+
+** Compression Benchmarks **
+All are run on "MacMini M4, 16GB"
+
+YottaDB - Journaling disabled, 3'rd run:
+
+$./archiveRSS
+Loading files ...
+Loaded 10000 files
+Load data: : time:250 ms. bytes:1245289471 Throughput: 4.639 G/s.
+Compression lz4: time:1272 ms. bytes:1245289471 Throughput: 933.648 M/s.
+Decompression lz4: time:324 ms. bytes:1245289471 Throughput: 3.580 G/s.
+Read Compressed lz4: time:119 ms. bytes:458195249 Throughput: 3.586 G/s.
+Ratio lz4: 2.717814018625933
+[OK] lz4
+Compression zstd: time:1779 ms. bytes:1245289471 Throughput: 667.566 M/s.
+Decompression zstd: time:660 ms. bytes:1245289471 Throughput: 1.757 G/s.
+Read Compressed zstd: time:77 ms. bytes:299614507 Throughput: 3.624 G/s.
+Ratio zstd: 4.156305659124843
+[OK] zstd lvl 1
+
+YottaDB - Journaling enabled, 3'rd run:
+$./archiveRSS
+Loading files ...
+Loaded 10000 files
+Load data: : time:242 ms. bytes:1245289471 Throughput: 4.792 G/s.
+Compression lz4: time:2750 ms. bytes:1245289471 Throughput: 431.854 M/s.
+Decompression lz4: time:319 ms. bytes:1245289471 Throughput: 3.636 G/s.
+Read Compressed lz4: time:110 ms. bytes:458195249 Throughput: 3.879 G/s.
+Ratio lz4: 2.717814018625933
+[OK] lz4
+Compression zstd: time:2584 ms. bytes:1245289471 Throughput: 459.598 M/s.
+Decompression zstd: time:664 ms. bytes:1245289471 Throughput: 1.747 G/s.
+Read Compressed zstd: time:73 ms. bytes:299614507 Throughput: 3.822 G/s.
+Ratio zstd: 4.156305659124843
+[OK] zstd lvl 1

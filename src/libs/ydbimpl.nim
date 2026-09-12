@@ -1,6 +1,7 @@
 import std/[strutils, strformat]
 import ydbtypes
 import libydb
+import ydberror
 import libs/parsers
 
 # Constants for buffer sizes used throughout YottaDB API calls
@@ -90,7 +91,6 @@ proc setYdbBuffer(buffer: var ydb_buffer_t, name: string) =
     deallocBuffer(buffer)
     buffer = stringToYdbBuffer(name)
     
-
 template setYdbBuffer(buffer: var openArray[ydb_buffer_t], names: seq[string]) =
   ## Assign multiple string values to an array of ydb_buffer_t
   for idx in 0..<names.len:
@@ -100,6 +100,7 @@ template setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string]) =
   # Populate a fixed-size buffer array with keys (subscripts)
   for idx in 0..<keys.len:
     setYdbBuffer(arr[idx], keys[idx])
+
 
 # ----------------------------------
 # Buffer initialization & cleanup
@@ -133,6 +134,7 @@ proc cleanupBuffers() {.noconv} =
 # Register cleanup to run automatically at process exit
 atexit(cleanupBuffers)
 
+
 # ----------------------------------------------------------
 # YottaDB API Wrappers (safe Nim procs around C functions)
 # ----------------------------------------------------------
@@ -146,9 +148,9 @@ proc ydbMessage*(status: int, ): string =
     rc = ydb_message(status.cint, ERRMSG.addr)
 
   if rc == YDB_OK:
-    return fmt"{status}, " & strip($ERRMSG.buf_addr)
+    return fmt"{status}, {strip($ERRMSG.buf_addr)}"
   else:
-    return fmt"Invalid result from ydb_message for status {status}, result-code: {rc}"
+    return fmt"{status} : {getYdbError(status)}"
 
 
 template checkRC() =
@@ -179,7 +181,6 @@ proc ydb_tp_start(myTxn: ydb_tpfnptr_t, param: int, transid:string): int =
   result = ydb_tp_s(myTxn, cast[pointer](param.cint), transid, 0, GLOBAL.addr)
   checkRC()
 
-
 proc ydb_tp2_start(myTxn: YDB_tp2fnptr_t, param:string, transid:string): int =
   ## Start a multi-threaded transaction
   checkBuffers()
@@ -192,13 +193,11 @@ proc ydb_tp2_start(myTxn: YDB_tp2fnptr_t, param:int, transid:string): int =
   result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cint), transid, 0, GLOBAL.addr)
   checkRC()
 
-
 proc ydb_tp_mt*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string = "", transid: string = ""): int =
   ydb_tp2_start(myTxnProc, param, transid)
 
 proc ydb_tp_mt*[T: YDB_tp2fnptr_t](myTxnProc: T, param: int, transid: string = ""): int =
   ydb_tp2_start(myTxnProc, param, transid)
-
 
 proc ydb_tp*(myTxnProc: ydb_tpfnptr_t, param: string = "", transid: string = ""): int =
   ydb_tp_start(myTxnProc, param, transid)

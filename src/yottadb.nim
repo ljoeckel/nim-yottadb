@@ -18,7 +18,7 @@ export dbstats
 # --- Compression with .gzip and .zlib postfix
 const DEFAULT_GZIP_LEVEL = BestSpeed # NoCompression, BestSpeed, BestCompression, DefaultCompression, HuffmanOnly
 const DEFAULT_LZ4_LEVEL = 2
-const DEFAULT_ZSTD_LEVEL = 1
+const DEFAULT_ZSTD_LEVEL = 3 # https://facebook.github.io/zstd/zstd_manual.html
 
 proc gzip*(s: string, level: int = DEFAULT_GZIP_LEVEL): string =
     compress(s, level, CompressedDataFormat.dfGzip)

@@ -15,6 +15,7 @@ proc loadData(): int =
         filedata.add(content)
         inc(result, content.len)
         inc cnt
+        if cnt == 10000: break
     echo "Loaded ", cnt, " files"
     
     
@@ -29,7 +30,7 @@ template defineFileTest(typeName; level: static int = 0): untyped =
         var sumRaw = 0
         for (cnt, content) in enumerate(filedata):
             inc(sumRaw, content.len)
-            when level > 0:
+            when level != 0:
                 Set: ^RSSArchive(cnt) = content.`typeName`(level)
             else:
                 Set: ^RSSArchive(cnt) = content.`typeName`
@@ -55,7 +56,7 @@ defineFileTest(gzip)
 defineFileTest(zlib)
 defineFileTest(lz4)
 defineFileTest(zstd)
-defineFileTest(zstd, 3)
+defineFileTest(zstd, -3)
 
 
 proc info(title: string, ms: int, bytes: int) =
@@ -90,4 +91,6 @@ when isMainModule:
     #test "gzip": runTest(gzip)
     #test "zlib": runTest(zlib)
     test "lz4": runTest(lz4)
-    test "zstd lvl 1": runTest(zstd)
+    test "zstd lvl 3": runTest(zstd)
+    test "zstd lvl -3": runTest(zstd, -3)
+    #test "zstd lvl -5": runTest(zstd, -5)

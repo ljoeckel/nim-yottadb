@@ -8,7 +8,6 @@ proc dataTest() =
     ^tmp2
 
   var
-    rc:int
     subs:Subscripts
 
   Set:
