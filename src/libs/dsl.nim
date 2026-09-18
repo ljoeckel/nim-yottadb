@@ -62,7 +62,7 @@ const
 const
   MAX_RESTARTS = 4
 
-func trim(str: string): string {.inline.} =
+func fasttrim*(str: string): string {.inline.} =
   # remove surrounding whitespace and a pair of double quotes:
   #   ^GBL("os")  ->  os
   var first = 0
@@ -166,7 +166,7 @@ func resolveIndirectionSubs(name: string, rest: Subscripts): (string, Subscripts
     let closePar = name.rfind(')')
     var subs: Subscripts
     for idx in name[openPar + 1 ..< closePar].split(','):
-      subs.add(trim(idx))
+      subs.add(fasttrim(idx))
       subs.add(rest)
     result = (name[0 ..< openPar], subs)
   else:
@@ -384,7 +384,7 @@ proc buildYdbVar(args: seq[NimNode]): NimNode =
       if openPar != -1:
         let closePar = a.strVal.rfind(')')
         for idx in a.strVal[openPar + 1 ..< closePar].split(','):
-          subscripts.add(newLit(trim(idx)))
+          subscripts.add(newLit(fasttrim(idx)))
         name = newLit(a.strVal[0 ..< openPar])
       elif a.strVal.len > 0 and a.strVal[0] in PREFIX_CHARS:
         prefix = newLit($(a.strVal[0]))
@@ -563,7 +563,7 @@ func splitSeqValue(s: string): seq[string] =
         # strip the surrounding @[ ] and trim quotes/whitespace per element
         result = s[2 .. ^2].split(',')
         for i in 0 ..< result.len:
-            result[i] = trim(result[i])
+            result[i] = fasttrim(result[i])
     else:
         result = s.split(',')
 

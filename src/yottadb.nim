@@ -1,3 +1,5 @@
+import std/[options]
+
 import libs/libydb
 import libs/ydbtypes
 import libs/ydbimpl
@@ -14,6 +16,11 @@ export ydbimpl
 export dsl
 export bingoser
 export dbstats
+
+
+template getOption*(option: Option): string =
+    if option.isSome: option.get() else: ""
+
 
 # --- Compression with .gzip and .zlib postfix
 const DEFAULT_GZIP_LEVEL = BestSpeed # NoCompression, BestSpeed, BestCompression, DefaultCompression, HuffmanOnly

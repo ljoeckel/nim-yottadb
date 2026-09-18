@@ -7,7 +7,7 @@ import libs/parsers
 # Constants for buffer sizes used throughout YottaDB API calls
 const
   BUFFER_GLOBAL_SIZE = 256
-  BUFFER_IDX_SIZE = 64
+  BUFFER_IDX_SIZE = 256
   INCRBUF_SIZE = 32
   EMPTY_STRING = ""
   YDB_ERR_TIMEOUT_MSG ="YDB_ERR_TPTIMEOUT raised by db engine"
