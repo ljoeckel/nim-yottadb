@@ -7,6 +7,9 @@ proc saveObject*[T: object](subs: seq[string]; o: T);
 proc loadObject*[T](subs: seq[string]): T;
 proc deleteObject*[T](subs: seq[string]);
 
+
+
+
 # Private API
 proc store(global: string, subs: seq[string], k: string; x: bool);
 proc store(global: string, subs: seq[string], k: string; x: char);
@@ -150,7 +153,13 @@ proc updateIndex[T](o: T, updateMode: UpdateMode) =
           else: # ??
             ydb_set(gblname, @[value, field.idValue], "")
       else:
-        echo "TODO: implement delete fieldvalues"
+        for value in field.values:
+          if value.find(',') > 0:
+            var parts = value.split(',')
+            for part in parts:
+              ydb_delete(gblname, @[strip(part), field.idValue], YDB_DEL_NODE)
+          else:
+            ydb_delete(gblname, @[value, field.idValue], YDB_DEL_NODE)
     elif field.value.isEmptyOrWhitespace:
     #   if updateMode == Update:
     #     ydb_set(gblname, @["%", field.idValue], "") # prevent emptyindex error
@@ -204,6 +213,13 @@ proc loadFromYdb(global: string, subs: seq[string], key: string): string =
   var subscpy = subs
   subscpy.add(key)
   result = ydb_get(global, subscpy)
+
+
+proc deleteFromYdb(global: string, subs: seq[string], key: string) =
+  ## Delete the node at `subs` & `key` (leaves child nodes untouched).
+  var subscpy = subs
+  subscpy.add(key)
+  ydb_delete(global, subscpy, YDB_DEL_NODE)
 
 
 #-----------------------------
@@ -460,38 +476,77 @@ proc loadObject*[T](id: string): T =
 #----------------------
 
 proc delete(global: string, subs: seq[string], k: string; x: bool) =
-  echo "214"
+  deleteFromYdb(global, subs, k)
+
 proc delete(global: string, subs: seq[string], k: string; x: char) =
-  echo "216"
+  deleteFromYdb(global, subs, k)
+
 proc delete(global: string, subs: seq[string], k: string; x: string) =
-  echo "218"
+  deleteFromYdb(global, subs, k)
+
 proc delete[T: SomeNumber](global: string, subs: seq[string], k: string; x: T) =
-  echo "220"
+  deleteFromYdb(global, subs, k)
+
 proc delete[T: enum](global: string, subs: seq[string], k: string; x: T) =
-  echo "222"
+  deleteFromYdb(global, subs, k)
+
 proc delete[S, T](global: string, subs: seq[string], k: string; x: array[S, T]) =
-  echo "224"
+  # Mirrors store: all elements share the key `k`, so a single node delete suffices.
+  deleteFromYdb(global, subs, k)
+
 proc delete[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[T] | set[T]) =
-  echo "226"
+  when T is object:
+    # seq[object] children are stored in their own global ("^(T)") under subs & idx,
+    # so scan the existing children and drop each subtree.
+    let gbl = "^" & $T
+    var subscripts = subs
+    subscripts.add("")
+    var keys: seq[string]
+    while true:
+      let subkey = ydb_subscript_next(gbl, subscripts)
+      if subkey.len == 0: break
+      subscripts[^1] = subkey
+      keys.add(subkey)
+    for subkey in keys:
+      var childsubs = subs
+      childsubs.add(subkey)
+      ydb_delete(gbl, childsubs, YDB_DEL_TREE)
+  else:
+    # Elements live under subs & k & idx -> drop the whole subtree.
+    var subscpy = subs
+    subscpy.add(k)
+    ydb_delete(global, subscpy, YDB_DEL_TREE)
+
 proc delete[K, V](global: string, subs: seq[string], kv: string; o: (Table[K, V]|OrderedTable[K, V])) =
-  echo "228"
+  deleteFromYdb(global, subs, kv)
+
 proc delete[T](global: string, subs: seq[string], k: string; o: Option[T]) =
-  echo "230"
-proc delete[T: tuple](global: string, subs: seq[string], k: string; o: T) = 
-  echo "232"
+  deleteFromYdb(global, subs, k)
+
+proc delete[T: tuple](global: string, subs: seq[string], k: string; o: T) =
+  for fn, fv in fieldPairs(o):
+    delete(global, subs, fn, fv)
+
 proc delete[T](global: string, subs: seq[string], k: string; o: T) =
-  echo "234"
+  let gbl = "^" & $T
+  for fn, fv in fieldPairs(o):
+    delete(gbl, subs, fn, fv)
+
 proc delete[T: object](subs: seq[string]; o: T) =
-  echo "236"
+  let gbl = "^" & $typeof(o)
+  for fn, fv in fieldPairs(o):
+    delete(gbl, subs, fn, fv)
+  updateIndex(o, Delete)
 
 
 proc deleteObject*[T](subs: seq[string]) =
   let gbl = "^" & $T
-  # load the record to update the indexes
+  # load the record to update the indexes and to know the child objects
   var obj:T
   load(gbl, subs, obj)
-  updateIndex(obj, Delete)
-  # Delete the basic object tree (TODO: recursive scan)
+  # Recursive scan: updates the indexes and removes the fields / child objects
+  delete(subs, obj)
+  # Drop any remaining nodes of the primary global (e.g. nodes not part of the type)
   ydb_delete(gbl, subs, YDB_DEL_TREE)
 
 proc deleteObject*[T](id: int) =
@@ -499,3 +554,4 @@ proc deleteObject*[T](id: int) =
 
 proc deleteObject*[T](id: string) =
   deleteObject[T](@[id])
+
