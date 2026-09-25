@@ -1,6 +1,11 @@
 callm   ;
         quit
 
+xzshow	;
+	ZSHOW "G":RESULT
+	;ZSHOW "G":^DBSTATS
+	quit
+
 method1 ; Echo back CTX set by Nim program
 	; Use this form if 'Nim macro CallM' is used
   	set key="CTX"
