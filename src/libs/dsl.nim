@@ -31,6 +31,7 @@ const
     KEY = "KEY"
     KEYS = "KEYS"
     KV = "KV"
+    SV = "SV"
     REVERSE = "REVERSE"
     VAL = "VAL"
     # type postfix
@@ -214,7 +215,7 @@ proc getApiName(basename: string; args: var seq[NimNode]): (string, bool) =
     of INT, INT8, INT16, INT32, INT64,
        UINT, UINT8, UINT16, UINT32, UINT64,
        FLOAT, FLOAT64, BOOL,
-       KEY, KEYS, KV, COUNT, VAL,
+       KEY, KEYS, KV, SV, COUNT, VAL,
        SEQSTRING, SEQINT, SEQFLOAT, SEQBOOL:
       apiName.add(arg)
     of REVERSE:
@@ -858,6 +859,14 @@ iterator QueryItrxKV*(reverse: static bool, ydbvar: YdbVar): (string, string) =
     let procedure = ydb_node_next
   walkNodes(procedure, ydbvar):
     yield (keysToString(gblName, subs), ydb_get(gblName, subs))
+
+iterator QueryItrxSV*(reverse: static bool, ydbvar: YdbVar): (seq[string], string) =
+  when reverse:
+    let procedure = ydb_node_previous
+  else:
+    let procedure = ydb_node_next
+  walkNodes(procedure, ydbvar):
+    yield (subs, ydb_get(gblName, subs))
 
 iterator QueryItrxVAL*(reverse: static bool, ydbvar: YdbVar): string =
   when reverse:

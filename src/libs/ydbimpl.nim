@@ -432,6 +432,7 @@ proc ydb_get*(name: string, keys: Subscripts): string =
     rc = ydb_get_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
   else:
     rc = ydb_get_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
+    
   if DATABUF.len_used == 0:
       let data = ydb_data(name, keys)
       if data == 0:
