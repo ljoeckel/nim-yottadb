@@ -1269,7 +1269,7 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
       ydb_tp_mt(`fn`, `param`)
   else:
     result = quote do:
-      proc `fn`(param {.inject.}: pointer): cint {.cdecl, gcsafe, raises: [].} =
+      proc `fn`(param {.inject.}: pointer): cint {.cdecl, raises: [].} =
         TPTOKEN = 0
         try:
             `body`
