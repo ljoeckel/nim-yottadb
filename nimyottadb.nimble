@@ -1,13 +1,11 @@
 # Package Information
-version = "0.4.9"
+version = "0.4.11"
 author = "Lothar Joeckel"
 description = "Nim language implementation for the YottaDB database"
 license = "MIT"
 srcDir = "src"
 binDir = "bin"
 requires "nim >= 2.2.4"
-# Required to create a macro which resolves error codes at compile time
-installFiles = @["libydberrors.h"]
 
 # Dependencies
 requires "malebolgia >=1.3.2"
