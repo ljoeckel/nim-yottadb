@@ -9,7 +9,7 @@
 import std/[macros, os, strutils]
 
 const ydbErrorHeader =
-  currentSourcePath().parentDir.parentDir.parentDir / "futhark" / "libydberrors.h"
+  currentSourcePath().parentDir.parentDir.parentDir / "src" / "libydberrors.h"
 
 macro buildYdbErrorLookup(header: static string): untyped =
   ## Parses all `#define YDB_ERR_<NAME> <code>` lines and expands to `getYdbError`.
