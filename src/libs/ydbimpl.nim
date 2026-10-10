@@ -1,4 +1,5 @@
 import std/[strutils, strformat]
+import std/atomics
 import ydbtypes
 import libydb
 import ydberror
@@ -19,7 +20,6 @@ const
 const rpt = repeat('\xff', 5)
 const LAST_INDEX = @[rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt]
 
-
 # Thread-local buffers to avoid re-allocating buffers on every call and keep state per-thread.
 var
   buf_initialized {.threadvar.}: bool
@@ -30,6 +30,8 @@ var
   IDXARR {.threadvar.}: array[0..YDB_MAX_SUBS, ydb_buffer_t]
   NAMES {.threadvar.}: array[0..YDB_MAX_NAMES-1, ydb_buffer_t] # for delete_excl
   rc {.threadvar.}: int
+
+var stopRequested: Atomic[bool]
 
 
 # Register buffer cleanup at process exit (atexit hook).
@@ -102,6 +104,20 @@ template setIdxArr(arr: var array[0..31, ydb_buffer_t], keys: seq[string]) =
     setYdbBuffer(arr[idx], keys[idx])
 
 
+proc cleanupBuffers() {.noconv} =
+  # Free all thread-local buffers at exit
+  deallocBuffer(ERRMSG)
+  deallocBuffer(DATABUF)
+  deallocBuffer(INCRBUF)
+  deallocBuffer(GLOBAL)
+  deallocBuffer(IDXARR)
+  deallocBuffer(NAMES)
+
+
+proc handleCtrlC() {.noconv.} =
+    stopRequested.store(true)
+
+
 # ----------------------------------
 # Buffer initialization & cleanup
 # ----------------------------------
@@ -116,41 +132,38 @@ proc initBuffers() =
     for idx in 0..<YDB_MAX_NAMES:
         NAMES[idx] = stringToYdbBuffer(zeroBuffer(BUFFER_IDX_SIZE))
 
+    # Register cleanup to run automatically at process exit
+    atexit(cleanupBuffers)
+    # Register Control-C hook
+    setControlCHook(handleCtrlC)
+
     buf_initialized = true
+
 
 template checkBuffers() =
     if not buf_initialized:
         initBuffers()
 
-proc cleanupBuffers() {.noconv} =
-  # Free all thread-local buffers at exit
-  deallocBuffer(ERRMSG)
-  deallocBuffer(DATABUF)
-  deallocBuffer(INCRBUF)
-  deallocBuffer(GLOBAL)
-  deallocBuffer(IDXARR)
-  deallocBuffer(NAMES)
-
-# Register cleanup to run automatically at process exit
-atexit(cleanupBuffers)
-
-
 # ----------------------------------------------------------
 # YottaDB API Wrappers (safe Nim procs around C functions)
 # ----------------------------------------------------------
 proc ydbMessage*(status: int, ): string =
-  ## Return error message text for given status code
-  if status == YDB_OK: return
-  checkBuffers()
-  when compileOption("threads"):
-    rc = ydb_message_t(TPTOKEN, ERRMSG.addr, status.cint, ERRMSG.addr)
-  else:
-    rc = ydb_message(status.cint, ERRMSG.addr)
+    if stopRequested.load():
+        return fmt"{status} : {getYdbError(status)}"
+    
+    if status == YDB_OK: return
 
-  if rc == YDB_OK:
-    return fmt"{status}, {strip($ERRMSG.buf_addr)}"
-  else:
-    return fmt"{status} : {getYdbError(status)}"
+    ## Return error message text for given status code
+    checkBuffers()
+    when compileOption("threads"):
+      rc = ydb_message_t(TPTOKEN, ERRMSG.addr, status.cint, ERRMSG.addr)
+    else:
+        rc = ydb_message(status.cint, ERRMSG.addr)
+
+    if rc == YDB_OK:
+        return fmt"{status}, {strip($ERRMSG.buf_addr)}"
+    else:
+        return fmt"{status} : {getYdbError(status)}"
 
 
 template checkRC() =

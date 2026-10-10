@@ -3,10 +3,9 @@ import ydbimpl
 import libs/libydb
 
 # Public API
-proc saveObject*[T: object](subs: seq[string]; o: T);
-proc loadObject*[T](subs: seq[string]): T;
 proc deleteObject*[T](subs: seq[string]);
-
+proc saveObject*[T: object](subs: seq[string]; o: T, globalName: string = $typeof(T));
+proc loadObject*[T](subs: seq[string], globalName: string = $typeof(T)): T;
 
 
 
@@ -302,30 +301,23 @@ proc store[T](global: string, subs: seq[string], k: string; o: T) =
     store(gbl, subs, fn, fv)
 
 proc store[T: object](subs: seq[string]; o: T) =
-  # echo "248 store subs:", subs, " o:", type(o)
   let gbl = "^" & $typeof(o)
   for fn, fv in fieldPairs(o):
     store(gbl, subs, fn, fv)
   updateIndex(o, Update)
 
-proc saveObject*[T: object](subs: seq[string]; o: T) =
-  let gbl = "^" & $typeof(o)
-  # echo "248 saveObject ", gbl, " ", subs, " ", type(o)
-  # let data = ydb_data(gbl, subs)
-  # if data > 0:
-  #   var oldobj = loadObject[T](subs)
-  #   updateIndex(oldobj, Delete)
-
+proc saveObject*[T: object](subs: seq[string]; o: T, globalName: string = $typeof(T)) =
+  let gbl = if globalName.startsWith("^"): globalName else: "^" & globalName
   # Save the new/updated object
   for fn, fv in fieldPairs(o):
     store(gbl, subs, fn, fv)
   updateIndex(o, Update)
 
-proc saveObject*[T: object](id: string, o: T) =
-  saveObject(@[id], o)
+proc saveObject*[T: object](id: string, o: T, globalName: string = $typeof(T)) =
+  saveObject(@[id], o, globalName)
 
-proc saveObject*[T: object](id: int, o: T) =
-  saveObject(@[$id], o)
+proc saveObject*[T: object](id: int, o: T, globalName: string = $typeof(T)) =
+  saveObject(@[$id], o, globalName)
   
 
 
@@ -454,8 +446,9 @@ proc load[T: var object](gbl: string, subs: seq[string]; o: var T) =
   for fn, fv in fieldPairs(o):
     load(gbl, subs, fn, fv)
 
-proc loadObject*[T](subs: seq[string]): T =
-  let gbl = "^" & $T
+proc loadObject*[T](subs: seq[string], globalName: string = $typeof(T)): T =
+  #let gbl = "^" & $T
+  let gbl = if globalName.startsWith("^"): globalName else: "^" & globalName
   # Test for empty id
   if subs.len == 0 or (subs.len >= 1 and subs[0] == ""): return T()
   # Test for existence
@@ -464,11 +457,11 @@ proc loadObject*[T](subs: seq[string]): T =
   else:
     return T()
 
-proc loadObject*[T](id: int): T =
-  loadObject[T](@[$id])
+proc loadObject*[T](id: int, globalName: string = $typeof(T)): T =
+  loadObject[T](@[$id], globalName)
   
-proc loadObject*[T](id: string): T =
-  loadObject[T](@[id])
+proc loadObject*[T](id: string, globalName: string = $typeof(T)): T =
+  loadObject[T](@[id], globalName)
 
 
 #----------------------

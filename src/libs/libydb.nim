@@ -14,6 +14,8 @@ type
   ydb_tp2fnptr_t* = proc (a0: uint64; a1: ptr ydb_buffer_t; a2: pointer): cint {.cdecl.}
 
 
+proc ydb_exit*(): cint {.cdecl, importc: "ydb_exit".}
+
 proc ydb_message*(status: cint; msg_buff: ptr ydb_buffer_t): cint {.cdecl, importc: "ydb_message".}
 
 proc ydb_message_t*(tptoken: uint64; errstr: ptr ydb_buffer_t; status: cint; msg_buff: ptr ydb_buffer_t): cint {.cdecl, importc: "ydb_message_t".}

@@ -1,6 +1,5 @@
 import std/[unittest]
 import yottadb
-import ydbutils
 
 const 
     ITER = 10

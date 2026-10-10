@@ -1306,11 +1306,17 @@ template Transaction*(param: untyped, body: untyped): int =
 template withlock*(body: untyped): untyped =
     ## Create a database Lock named ^LOCKS(int.high) while executing the body
     Lock: {+^LOCKS(int.high)}
-    body
+    try:
+        body
+    except:
+        echo "Exception while locking body: ", getCurrentExceptionMsg()
     Lock: {-^LOCKS(int.high)}
 
 template withlock*(lockid: untyped, body: untyped): untyped =
     ## Create a database Lock named ^LOCKS(lockid) while executing the body
     Lock: {+^LOCKS(lockid)}
-    body
+    try:
+        body
+    except:
+        echo "Exception while locking body: ", getCurrentExceptionMsg()
     Lock: {-^LOCKS(lockid)}
