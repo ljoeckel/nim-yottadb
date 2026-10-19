@@ -19,6 +19,7 @@ const
 # create a seq that hold the highest possible key
 const rpt = repeat('\xff', 5)
 const LAST_INDEX = @[rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt,rpt]
+const EMPTY_KEYS: seq[string] = @[]
 
 # Thread-local buffers to avoid re-allocating buffers on every call and keep state per-thread.
 var
@@ -434,42 +435,63 @@ proc ydb_get_db(name: string, keys: Subscripts): string =
     checkRC()
 
 
+proc ydb_get_specialvar(name: string): string = 
+  ## Retrieve a value from a local or global node
+  checkBuffers()
+  setYdbBuffer(GLOBAL, name)
+  setIdxArr(IDXARR, EMPTY_KEYS)
+  DATABUF.len_used = 0
+  when compileOption("threads"):
+    rc = ydb_get_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, 0.cint, IDXARR[0].addr, DATABUF.addr)
+  else:
+    rc = ydb_get_s(GLOBAL.addr, 0.cint, IDXARR[0].addr, DATABUF.addr)
+  if rc == YDB_OK:
+    if DATABUF.len_used > 0:
+        result.setLen(DATABUF.len_used)
+        copyMem(addr(result[0]), DATABUF.buf_addr[0].addr, DATABUF.len_used)
+        return result
+    else:
+        raise newException(YdbError, &"Cannot access special var: {name}")
+  else:
+    checkRC()
+    
+
 proc ydb_get*(name: string, keys: Subscripts): string =
+  if name.len > 0 and name[0] == '$':
+    return ydb_get_specialvar(name)
+
   ## Retrieve a value from a local or global node
   checkBuffers()
   setYdbBuffer(GLOBAL, name)
   setIdxArr(IDXARR, keys)
   DATABUF.len_used = 0
-
-  when compileOption("threads"):
-    rc = ydb_get_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
-  else:
-    rc = ydb_get_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
-    
-  if DATABUF.len_used == 0:
-      let data = ydb_data(name, keys)
-      if data == 0:
-        #raise newException(YdbError, "Record not found")
-        return EMPTY_STRING
-      elif data == 10:  # process binary data
-          var sb = newStringOfCap(1024*1024*2)
-          rc = YDB_OK
-          var subs = keys
-          subs.add("___$00000000$___") # marker for first huge block
-          while rc == YDB_OK:
-            if subs[^1].startsWith("___$0"):
-              sb.add(ydb_get_db(name, subs))
-            subs[^1] = ydb_subscript_next(name, subs)
-          return sb
-
-  elif rc == YDB_OK:
-    result.setLen(DATABUF.len_used)
-    copyMem(addr(result[0]), DATABUF.buf_addr[0].addr, DATABUF.len_used)
-    return result
-  elif rc == YDB_ERR_GVUNDEF:
+  let dta = ydb_data(name, keys)
+  if dta == YDB_DATA_NOVALUE_DESC:  # blob
+      var sb = newStringOfCap(1024*1024*2)
+      rc = YDB_OK
+      var subs = keys
+      subs.add("___$00000000$___") # marker for first huge block
+      while rc == YDB_OK:
+        if subs[^1].startsWith("___$0"):
+          sb.add(ydb_get_db(name, subs))
+        subs[^1] = ydb_subscript_next(name, subs)
+      return sb
+  elif dta == 0:
     return EMPTY_STRING
   else:
-    checkRC()
+      when compileOption("threads"):
+        rc = ydb_get_st(TPTOKEN, ERRMSG.addr, GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
+      else:
+        rc = ydb_get_s(GLOBAL.addr, keys.len.cint, IDXARR[0].addr, DATABUF.addr)
+      if rc == YDB_OK:
+        if DATABUF.len_used > 0:
+            result.setLen(DATABUF.len_used)
+            copyMem(addr(result[0]), DATABUF.buf_addr[0].addr, DATABUF.len_used)
+            return result
+        else:
+            return EMPTY_STRING
+      else:
+        checkRC()
 
 
 # --- Locks ---
