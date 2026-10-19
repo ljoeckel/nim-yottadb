@@ -18,7 +18,7 @@ import std/strformat
 const names = @[
     "binary",  "callin",  "data",  "delete",  "delexcl",  "dsl_test",  "dsliterators",  "increment",  "iterator",
     "kill",  "locks",  "nextnode",  "serialization_test",  "setget",  "setgetlocal",  "special_vars",  "transaction",
-    "ydbdsl_test",  "yottadb_test",  "zwr",  "sequences",  "indirection" 
+    "ydbdsl_test",  "yottadb_test",  "zwr",  "sequences",  "indirection",  "ydbkey"
     ]
 
 const examples = @[

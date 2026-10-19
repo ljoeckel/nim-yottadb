@@ -824,6 +824,12 @@ macro Set*(body: untyped): untyped =
 # --------------------
 # Query Iterators
 # --------------------
+type
+  # Explicit proc types keep `let procedure = ydb_node_next` unambiguous now
+  # that YdbKey overloads of the same names exist.
+  NodeTraverseProc = proc(name: string, keys: Subscripts): (int, Subscripts) {.gcsafe.}
+  SubTraverseProc = proc(name: string, keys: Subscripts): string {.gcsafe.}
+
 template walkNodes(nextProc: untyped, ydbvar: YdbVar, body: untyped) =
   let v = resolveVar(ydbvar)
   let gblName {.inject.} = v.name
@@ -837,50 +843,50 @@ template walkNodes(nextProc: untyped, ydbvar: YdbVar, body: untyped) =
 # returns ^global(key,..)
 iterator QueryItrx*(reverse: static bool, ydbvar: YdbVar): string =
   when reverse:
-    let procedure = ydb_node_previous
+    let procedure: NodeTraverseProc = ydb_node_previous
   else:
-    let procedure = ydb_node_next
+    let procedure: NodeTraverseProc = ydb_node_next
   walkNodes(procedure, ydbvar):
     yield keysToString(gblName, subs)
 
 # returns @["1"], @["2"], ...
 iterator QueryItrxKEYS*(reverse: static bool, ydbvar: YdbVar): seq[string] =
   when reverse:
-    let procedure = ydb_node_previous
+    let procedure: NodeTraverseProc = ydb_node_previous
   else:
-    let procedure = ydb_node_next
+    let procedure: NodeTraverseProc = ydb_node_next
   walkNodes(procedure, ydbvar):
     yield subs
 
 iterator QueryItrxKV*(reverse: static bool, ydbvar: YdbVar): (string, string) =
   when reverse:
-    let procedure = ydb_node_previous
+    let procedure: NodeTraverseProc = ydb_node_previous
   else:
-    let procedure = ydb_node_next
+    let procedure: NodeTraverseProc = ydb_node_next
   walkNodes(procedure, ydbvar):
     yield (keysToString(gblName, subs), ydb_get(gblName, subs))
 
 iterator QueryItrxSV*(reverse: static bool, ydbvar: YdbVar): (seq[string], string) =
   when reverse:
-    let procedure = ydb_node_previous
+    let procedure: NodeTraverseProc = ydb_node_previous
   else:
-    let procedure = ydb_node_next
+    let procedure: NodeTraverseProc = ydb_node_next
   walkNodes(procedure, ydbvar):
     yield (subs, ydb_get(gblName, subs))
 
 iterator QueryItrxVAL*(reverse: static bool, ydbvar: YdbVar): string =
   when reverse:
-    let procedure = ydb_node_previous
+    let procedure: NodeTraverseProc = ydb_node_previous
   else:
-    let procedure = ydb_node_next
+    let procedure: NodeTraverseProc = ydb_node_next
   walkNodes(procedure, ydbvar):
     yield ydb_get(gblName, subs)
 
 iterator QueryItrxCOUNT*(reverse: static bool, ydbvar: YdbVar): int =
   when reverse:
-    let procedure = ydb_node_previous
+    let procedure: NodeTraverseProc = ydb_node_previous
   else:
-    let procedure = ydb_node_next
+    let procedure: NodeTraverseProc = ydb_node_next
   var cnt = 0
   walkNodes(procedure, ydbvar):
     inc cnt
@@ -904,49 +910,49 @@ template walkOrderNodes(nextProc: untyped, ydbvar: YdbVar, body: untyped) =
 # returns ^global(key,..)
 iterator OrderItrx*(reverse: static bool, ydbvar: YdbVar): string =
   when reverse:
-    let procedure = ydb_subscript_previous
+    let procedure: SubTraverseProc = ydb_subscript_previous
   else:
-    let procedure = ydb_subscript_next
+    let procedure: SubTraverseProc = ydb_subscript_next
   walkOrderNodes(procedure, ydbvar):
     yield key
 
 iterator OrderItrxKEYS*(reverse: static bool, ydbvar: YdbVar): seq[string] =
   when reverse:
-    let procedure = ydb_subscript_previous
+    let procedure: SubTraverseProc = ydb_subscript_previous
   else:
-    let procedure = ydb_subscript_next
+    let procedure: SubTraverseProc = ydb_subscript_next
   walkOrderNodes(procedure, ydbvar):
     yield subs
 
 iterator OrderItrxVAL*(reverse: static bool, ydbvar: YdbVar): string =
   when reverse:
-    let procedure = ydb_subscript_previous
+    let procedure: SubTraverseProc = ydb_subscript_previous
   else:
-    let procedure = ydb_subscript_next
+    let procedure: SubTraverseProc = ydb_subscript_next
   walkOrderNodes(procedure, ydbvar):
     yield ydb_get(gblName, subs)
 
 iterator OrderItrxKV*(reverse: static bool, ydbvar: YdbVar): (string, string) =
   when reverse:
-    let procedure = ydb_subscript_previous
+    let procedure: SubTraverseProc = ydb_subscript_previous
   else:
-    let procedure = ydb_subscript_next
+    let procedure: SubTraverseProc = ydb_subscript_next
   walkOrderNodes(procedure, ydbvar):
     yield (key, ydb_get(gblName, subs))
 
 iterator OrderItrxKEY*(reverse: static bool, ydbvar: YdbVar): string =
   when reverse:
-    let procedure = ydb_subscript_previous
+    let procedure: SubTraverseProc = ydb_subscript_previous
   else:
-    let procedure = ydb_subscript_next
+    let procedure: SubTraverseProc = ydb_subscript_next
   walkOrderNodes(procedure, ydbvar):
     yield keysToString(gblName, subs)
 
 iterator OrderItrxCOUNT*(reverse: static bool, ydbvar: YdbVar): int =
   when reverse:
-    let procedure = ydb_subscript_previous
+    let procedure: SubTraverseProc = ydb_subscript_previous
   else:
-    let procedure = ydb_subscript_next
+    let procedure: SubTraverseProc = ydb_subscript_next
   var cnt = 0
   walkOrderNodes(procedure, ydbvar):
     inc cnt
@@ -1049,37 +1055,37 @@ template walkO[T](qt: static QueryType, ydbvar: YdbVar, nodeProc: untyped): T =
 #================
 proc Queryx*(isReverse: static bool, ydbvar: YdbVar): string =
   when isReverse:
-    let procedure = ydb_node_previous
+    let procedure: NodeTraverseProc = ydb_node_previous
   else:
-    let procedure = ydb_node_next
+    let procedure: NodeTraverseProc = ydb_node_next
   walkQ[string](qtNext, ydbvar, procedure)
 
 proc QueryxKEYS*(isReverse: static bool, ydbvar: YdbVar): seq[string] =
   when isReverse:
-    let procedure = ydb_node_previous
+    let procedure: NodeTraverseProc = ydb_node_previous
   else:
-    let procedure = ydb_node_next
+    let procedure: NodeTraverseProc = ydb_node_next
   walkQ[seq[string]](qtKeys, ydbvar, procedure)
 
 proc QueryxKV*(isReverse: static bool, ydbvar: YdbVar): (string, string) =
   when isReverse:
-    let procedure = ydb_node_previous
+    let procedure: NodeTraverseProc = ydb_node_previous
   else:
-    let procedure = ydb_node_next
+    let procedure: NodeTraverseProc = ydb_node_next
   walkQ[(string, string)](qtKv, ydbvar, procedure)
 
 proc QueryxVAL*(isReverse: static bool, ydbvar: YdbVar): string =
   when isReverse:
-    let procedure = ydb_node_previous
+    let procedure: NodeTraverseProc = ydb_node_previous
   else:
-    let procedure = ydb_node_next
+    let procedure: NodeTraverseProc = ydb_node_next
   walkQ[string](qtValue, ydbvar, procedure)
 
 proc QueryxCOUNT*(isReverse: static bool, ydbvar: YdbVar): int =
   when isReverse:
-    let procedure = ydb_node_previous
+    let procedure: NodeTraverseProc = ydb_node_previous
   else:
-    let procedure = ydb_node_next
+    let procedure: NodeTraverseProc = ydb_node_next
   walkQ[int](qtCount, ydbvar, procedure)
 
 macro Query*(body: untyped): untyped =
@@ -1100,44 +1106,44 @@ macro QueryItr*(body: untyped): untyped =
 #================
 proc Orderx*(isReverse: static bool, ydbvar: YdbVar): string =
   when isReverse:
-    let procedure = ydb_subscript_previous
+    let procedure: SubTraverseProc = ydb_subscript_previous
   else:
-    let procedure = ydb_subscript_next
+    let procedure: SubTraverseProc = ydb_subscript_next
   walkO[string](qtNext, ydbvar, procedure)
 
 proc OrderxKEY*(isReverse: static bool, ydbvar: YdbVar): string =
   when isReverse:
-    let procedure = ydb_subscript_previous
+    let procedure: SubTraverseProc = ydb_subscript_previous
   else:
-    let procedure = ydb_subscript_next
+    let procedure: SubTraverseProc = ydb_subscript_next
   walkO[string](qtKey, ydbvar, procedure)
 
 proc OrderxKEYS*(isReverse: static bool, ydbvar: YdbVar): seq[string] =
   when isReverse:
-    let procedure = ydb_subscript_previous
+    let procedure: SubTraverseProc = ydb_subscript_previous
   else:
-    let procedure = ydb_subscript_next
+    let procedure: SubTraverseProc = ydb_subscript_next
   walkO[seq[string]](qtKeys, ydbvar, procedure)
 
 proc OrderxKV*(isReverse: static bool, ydbvar: YdbVar): (string, string) =
   when isReverse:
-    let procedure = ydb_subscript_previous
+    let procedure: SubTraverseProc = ydb_subscript_previous
   else:
-    let procedure = ydb_subscript_next
+    let procedure: SubTraverseProc = ydb_subscript_next
   walkO[(string, string)](qtKv, ydbvar, procedure)
 
 proc OrderxVAL*(isReverse: static bool, ydbvar: YdbVar): string =
   when isReverse:
-    let procedure = ydb_subscript_previous
+    let procedure: SubTraverseProc = ydb_subscript_previous
   else:
-    let procedure = ydb_subscript_next
+    let procedure: SubTraverseProc = ydb_subscript_next
   walkO[string](qtValue, ydbvar, procedure)
 
 proc OrderxCOUNT*(isReverse: static bool, ydbvar: YdbVar): int =
   when isReverse:
-    let procedure = ydb_subscript_previous
+    let procedure: SubTraverseProc = ydb_subscript_previous
   else:
-    let procedure = ydb_subscript_next
+    let procedure: SubTraverseProc = ydb_subscript_next
   walkO[int](qtCount, ydbvar, procedure)
 
 macro Order*(body: untyped): untyped =

@@ -1,26 +1,39 @@
 import std/strutils
 
-func parseFastInt*(s: string): int =
-  # Fast path for plain base-10 integers (optional sign + ASCII digits).
-  # Falls back to strutils.parseInt for anything unusual.
-  let L = s.len
-  if L == 0: return parseInt(s)
+func bufferToString(p: ptr UncheckedArray[char], len: int): string =
+  result = newString(len)
+  if len > 0:
+    copyMem(addr result[0], p, len)
+
+func parseFastInt*(p: ptr UncheckedArray[char], len: int): int =
+  # Fast path for plain base-10 integers read directly from a YottaDB buffer
+  # (no string allocation). Falls back to strutils.parseInt for anything else.
+  if len == 0:
+    return parseInt("")
   var i = 0
   var neg = false
-  if s[0] == '-': neg = true; inc i
-  elif s[0] == '+': inc i
-  if i == L: return parseInt(s)          # just "-" / "+"
+  if p[0] == '-': neg = true; inc i
+  elif p[0] == '+': inc i
+  if i == len:
+    return parseInt(bufferToString(p, len))     # just "-" / "+"
   var r = 0
-  while i < L:
-    let c = s[i]
+  while i < len:
+    let c = p[i]
     if c < '0' or c > '9':
-      return parseInt(s)                 # non-digit -> fallback
+      return parseInt(bufferToString(p, len))   # non-digit -> fallback
     let d = ord(c) - ord('0')
     if r > (high(int) - d) div 10:
-      return parseInt(s)                 # overflow -> fallback (raises like parseInt)
+      return parseInt(bufferToString(p, len))   # overflow -> fallback
     r = r * 10 + d
     inc i
   if neg: -r else: r
+
+func parseFastInt*(s: string): int =
+  # Same as above for strings; delegates so both paths stay in sync.
+  if s.len == 0:
+    return parseInt(s)
+  parseFastInt(cast[ptr UncheckedArray[char]](unsafeAddr s[0]), s.len)
+
 
 
 func parseFastFloat*(s: string): float =

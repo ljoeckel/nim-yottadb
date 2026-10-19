@@ -725,3 +725,341 @@ proc zwr2str*(name: string): string =
       result[idx] = DATABUF.buf_addr[idx].char
   else:
     checkRC()
+
+
+# ----------------------------------------------------------
+# YdbKey API (allocation-free variant)
+# ----------------------------------------------------------
+# A `YdbKey` owns its name and subscript buffers, so these overloads do not
+# allocate for the keys themselves. `ydb_node_next` and `ydb_subscript_next`
+# write their results directly into the key / a caller-provided string.
+
+const
+  BLOB_PREFIX = "___$0"     # start of a large-value block marker
+  BLOB_MARKER_LEN = 16      # "___$" & 8 digits & "$___"
+
+proc fetchValue(k: var YdbKey): cint =
+  ## Fetch the value of the key's node into DATABUF.
+  var gbl = k.nameBuffer()
+  let idx = k.subBuffers()
+  DATABUF.len_used = 0
+  when compileOption("threads"):
+    result = ydb_get_st(TPTOKEN, ERRMSG.addr, gbl.addr, k.nsubs.cint, idx[0].addr, DATABUF.addr)
+  else:
+    result = ydb_get_s(gbl.addr, k.nsubs.cint, idx[0].addr, DATABUF.addr)
+
+proc setBlockMarker(k: var YdbKey, i: int, blockNo: int) =
+  ## Write the block marker `___$nnnnnnnn$___` as subscript `i`.
+  var buf: array[BLOB_MARKER_LEN, char]
+  buf[0] = '_'; buf[1] = '_'; buf[2] = '_'; buf[3] = '$'
+  buf[12] = '$'; buf[13] = '_'; buf[14] = '_'; buf[15] = '_'
+  var v = blockNo
+  for p in 0..<8:
+    buf[11 - p] = char(ord('0') + (v mod 10))
+    v = v div 10
+  k.setSub(i, buf)
+
+proc ydb_data*(k: var YdbKey): int =
+  ## Check existence/type of the key's node.
+  ## Return codes: 0 = no data, 1 = data, 10 = child nodes, 11 = both.
+  checkBuffers()
+  var gbl = k.nameBuffer()
+  let idx = k.subBuffers()
+  var value: cuint = 0
+
+  when compileOption("threads"):
+    rc = ydb_data_st(TPTOKEN, ERRMSG.addr, gbl.addr, k.nsubs.cint, idx[0].addr, value.addr)
+  else:
+    rc = ydb_data_s(gbl.addr, k.nsubs.cint, idx[0].addr, value.addr)
+
+  checkRC()
+  return value.int
+
+proc ydb_delete*(k: var YdbKey, deltype: uint) =
+  ## Delete the node or subtree identified by the key.
+  checkBuffers()
+  var gbl = k.nameBuffer()
+  let idx = k.subBuffers()
+
+  when compileOption("threads"):
+    rc = ydb_delete_st(TPTOKEN, ERRMSG.addr, gbl.addr, k.nsubs.cint, idx[0].addr, cast[cint](deltype))
+  else:
+    rc = ydb_delete_s(gbl.addr, k.nsubs.cint, idx[0].addr, deltype.cint)
+
+  checkRC()
+
+proc subscriptTraverse(k: var YdbKey, previous: bool, dst: var string): int =
+  ## Next/previous subscript at the level of the key's last subscript.
+  ## Writes the result into `dst` (its capacity is reused).
+  checkBuffers()
+  let savedN = k.nsubs
+  if savedN == 0:
+    k.setSub(0, EMPTY_STRING)   # special case: first/last subscript at this level
+
+  var gbl = k.nameBuffer()
+  let idx = k.subBuffers()
+  DATABUF.len_used = 0
+
+  when compileOption("threads"):
+    if previous:
+      rc = ydb_subscript_previous_st(TPTOKEN, ERRMSG.addr, gbl.addr, k.nsubs.cint, idx[0].addr, DATABUF.addr)
+    else:
+      rc = ydb_subscript_next_st(TPTOKEN, ERRMSG.addr, gbl.addr, k.nsubs.cint, idx[0].addr, DATABUF.addr)
+  else:
+    if previous:
+      rc = ydb_subscript_previous_s(gbl.addr, k.nsubs.cint, idx[0].addr, DATABUF.addr)
+    else:
+      rc = ydb_subscript_next_s(gbl.addr, k.nsubs.cint, idx[0].addr, DATABUF.addr)
+
+  k.setSubsLen(savedN)
+  result = rc
+
+  if rc == YDB_OK:
+    let n = DATABUF.len_used.int
+    dst.setLen(n)
+    if n > 0:
+      copyMem(addr dst[0], DATABUF.buf_addr[0].addr, n)
+    # Move the cursor: the key now points at the returned subscript, so the
+    # next call continues after it (like ydb_node_next).
+    if savedN == 0:
+      k.setSub(0, dst)
+    else:
+      k.setSub(savedN - 1, dst)
+  elif rc == YDB_ERR_NODEEND:
+    dst.setLen(0)
+  else:
+    checkRC()
+
+proc ydb_subscript_next*(k: var YdbKey, dst: var string): int =
+  ## Write the next subscript at the current level into `dst` and move `k` to
+  ## that subscript. Repeated calls therefore traverse all subscripts of the
+  ## level:
+  ##
+  ## .. code-block:: nim
+  ##   var k = initYdbKey("^orders")
+  ##   var sub = ""
+  ##   while ydb_subscript_next(k, sub) == YDB_OK:
+  ##     echo sub
+  ##
+  ## Returns `YDB_OK` or `YDB_ERR_NODEEND`; raises on real errors.
+  subscriptTraverse(k, false, dst)
+
+proc ydb_subscript_previous*(k: var YdbKey, dst: var string): int =
+  ## Write the previous subscript at the current level into `dst` and move `k`
+  ## to that subscript.
+  ## Returns `YDB_OK` or `YDB_ERR_NODEEND`; raises on real errors.
+  subscriptTraverse(k, true, dst)
+
+proc ydb_subscript_next*(k: var YdbKey): string =
+  ## Convenience variant of `ydb_subscript_next` that returns the subscript.
+  discard subscriptTraverse(k, false, result)
+
+proc ydb_subscript_previous*(k: var YdbKey): string =
+  ## Convenience variant of `ydb_subscript_previous` that returns the subscript.
+  discard subscriptTraverse(k, true, result)
+
+proc nodeTraverse(k: var YdbKey, previous: bool): int =
+  ## Advance the key in place to the next/previous node of the tree.
+  checkBuffers()
+  let savedN = k.nsubs
+
+  # YottaDB rejects NULL buf_addr entries in ret_subsarray.
+  for i in 0..<YDB_MAX_SUBS:
+    if k.cbufs[i].buf_addr == nil:
+      k.reserveSub(i, YDB_KEY_INITIAL_CAP)
+  if previous and savedN == 0:
+    k.setMaxSubscripts()
+
+  var gbl = k.nameBuffer()
+  let idx = k.subBuffers()
+  var retUsed: cint = YDB_MAX_SUBS
+
+  while true:
+    retUsed = YDB_MAX_SUBS
+
+    when compileOption("threads"):
+      if previous:
+        rc = ydb_node_previous_st(TPTOKEN, ERRMSG.addr, gbl.addr, k.nsubs.cint, idx[0].addr, retUsed.addr, idx[0].addr)
+      else:
+        rc = ydb_node_next_st(TPTOKEN, ERRMSG.addr, gbl.addr, k.nsubs.cint, idx[0].addr, retUsed.addr, idx[0].addr)
+    else:
+      if previous:
+        rc = ydb_node_previous_s(gbl.addr, k.nsubs.cint, idx[0].addr, retUsed.addr, idx[0].addr)
+      else:
+        rc = ydb_node_next_s(gbl.addr, k.nsubs.cint, idx[0].addr, retUsed.addr, idx[0].addr)
+
+    if rc == YDB_ERR_INVSTRLEN:
+      # retUsed is the index of the subscript buffer that was too small and
+      # its len_used holds the required size. Grow and retry.
+      let i = retUsed.int
+      doAssert i >= 0 and i < YDB_MAX_SUBS
+      let need = idx[i].len_used.int
+      if need > k.subs[i].len:
+        k.reserveSub(i, need)
+        continue
+      break                    # defensive: avoid an endless retry loop
+    break
+
+  result = rc
+  if rc == YDB_OK:
+    k.nsubs = retUsed.int
+    for i in 0..<k.nsubs:
+      k.subUsed[i] = idx[i].len_used.int
+    for i in k.nsubs ..< YDB_MAX_SUBS:
+      idx[i].len_used = 0
+  else:
+    k.setSubsLen(savedN)
+
+proc ydb_node_next*(k: var YdbKey): int =
+  ## Advance `k` in place to the next node of its tree.
+  ## Returns `YDB_OK` or `YDB_ERR_NODEEND`; raises on real errors.
+  ## The key is unchanged when the end of the tree is reached.
+  nodeTraverse(k, false)
+
+proc ydb_node_previous*(k: var YdbKey): int =
+  ## Move `k` in place to the previous node of its tree. With no subscripts,
+  ## the key is positioned at the last node of the tree.
+  ## Returns `YDB_OK` or `YDB_ERR_NODEEND`; raises on real errors.
+  nodeTraverse(k, true)
+
+proc getBlob(k: var YdbKey): string =
+  ## Reassemble a value that `ydb_set` split into 1 MiB blocks.
+  let savedN = k.nsubs
+  defer: k.setSubsLen(savedN)
+
+  result = newStringOfCap(YDB_MAX_BUF_SIZE)
+  k.addSub(EMPTY_STRING)
+  k.setBlockMarker(k.nsubs - 1, 0)
+  var nextSub = ""
+
+  while true:
+    rc = fetchValue(k)
+    if rc != YDB_OK:
+      if rc == YDB_ERR_GVUNDEF: break
+      checkRC()
+
+    let n = DATABUF.len_used.int
+    if n > 0:
+      let oldLen = result.len
+      result.setLen(oldLen + n)
+      copyMem(addr result[oldLen], DATABUF.buf_addr[0].addr, n)
+
+    discard ydb_subscript_next(k, nextSub)
+    if not nextSub.startsWith(BLOB_PREFIX): break
+    k.setSub(k.nsubs - 1, nextSub)
+
+proc ydb_get*(k: var YdbKey): string =
+  ## Retrieve the value of the key's node. Returns an empty string if the node
+  ## does not exist or has no value.
+  checkBuffers()
+  rc = fetchValue(k)
+  if rc == YDB_OK:
+    if DATABUF.len_used > 0:
+      let n = DATABUF.len_used.int
+      result.setLen(n)
+      copyMem(addr result[0], DATABUF.buf_addr[0].addr, n)
+  elif rc == YDB_ERR_GVUNDEF:
+    # A node without a value may still hold a large value split into blocks.
+    if ydb_data(k) == YDB_DATA_NOVALUE_DESC:
+      result = getBlob(k)
+    else:
+      result = EMPTY_STRING
+  else:
+    checkRC()
+
+proc ydb_set*(k: var YdbKey, value: string) =
+  ## Set the value of the key's node.
+  checkBuffers()
+  var gbl = k.nameBuffer()
+  let idx = k.subBuffers()
+
+  if value.len <= YDB_MAX_BUF_SIZE:
+    # YottaDB only reads the value, so point directly into `value`
+    var vbuf = ydb_buffer_t(
+      len_alloc: value.len.uint32,
+      len_used: value.len.uint32,
+      buf_addr: (if value.len == 0: nil else: cast[cstring](unsafeAddr value[0])))
+    when compileOption("threads"):
+      rc = ydb_set_st(TPTOKEN, ERRMSG.addr, gbl.addr, k.nsubs.cint, idx[0].addr, vbuf.addr)
+    else:
+      rc = ydb_set_s(gbl.addr, k.nsubs.cint, idx[0].addr, vbuf.addr)
+    checkRC()
+  else:
+    # Remove the old node/tree, then write 1 MiB blocks as child subscripts.
+    ydb_delete(k, YDB_DEL_TREE)
+
+    let savedN = k.nsubs
+    defer: k.setSubsLen(savedN)
+    k.addSub(EMPTY_STRING)
+
+    var offset = 0
+    var blockNo = 0
+    while offset < value.len:
+      let n = min(YDB_MAX_BUF_SIZE, value.len - offset)
+      k.setBlockMarker(k.nsubs - 1, blockNo)
+      var vbuf = ydb_buffer_t(
+        len_alloc: n.uint32,
+        len_used: n.uint32,
+        buf_addr: cast[cstring](unsafeAddr value[offset]))
+      when compileOption("threads"):
+        rc = ydb_set_st(TPTOKEN, ERRMSG.addr, gbl.addr, k.nsubs.cint, idx[0].addr, vbuf.addr)
+      else:
+        rc = ydb_set_s(gbl.addr, k.nsubs.cint, idx[0].addr, vbuf.addr)
+      checkRC()
+      inc offset, n
+      inc blockNo
+
+proc ydb_increment*(k: var YdbKey, value: int = 1): int =
+  ## Atomically increment the key's node and return the new value.
+  checkBuffers()
+  var gbl = k.nameBuffer()
+  let idx = k.subBuffers()
+
+  var ibuf: array[24, char]
+  let start = formatInt(ibuf, value)
+  var incbuf = ydb_buffer_t(
+    len_alloc: uint32(ibuf.len - start),
+    len_used: uint32(ibuf.len - start),
+    buf_addr: cast[cstring](addr ibuf[start]))
+
+  INCRBUF.len_used = 0
+  when compileOption("threads"):
+    rc = ydb_incr_st(TPTOKEN, ERRMSG.addr, gbl.addr, k.nsubs.cint, idx[0].addr, incbuf.addr, INCRBUF.addr)
+  else:
+    rc = ydb_incr_s(gbl.addr, k.nsubs.cint, idx[0].addr, incbuf.addr, INCRBUF.addr)
+
+  checkRC()
+
+  try:
+    result = parseFastInt(cast[ptr UncheckedArray[char]](INCRBUF.buf_addr), INCRBUF.len_used.int)
+  except:
+    raise newException(YdbError, "Illegal Number. Tried to parse increment result")
+
+proc ydb_lock_incr*(timeout_nsec: int, k: var YdbKey) =
+  ## Increment the lock for the key's node.
+  checkBuffers()
+  var gbl = k.nameBuffer()
+  let idx = k.subBuffers()
+
+  when compileOption("threads"):
+    rc = ydb_lock_incr_st(TPTOKEN, ERRMSG.addr, timeout_nsec.culonglong, gbl.addr, k.nsubs.cint, idx[0].addr)
+  else:
+    rc = ydb_lock_incr_s(timeout_nsec.culonglong, gbl.addr, k.nsubs.cint, idx[0].addr)
+
+  if rc == YDB_LOCK_TIMEOUT:
+    raise newException(YdbError, "YDB_LOCK_TIMEOUT while setting: " & $k)
+  else:
+    checkRC()
+
+proc ydb_lock_decr*(k: var YdbKey) =
+  ## Decrement the lock for the key's node.
+  checkBuffers()
+  var gbl = k.nameBuffer()
+  let idx = k.subBuffers()
+
+  when compileOption("threads"):
+    rc = ydb_lock_decr_st(TPTOKEN, ERRMSG.addr, gbl.addr, k.nsubs.cint, idx[0].addr)
+  else:
+    rc = ydb_lock_decr_s(gbl.addr, k.nsubs.cint, idx[0].addr)
+
+  checkRC()
