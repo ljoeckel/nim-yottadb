@@ -467,7 +467,7 @@ proc ydb_get*(name: string, keys: Subscripts): string =
   DATABUF.len_used = 0
   let dta = ydb_data(name, keys)
   if dta == YDB_DATA_NOVALUE_DESC:  # blob
-      var sb = newStringOfCap(1024*1024*2)
+      var sb = newStringOfCap(1024*1024)
       rc = YDB_OK
       var subs = keys
       subs.add("___$00000000$___") # marker for first huge block

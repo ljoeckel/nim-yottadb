@@ -9,14 +9,14 @@ const
 
 var TOTAL_BYTES = 0
 
+# create a binary string of 'kb' kilobytes
 var KB = newStringOfCap(1024)
 for j in 0..<4:
     for i in 0 .. 255:
         KB.add(i.char)
 
-proc createBinData(kb: int, w3c: bool = false): string =
-  # create a binary string of 'kb' kilobytes
-  result = KB.repeat(kb)
+proc createBinData(kb: int): string =
+    result = KB.repeat(kb)
 
 proc calcRatio(ms: int, bytes: int) =
     let compressedSize = calcSpace("^tmp", false)
@@ -27,23 +27,39 @@ proc calcRatio(ms: int, bytes: int) =
 
 proc testBinary(): int =
   Kill ^tmp
-  var totalBytes = 0
   for size in BLOCKSIZES:
     let data = createBinData(size)
-    inc(totalBytes, data.len)
-    inc(TOTAL_BYTES, data.len)
+    inc(result, data.len)
     Set: ^tmp(size) = data
     let dbdata = Get ^tmp(size)
     assert data == dbdata
-  return totalBytes
+
+
+proc testBinaryYK(): int =
+  Kill ^tmp
+  var key = initYdbKey("^tmp")
+  for size in BLOCKSIZES:
+    let data = createBinData(size)
+    inc(result, data.len)
+    key.setSub(0, size)
+    ydb_set(key, data)
+    let dbdata = ydb_get(key)
+    assert data == dbdata
+
 
 proc testBinaryRead(): int =
-  var totalBytes = 0
   for size in BLOCKSIZES:
     let data = Get ^tmp(size)
-    inc(totalBytes, data.len)
-  assert totalBytes == TOTAL_BYTES
-  return totalBytes
+    inc(result, data.len)
+  assert result == TOTAL_BYTES
+
+proc testBinaryReadYK(): int =
+  var key = initYdbKey("^tmp")
+  for size in BLOCKSIZES:
+    key.setSub(0, size)
+    let dbdata = ydb_get(key)
+    inc(result, dbdata.len)
+  assert result == TOTAL_BYTES
 
 
 template defineTest(typeName; w3c: bool = false): untyped =
@@ -51,35 +67,31 @@ template defineTest(typeName; w3c: bool = false): untyped =
         let algo = astToStr(typeName)
         echo "Running test for '", algo, "'"
         Kill ^tmp
-        TOTAL_BYTES = 0
         for kb in BLOCKSIZES:
-          let data = createBinData(kb, w3c)
-          inc(TOTAL_BYTES, data.len)
+          let data = createBinData(kb)
+          inc(result, data.len)
           Set: ^tmp(kb) = data.`typename`
           let dbdata = Get ^tmp(kb).`typename`
           assert data == dbdata
-        return TOTAL_BYTES
+
     proc `testBinaryHugeRead typename w3c`(): int =
-        var total = 0
         for kb in BLOCKSIZES:
           let compressed = Get ^tmp(kb)
           echo "  RC (", kb ,") ", compressed.len, " bytes"
           let lenCompressed = compressed.len  
           let dbdata = Get ^tmp(kb).`typename`
           echo "  R  (", kb ,") ", dbdata.len, " bytes"
-          inc(total, dbdata.len)
-        assert total == TOTAL_BYTES    
-        return total
+          inc(result, dbdata.len)
+        assert result == TOTAL_BYTES    
+
     proc `testBinaryHugeReadVerify typename w3c`(): int =
-        var totalBytes = 0
         for kb in BLOCKSIZES:
-            let data = createBinData(kb, w3c)
+            let data = createBinData(kb)
             let dbdata = Get ^tmp(kb).`typename`
             echo "  R  (", kb ,") ", dbdata.len, " bytes"
             assert data == dbdata
-            inc(totalBytes, dbdata.len)
-        assert totalBytes == TOTAL_BYTES    
-        return totalBytes
+            inc(result, dbdata.len)
+        assert result == TOTAL_BYTES    
 
 defineTest(gzip)
 defineTest(zlib)
@@ -97,6 +109,22 @@ if isMainModule:
     test "binary": 
         let (ms, bytes) = timed_rc:
             testBinary()
+        TOTAL_BYTES = bytes
+        calcRatio(ms, bytes)
+
+    test "binaryYK": 
+        let (ms, bytes) = timed_rc:
+            testBinaryYK()
+        calcRatio(ms, bytes)
+
+    test "binaryRead": 
+        let (ms, bytes) = timed_rc:
+            testBinaryRead()
+        calcRatio(ms, bytes)
+
+    test "binaryReadYK": 
+        let (ms, bytes) = timed_rc:
+            testBinaryReadYK()
         calcRatio(ms, bytes)
 
     test "gzip":
