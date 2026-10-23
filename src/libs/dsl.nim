@@ -196,6 +196,18 @@ proc resolveVarPrefix(ydbvar: YdbVar): YdbVar =
   result.subscripts = expandSubsPrefix(result.subscripts)
 
 
+func needsNormalization(v: YdbVar): bool {.inline.} =
+  ## Whether `resolveVar` / `resolveVarPrefix` would change the variable.
+  ## Only indirection names (`@gbl`, possibly with embedded subscripts) and
+  ## subscripts containing the sequence marker `@[` need normalization; for
+  ## everything else the `x` procs can work directly on the passed YdbVar and
+  ## skip its copy.
+  if v.prefix == INDIRECTION: return true
+  for s in v.subscripts:
+    if INDIRECTION_KEYS in s: return true
+  false
+
+
 proc getApiName(basename: string; args: var seq[NimNode]): (string, bool) =
   ## Compose the runtime proc name from the trailing `.postfix` pairs that
   ## `transform` appended as (`TYPEDESC`, `$postfix`), e.g. for
@@ -351,22 +363,29 @@ proc concatStr(a, b: NimNode): NimNode =
     result = newCall(ident"&", a, b)
 
 
-proc ydbVar*(prefix, name, value, typdesc: string, subscripts: Subscripts): YdbVar =
+proc ydbVar*(prefix, name, value, typdesc: string, subscripts: Subscripts): YdbVar {.inline.} =
   # Runtime constructor emitted by the macros to build a YdbVar directly.
   result = YdbVar(prefix: prefix, name: name, value: value, typdesc: typdesc, subscripts: subscripts)
 
 
 proc makeYdbVar(prefix, name, value, typdesc: NimNode, subscripts: seq[NimNode]): NimNode =
-  # ydbVar(prefix, name, value, typdesc, @[...])
+  # Emit an object constructor `YdbVar(...)` instead of a `ydbVar(...)` proc
+  # call: the compiler moves the subscript seq into the object, while the proc
+  # call would deep-copy it (one allocation per DSL statement).
   var arr = newTree(nnkBracket)
   for s in subscripts:
     arr.add(s)
-  result = newCall(ident"ydbVar",
-    (if prefix.isNil: newLit("") else: prefix),
-    (if name.isNil: newLit("") else: name),
-    (if value.isNil: newLit("") else: value),
-    (if typdesc.isNil: newLit("") else: typdesc),
-    newTree(nnkPrefix, ident"@", arr))
+  result = newTree(nnkObjConstr, bindSym"YdbVar")
+  if prefix != nil:
+    result.add(newTree(nnkExprColonExpr, ident"prefix", prefix))
+  if name != nil:
+    result.add(newTree(nnkExprColonExpr, ident"name", name))
+  if value != nil:
+    result.add(newTree(nnkExprColonExpr, ident"value", value))
+  if typdesc != nil:
+    result.add(newTree(nnkExprColonExpr, ident"typdesc", typdesc))
+  result.add(newTree(nnkExprColonExpr, ident"subscripts",
+                     newTree(nnkPrefix, ident"@", arr)))
 
 
 proc buildYdbVar(args: seq[NimNode]): NimNode =
@@ -432,8 +451,8 @@ proc buildYdbVar(args: seq[NimNode]): NimNode =
   makeYdbVar(prefix, name, value, typdesc, subscripts)
 
 
-proc buildYdbVars(args: seq[NimNode]): NimNode =
-  ## Compile-time equivalent of the former `seqToYdbVars`; returns `@[YdbVar(...), ...]`.
+proc buildYdbVarList(args: seq[NimNode]): seq[NimNode] =
+  ## Compile-time equivalent of the former `seqToYdbVars`.
   var vars: seq[NimNode]
   var
     prefix: NimNode
@@ -505,6 +524,15 @@ proc buildYdbVars(args: seq[NimNode]): NimNode =
   if name != nil:
     flush()
 
+  result = vars
+
+
+proc buildYdbVars(args: seq[NimNode]): NimNode =
+  ## `YdbVar(...)` for a single variable (no seq needed) or
+  ## `@[YdbVar(...), ...]` for several.
+  let vars = buildYdbVarList(args)
+  if vars.len == 1:
+    return vars[0]
   var arr = newTree(nnkBracket)
   for v in vars:
     arr.add(v)
@@ -537,8 +565,10 @@ func getTimeout(arg: string): int =
 # Data
 #================
 proc datax*(ydbvar: YdbVar): int =
-    let v = resolveVar(ydbvar)
-    ydb_data(v.name, v.subscripts)
+    if needsNormalization(ydbvar):
+        let v = resolveVar(ydbvar)
+        return ydb_data(v.name, v.subscripts)
+    ydb_data(ydbvar.name, ydbvar.subscripts)
 
 macro Data*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -548,9 +578,12 @@ macro Data*(body: untyped): untyped =
 #================
 # Get
 #================
-proc getx*(ydbvar: YdbVar): string =
-    let v = resolveVar(ydbvar)
-    result = ydb_get(v.name, v.subscripts)
+proc getx*(ydbvar: YdbVar): string {.inline.} =
+    if needsNormalization(ydbvar):
+        let v = resolveVar(ydbvar)
+        result = ydb_get(v.name, v.subscripts)
+    else:
+        result = ydb_get(ydbvar.name, ydbvar.subscripts)
     if result.len == 0 and ydbvar.value.len > 0:
         return ydbvar.value # return 'default value' if nothing found
 
@@ -682,8 +715,18 @@ defineGetX(bool, parseFastBool)
 #================
 proc killnodex*(ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
+        if needsNormalization(ydbvar):
+            let v = resolveVarPrefix(ydbvar)
+            ydb_delete(v.name, v.subscripts, YDB_DEL_NODE)
+        else:
+            ydb_delete(ydbvar.name, ydbvar.subscripts, YDB_DEL_NODE)
+
+proc killnodex*(ydbvar: YdbVar) =
+    if needsNormalization(ydbvar):
         let v = resolveVarPrefix(ydbvar)
         ydb_delete(v.name, v.subscripts, YDB_DEL_NODE)
+    else:
+        ydb_delete(ydbvar.name, ydbvar.subscripts, YDB_DEL_NODE)
 
 macro Killnode*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -696,8 +739,18 @@ macro Killnode*(body: untyped): untyped =
 #================
 proc killx*(ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
+        if needsNormalization(ydbvar):
+            let v = resolveVarPrefix(ydbvar)
+            ydb_delete(v.name, v.subscripts, YDB_DEL_TREE)
+        else:
+            ydb_delete(ydbvar.name, ydbvar.subscripts, YDB_DEL_TREE)
+
+proc killx*(ydbvar: YdbVar) =
+    if needsNormalization(ydbvar):
         let v = resolveVarPrefix(ydbvar)
         ydb_delete(v.name, v.subscripts, YDB_DEL_TREE)
+    else:
+        ydb_delete(ydbvar.name, ydbvar.subscripts, YDB_DEL_TREE)
 
 macro Kill*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -711,7 +764,18 @@ macro Kill*(body: untyped): untyped =
 proc delexclx*(ydbvars: seq[YdbVar]) =
     var names: seq[string]
     for ydbvar in ydbvars:
+        if needsNormalization(ydbvar):
+            names.add(resolveVarPrefix(ydbvar).name)
+        else:
+            names.add(ydbvar.name)
+    ydb_delete_excl(names)
+
+proc delexclx*(ydbvar: YdbVar) =
+    var names: seq[string]
+    if needsNormalization(ydbvar):
         names.add(resolveVarPrefix(ydbvar).name)
+    else:
+        names.add(ydbvar.name)
     ydb_delete_excl(names)
 
 macro Delexcl*(body: untyped): untyped =
@@ -724,11 +788,11 @@ macro Delexcl*(body: untyped): untyped =
 # Increment
 #================
 proc incrementx*(ydbvar: YdbVar): int =
-    let v = resolveVar(ydbvar)
-    if ydbvar.value.len == 0:
-        ydb_increment(v.name, v.subscripts, 1)
-    else:
-        ydb_increment(v.name, v.subscripts, parseFastInt(ydbvar.value))
+    let inc = if ydbvar.value.len == 0: 1 else: parseFastInt(ydbvar.value)
+    if needsNormalization(ydbvar):
+        let v = resolveVar(ydbvar)
+        return ydb_increment(v.name, v.subscripts, inc)
+    ydb_increment(ydbvar.name, ydbvar.subscripts, inc)
 
 macro Increment*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -742,14 +806,20 @@ macro Increment*(body: untyped): untyped =
 proc lockdecrx(timeout: int, ydbvars: seq[YdbVar]) =
     # Decrement Lock count for variable
     for ydbvar in ydbvars:
-        let v = resolveVarPrefix(ydbvar)
-        ydb_lock_decr(v.name, v.subscripts)
+        if needsNormalization(ydbvar):
+            let v = resolveVarPrefix(ydbvar)
+            ydb_lock_decr(v.name, v.subscripts)
+        else:
+            ydb_lock_decr(ydbvar.name, ydbvar.subscripts)
 
 proc lockincrx(timeout: int, ydbvars: seq[YdbVar]) =
     # Increment Lock count for variable(s)
     for ydbvar in ydbvars:
-        let v = resolveVarPrefix(ydbvar)
-        ydb_lock_incr(timeout, v.name, v.subscripts)
+        if needsNormalization(ydbvar):
+            let v = resolveVarPrefix(ydbvar)
+            ydb_lock_incr(timeout, v.name, v.subscripts)
+        else:
+            ydb_lock_incr(timeout, ydbvar.name, ydbvar.subscripts)
 
 
 #================
@@ -760,29 +830,32 @@ proc lockx*(initialTimeout: int, ydbvars: seq[YdbVar]) =
     var vars: seq[Subscripts]
     var incvars: seq[YdbVar]
     var decvars: seq[YdbVar]
+
+    template handleVar(v: YdbVar) =
+        # timeout from Lock: ^GBL, timeout=12345
+        if v.name == DATAVAL:
+            discard
+        elif v.name == TIMEOUT and v.value != "":
+            timeout = getTimeout(v.value)
+        elif v.prefix.len > 0 and v.prefix[0] in {'+', '-'}:
+            if v.prefix[0] == '+': incvars.add(v)
+            else: decvars.add(v)
+        else:
+            var subs: seq[string]
+            subs.add(v.name)
+            for sub in v.subscripts:
+                subs.add(sub)
+            if subs.len == 1: subs.add("") # Lock only on variable add empty subscripts
+            vars.add(subs)
+
     # create seq of subscripts for each var
     # @[@["^XXX", ""], @["^GBL", "2"], @["^GBL", "2", "3"], @["^GBL", "2", "3", "abc"]]
     for ydbvar in ydbvars:
-        let v = resolveVarPrefix(ydbvar)
-        # timeout from Lock: ^GBL, timeout=12345
-        if v.name == DATAVAL: continue
-        if v.name == TIMEOUT and v.value != "":
-            timeout = getTimeout(v.value)
-            continue
-        if v.prefix.len > 0:
-            if v.prefix[0] == '+':
-                incvars.add(v)
-                continue
-            elif v.prefix[0] == '-':
-                decvars.add(v)
-                continue
-
-        var subs: seq[string]
-        subs.add(v.name)
-        for sub in v.subscripts:
-            subs.add(sub)
-        if subs.len == 1: subs.add("") # Lock only on variable add empty subscripts
-        vars.add(subs)
+        if needsNormalization(ydbvar):
+            let v = resolveVarPrefix(ydbvar)
+            handleVar(v)
+        else:
+            handleVar(ydbvar)
 
     # set locks, or release all
     if vars.len > 0 or (vars.len == 0 and incvars.len == 0 and decvars.len == 0):
@@ -793,6 +866,10 @@ proc lockx*(initialTimeout: int, ydbvars: seq[YdbVar]) =
         lockincrx(timeout, incvars)
     if decvars.len > 0:
         lockdecrx(timeout, decvars)
+
+proc lockx*(initialTimeout: int, ydbvar: YdbVar) =
+    # single variable: no seq of YdbVar is built for the common case
+    lockx(initialTimeout, @[ydbvar])
 
 macro Lock*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -811,8 +888,18 @@ macro Lock*(body: untyped): untyped =
 #================
 proc setx*(ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
+        if needsNormalization(ydbvar):
+            let v = resolveVarPrefix(ydbvar)
+            ydb_set(v.name, v.subscripts, v.value)
+        else:
+            ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
+
+proc setx*(ydbvar: YdbVar) =
+    if needsNormalization(ydbvar):
         let v = resolveVarPrefix(ydbvar)
         ydb_set(v.name, v.subscripts, v.value)
+    else:
+        ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
 
 macro Set*(body: untyped): untyped =
     # Set MUST be used in the form 'Set: <varname> = <value>'
