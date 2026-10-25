@@ -1269,6 +1269,7 @@ proc forbidRedeclare(body: NimNode; names: openArray[string]) =
 macro transactionImpl(param: untyped, body: untyped): untyped =
   let isMT = when compileOption("threads"): true else: false
   let fn = genSym(nskProc, "tx")
+  let tpParam = genSym(nskVar, "tpParam")
 
   # Symbols visible inside body
   let forbidden =
@@ -1310,7 +1311,16 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
             
             return YDB_TP_RESTART
 
-      ydb_tp_mt(`fn`, `param`)
+      block:
+        # Keep the parameter alive for the whole transaction. Strings, ints and
+        # pointers keep their usual meaning; any other value (e.g. an object)
+        # is passed by address, so the callback reads it via
+        # `cast[ptr T](param)`.
+        var `tpParam` = `param`
+        when (`tpParam` is string) or (`tpParam` is int) or (`tpParam` is pointer):
+          ydb_tp_mt(`fn`, `tpParam`)
+        else:
+          ydb_tp_mt(`fn`, cast[pointer](addr `tpParam`))
   else:
     result = quote do:
       proc `fn`(param {.inject.}: pointer): cint {.cdecl, raises: [].} =
@@ -1335,7 +1345,14 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
                 return YDB_TP_ROLLBACK
             return YDB_TP_RESTART
 
-      ydb_tp(`fn`, `param`)
+      block:
+        # See the multi-threaded branch above: non-string/int/pointer values are
+        # passed by address and stay alive for the duration of the call.
+        var `tpParam` = `param`
+        when (`tpParam` is string) or (`tpParam` is int) or (`tpParam` is pointer):
+          ydb_tp(`fn`, `tpParam`)
+        else:
+          ydb_tp(`fn`, cast[pointer](addr `tpParam`))
 
 
 template Transaction*(body: untyped): int =
