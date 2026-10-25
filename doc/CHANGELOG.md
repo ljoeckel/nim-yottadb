@@ -1,6 +1,15 @@
 # Changelog for version 0.5.0
 # BREAKING CHANGE
 - The Subscripts argument for the ydb_get/ydb_set/... API has been removed. A YdbKey is now used instead
+# Enhancements
+- Support for lz4, zstd added
+- Types that should be serialized can now be passed as param to the Transaction macro:
+```nim
+let obj4712 = Dummy(name: "martina", age: 99)
+rc = Transaction(obj4712):
+    let obj = cast[ptr Dummy](param)[]
+    saveObject[Dummy](4712, obj)
+```
 # Changelog for version 0.4.6
 - .binary postfix has been removed. Handling of data sizes > 1MB now fully transparent with Set / Get
 - .OrderedSet postfix has been removed and replaced through the seqString/seqInt/seqFloat/seqBool family.
