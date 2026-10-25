@@ -1016,6 +1016,10 @@ iterator OrderItrxKV*(reverse: static bool, ydbvar: YdbVar): (string, string) =
   walkOrderNodes(reverse, ydbvar):
     yield (key, ydb_get(cur))
 
+iterator OrderItrxSV*(reverse: static bool, ydbvar: YdbVar): (seq[string], string) =
+  walkOrderNodes(reverse, ydbvar):
+    yield (subs, ydb_get(cur))
+
 iterator OrderItrxKEY*(reverse: static bool, ydbvar: YdbVar): string =
   walkOrderNodes(reverse, ydbvar):
     yield keysToString(gblName, subs)
