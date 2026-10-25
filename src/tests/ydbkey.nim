@@ -46,7 +46,8 @@ suite "YdbKey":
     ydb_set(k, "")
     check ydb_data(k) == 1
     check ydb_get(k) == ""
-    check ydb_get(GBL, @["empty"]) == ""
+    var asString = initYdbKey(GBL, "empty")
+    check ydb_get(asString) == ""
 
   test "delete":
     wipe()
@@ -169,8 +170,9 @@ suite "YdbKey":
     ydb_set(k, multi)
     check ydb_get(k) == multi
 
-    # cross-check with the Subscripts based API
-    check ydb_get(GBL, @["blob"]) == multi
+    # cross-check that a freshly built key sees the reassembled value
+    var cross = initYdbKey(GBL, "blob")
+    check ydb_get(cross) == multi
 
     ydb_delete(k, YDB_DEL_TREE)
     check ydb_get(k) == ""
@@ -192,14 +194,15 @@ suite "YdbKey":
     check $a == "^ydbkeytest(copy)"
     check $b == "^ydbkeytest(copy2)"
 
-  test "matches the Subscripts based API":
+  test "keys built incrementally match keys built from strings":
     wipe()
 
     var keys = initYdbKey(GBL)
     for i in 0..<50:
       keys.addSub(i)
       ydb_set(keys, "value-" & $i)
-      check ydb_get(GBL, @[$i]) == "value-" & $i
+      var fromString = initYdbKey(GBL, $i)
+      check ydb_get(fromString) == "value-" & $i
       check ydb_get(keys) == "value-" & $i
       keys.clearSubs()
 

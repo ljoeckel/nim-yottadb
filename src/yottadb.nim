@@ -77,17 +77,20 @@ proc newYdbVar*(global: string="", subscripts: Subscripts, value: string = ""): 
   result.name = global
   result.subscripts = subscripts
   result.value = value
+  var key = initYdbKey(global, subscripts)
   # Read from / or write to DB
   if value.len == 0:
-    result.value = ydb_get(result.name, result.subscripts)
+    result.value = ydb_get(key)
   else:
-    ydb_set(result.name, result.subscripts, result.value)
+    ydb_set(key, result.value)
 
 proc `$`*(v: YdbVar): string =
-  ydb_get(v.name, v.subscripts)
+  var key = initYdbKey(v.name, v.subscripts)
+  ydb_get(key)
 
 proc `[]=`*(v: var YdbVar; val: string) =
-  ydb_set(v.name, v.subscripts, val)
+  var key = initYdbKey(v.name, v.subscripts)
+  ydb_set(key, val)
   v.value = val
 
 

@@ -558,6 +558,34 @@ func getTimeout(arg: string): int =
     if result == 0: result = YDB_LOCK_TIMEOUT
 
 # ----------------------------------------
+# YdbVar -> YdbKey bridge
+# ----------------------------------------
+# The DSL describes a variable as (name, subscripts) in a `YdbVar`, while the
+# database API works on a reusable `YdbKey`. Point operations go through a
+# per-thread scratch key, so a DSL statement does not allocate a key.
+
+var dslKey {.threadvar.}: YdbKey
+
+proc loadKey(k: var YdbKey, name: string, subs: openArray[string]) =
+  ## Overwrite `k` with `name` + `subs`, reusing its buffers.
+  k.setName(name)
+  k.setSubsLen(0)
+  for i in 0 ..< subs.len:
+    k.setSub(i, subs[i])
+
+proc keyOf(v: YdbVar): var YdbKey =
+  ## Thread-local key for the variable `v`.
+  ## The key is reused by the next `keyOf` call in this thread, so use it
+  ## immediately; traversal code keeps its own key and is unaffected.
+  loadKey(dslKey, v.name, v.subscripts)
+  result = dslKey
+
+proc keyOf(name: string, subs: openArray[string]): var YdbKey =
+  ## Thread-local key for `name` + `subs` (same lifetime rules as `keyOf(YdbVar)`).
+  loadKey(dslKey, name, subs)
+  result = dslKey
+
+# --------------------------------------
 # macros call's one of this for each macro
 # ----------------------------------------
 
@@ -567,8 +595,8 @@ func getTimeout(arg: string): int =
 proc datax*(ydbvar: YdbVar): int =
     if needsNormalization(ydbvar):
         let v = resolveVar(ydbvar)
-        return ydb_data(v.name, v.subscripts)
-    ydb_data(ydbvar.name, ydbvar.subscripts)
+        return ydb_data(keyOf(v))
+    ydb_data(keyOf(ydbvar))
 
 macro Data*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -581,9 +609,9 @@ macro Data*(body: untyped): untyped =
 proc getx*(ydbvar: YdbVar): string {.inline.} =
     if needsNormalization(ydbvar):
         let v = resolveVar(ydbvar)
-        result = ydb_get(v.name, v.subscripts)
+        result = ydb_get(keyOf(v))
     else:
-        result = ydb_get(ydbvar.name, ydbvar.subscripts)
+        result = ydb_get(keyOf(ydbvar))
     if result.len == 0 and ydbvar.value.len > 0:
         return ydbvar.value # return 'default value' if nothing found
 
@@ -717,16 +745,16 @@ proc killnodex*(ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
         if needsNormalization(ydbvar):
             let v = resolveVarPrefix(ydbvar)
-            ydb_delete(v.name, v.subscripts, YDB_DEL_NODE)
+            ydb_delete(keyOf(v), YDB_DEL_NODE)
         else:
-            ydb_delete(ydbvar.name, ydbvar.subscripts, YDB_DEL_NODE)
+            ydb_delete(keyOf(ydbvar), YDB_DEL_NODE)
 
 proc killnodex*(ydbvar: YdbVar) =
     if needsNormalization(ydbvar):
         let v = resolveVarPrefix(ydbvar)
-        ydb_delete(v.name, v.subscripts, YDB_DEL_NODE)
+        ydb_delete(keyOf(v), YDB_DEL_NODE)
     else:
-        ydb_delete(ydbvar.name, ydbvar.subscripts, YDB_DEL_NODE)
+        ydb_delete(keyOf(ydbvar), YDB_DEL_NODE)
 
 macro Killnode*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -741,16 +769,16 @@ proc killx*(ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
         if needsNormalization(ydbvar):
             let v = resolveVarPrefix(ydbvar)
-            ydb_delete(v.name, v.subscripts, YDB_DEL_TREE)
+            ydb_delete(keyOf(v), YDB_DEL_TREE)
         else:
-            ydb_delete(ydbvar.name, ydbvar.subscripts, YDB_DEL_TREE)
+            ydb_delete(keyOf(ydbvar), YDB_DEL_TREE)
 
 proc killx*(ydbvar: YdbVar) =
     if needsNormalization(ydbvar):
         let v = resolveVarPrefix(ydbvar)
-        ydb_delete(v.name, v.subscripts, YDB_DEL_TREE)
+        ydb_delete(keyOf(v), YDB_DEL_TREE)
     else:
-        ydb_delete(ydbvar.name, ydbvar.subscripts, YDB_DEL_TREE)
+        ydb_delete(keyOf(ydbvar), YDB_DEL_TREE)
 
 macro Kill*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -791,8 +819,8 @@ proc incrementx*(ydbvar: YdbVar): int =
     let inc = if ydbvar.value.len == 0: 1 else: parseFastInt(ydbvar.value)
     if needsNormalization(ydbvar):
         let v = resolveVar(ydbvar)
-        return ydb_increment(v.name, v.subscripts, inc)
-    ydb_increment(ydbvar.name, ydbvar.subscripts, inc)
+        return ydb_increment(keyOf(v), inc)
+    ydb_increment(keyOf(ydbvar), inc)
 
 macro Increment*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -808,18 +836,18 @@ proc lockdecrx(timeout: int, ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
         if needsNormalization(ydbvar):
             let v = resolveVarPrefix(ydbvar)
-            ydb_lock_decr(v.name, v.subscripts)
+            ydb_lock_decr(keyOf(v))
         else:
-            ydb_lock_decr(ydbvar.name, ydbvar.subscripts)
+            ydb_lock_decr(keyOf(ydbvar))
 
 proc lockincrx(timeout: int, ydbvars: seq[YdbVar]) =
     # Increment Lock count for variable(s)
     for ydbvar in ydbvars:
         if needsNormalization(ydbvar):
             let v = resolveVarPrefix(ydbvar)
-            ydb_lock_incr(timeout, v.name, v.subscripts)
+            ydb_lock_incr(timeout, keyOf(v))
         else:
-            ydb_lock_incr(timeout, ydbvar.name, ydbvar.subscripts)
+            ydb_lock_incr(timeout, keyOf(ydbvar))
 
 
 #================
@@ -890,16 +918,16 @@ proc setx*(ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
         if needsNormalization(ydbvar):
             let v = resolveVarPrefix(ydbvar)
-            ydb_set(v.name, v.subscripts, v.value)
+            ydb_set(keyOf(v), v.value)
         else:
-            ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
+            ydb_set(keyOf(ydbvar), ydbvar.value)
 
 proc setx*(ydbvar: YdbVar) =
     if needsNormalization(ydbvar):
         let v = resolveVarPrefix(ydbvar)
-        ydb_set(v.name, v.subscripts, v.value)
+        ydb_set(keyOf(v), v.value)
     else:
-        ydb_set(ydbvar.name, ydbvar.subscripts, ydbvar.value)
+        ydb_set(keyOf(ydbvar), ydbvar.value)
 
 macro Set*(body: untyped): untyped =
     # Set MUST be used in the form 'Set: <varname> = <value>'
@@ -911,71 +939,44 @@ macro Set*(body: untyped): untyped =
 # --------------------
 # Query Iterators
 # --------------------
-type
-  # Explicit proc types keep `let procedure = ydb_node_next` unambiguous now
-  # that YdbKey overloads of the same names exist.
-  NodeTraverseProc = proc(name: string, keys: Subscripts): (int, Subscripts) {.gcsafe.}
-  SubTraverseProc = proc(name: string, keys: Subscripts): string {.gcsafe.}
-
-template walkNodes(nextProc: untyped, ydbvar: YdbVar, body: untyped) =
+# `cur` is a reusable key cursor: `ydb_node_next` / `ydb_node_previous`
+# advance it in place, so no key has to be rebuilt per node.
+template walkNodes(reverse: static bool, ydbvar: YdbVar, body: untyped) =
   let v = resolveVar(ydbvar)
   let gblName {.inject.} = v.name
-  var rc {.inject.}: int
+  var cur {.inject.} = initYdbKey(v.name, v.subscripts)
   var subs {.inject.}: seq[string]
-  (rc, subs) = nextProc(gblName, v.subscripts)
+  var rc {.inject.} = when reverse: ydb_node_previous(cur) else: ydb_node_next(cur)
   while rc == YDB_OK:
+    subs = cur.subscripts()
     body
-    (rc, subs) = nextProc(gblName, subs)
+    rc = when reverse: ydb_node_previous(cur) else: ydb_node_next(cur)
 
 # returns ^global(key,..)
 iterator QueryItrx*(reverse: static bool, ydbvar: YdbVar): string =
-  when reverse:
-    let procedure: NodeTraverseProc = ydb_node_previous
-  else:
-    let procedure: NodeTraverseProc = ydb_node_next
-  walkNodes(procedure, ydbvar):
+  walkNodes(reverse, ydbvar):
     yield keysToString(gblName, subs)
 
 # returns @["1"], @["2"], ...
 iterator QueryItrxKEYS*(reverse: static bool, ydbvar: YdbVar): seq[string] =
-  when reverse:
-    let procedure: NodeTraverseProc = ydb_node_previous
-  else:
-    let procedure: NodeTraverseProc = ydb_node_next
-  walkNodes(procedure, ydbvar):
+  walkNodes(reverse, ydbvar):
     yield subs
 
 iterator QueryItrxKV*(reverse: static bool, ydbvar: YdbVar): (string, string) =
-  when reverse:
-    let procedure: NodeTraverseProc = ydb_node_previous
-  else:
-    let procedure: NodeTraverseProc = ydb_node_next
-  walkNodes(procedure, ydbvar):
-    yield (keysToString(gblName, subs), ydb_get(gblName, subs))
+  walkNodes(reverse, ydbvar):
+    yield (keysToString(gblName, subs), ydb_get(cur))
 
 iterator QueryItrxSV*(reverse: static bool, ydbvar: YdbVar): (seq[string], string) =
-  when reverse:
-    let procedure: NodeTraverseProc = ydb_node_previous
-  else:
-    let procedure: NodeTraverseProc = ydb_node_next
-  walkNodes(procedure, ydbvar):
-    yield (subs, ydb_get(gblName, subs))
+  walkNodes(reverse, ydbvar):
+    yield (subs, ydb_get(cur))
 
 iterator QueryItrxVAL*(reverse: static bool, ydbvar: YdbVar): string =
-  when reverse:
-    let procedure: NodeTraverseProc = ydb_node_previous
-  else:
-    let procedure: NodeTraverseProc = ydb_node_next
-  walkNodes(procedure, ydbvar):
-    yield ydb_get(gblName, subs)
+  walkNodes(reverse, ydbvar):
+    yield ydb_get(cur)
 
 iterator QueryItrxCOUNT*(reverse: static bool, ydbvar: YdbVar): int =
-  when reverse:
-    let procedure: NodeTraverseProc = ydb_node_previous
-  else:
-    let procedure: NodeTraverseProc = ydb_node_next
   var cnt = 0
-  walkNodes(procedure, ydbvar):
+  walkNodes(reverse, ydbvar):
     inc cnt
   yield cnt
 
@@ -983,65 +984,45 @@ iterator QueryItrxCOUNT*(reverse: static bool, ydbvar: YdbVar): int =
 # --------------------
 # Order Iterators
 # --------------------
-template walkOrderNodes(nextProc: untyped, ydbvar: YdbVar, body: untyped) =
+template walkOrderNodes(reverse: static bool, ydbvar: YdbVar, body: untyped) =
   let v = resolveVar(ydbvar)
   let gblName {.inject.} = v.name
+  var cur {.inject.} = initYdbKey(v.name, v.subscripts)
   var subs {.inject.} = v.subscripts
-  var key {.inject.} = nextProc(gblName, v.subscripts)
-  while key.len > 0:
-    if subs.len > 0: subs[^1] = key
-    else: subs.add(key)
+  var nextSub: string
+  while true:
+    let rc = when reverse: ydb_subscript_previous(cur, nextSub)
+             else: ydb_subscript_next(cur, nextSub)
+    if rc != YDB_OK: break
+    if subs.len > 0: subs[^1] = nextSub
+    else: subs.add(nextSub)
+    let key {.inject.} = nextSub
     body
-    key = nextProc(gblName, subs)
 
 # returns ^global(key,..)
 iterator OrderItrx*(reverse: static bool, ydbvar: YdbVar): string =
-  when reverse:
-    let procedure: SubTraverseProc = ydb_subscript_previous
-  else:
-    let procedure: SubTraverseProc = ydb_subscript_next
-  walkOrderNodes(procedure, ydbvar):
+  walkOrderNodes(reverse, ydbvar):
     yield key
 
 iterator OrderItrxKEYS*(reverse: static bool, ydbvar: YdbVar): seq[string] =
-  when reverse:
-    let procedure: SubTraverseProc = ydb_subscript_previous
-  else:
-    let procedure: SubTraverseProc = ydb_subscript_next
-  walkOrderNodes(procedure, ydbvar):
+  walkOrderNodes(reverse, ydbvar):
     yield subs
 
 iterator OrderItrxVAL*(reverse: static bool, ydbvar: YdbVar): string =
-  when reverse:
-    let procedure: SubTraverseProc = ydb_subscript_previous
-  else:
-    let procedure: SubTraverseProc = ydb_subscript_next
-  walkOrderNodes(procedure, ydbvar):
-    yield ydb_get(gblName, subs)
+  walkOrderNodes(reverse, ydbvar):
+    yield ydb_get(cur)
 
 iterator OrderItrxKV*(reverse: static bool, ydbvar: YdbVar): (string, string) =
-  when reverse:
-    let procedure: SubTraverseProc = ydb_subscript_previous
-  else:
-    let procedure: SubTraverseProc = ydb_subscript_next
-  walkOrderNodes(procedure, ydbvar):
-    yield (key, ydb_get(gblName, subs))
+  walkOrderNodes(reverse, ydbvar):
+    yield (key, ydb_get(cur))
 
 iterator OrderItrxKEY*(reverse: static bool, ydbvar: YdbVar): string =
-  when reverse:
-    let procedure: SubTraverseProc = ydb_subscript_previous
-  else:
-    let procedure: SubTraverseProc = ydb_subscript_next
-  walkOrderNodes(procedure, ydbvar):
+  walkOrderNodes(reverse, ydbvar):
     yield keysToString(gblName, subs)
 
 iterator OrderItrxCOUNT*(reverse: static bool, ydbvar: YdbVar): int =
-  when reverse:
-    let procedure: SubTraverseProc = ydb_subscript_previous
-  else:
-    let procedure: SubTraverseProc = ydb_subscript_next
   var cnt = 0
-  walkOrderNodes(procedure, ydbvar):
+  walkOrderNodes(reverse, ydbvar):
     inc cnt
   yield cnt
 
@@ -1057,35 +1038,36 @@ type QueryType = enum
     qtKv,
     qtValue
 
-template walkQ[T](qt: static QueryType, ydbvar: YdbVar, nodeProc: untyped): T =
+template walkQ[T](qt: static QueryType, ydbvar: YdbVar, reverse: static bool): T =
     let v = resolveVar(ydbvar)
     let name = v.name
-    let base = v.subscripts
+    var cur = initYdbKey(name, v.subscripts)
+    template step(): int =
+        when reverse: ydb_node_previous(cur)
+        else: ydb_node_next(cur)
     when qt == qtnext:
-        let (rc, subs) = nodeProc(name, base)
-        if rc == YDB_OK: keysToString(name, subs)
+        let rc = step()
+        if rc == YDB_OK: keysToString(name, cur.subscripts())
         else: EMPTY_STRING
     elif qt  == qtCount:
         var cnt = 0
-        var (rc, subs) = nodeProc(name, base)
-        while rc == YDB_OK:
+        while step() == YDB_OK:
             inc cnt
-            (rc, subs) = nodeProc(name, subs)
         cnt
     elif qt == qtKeys:
-        let (rc, subs) = nodeProc(name, base)
-        if rc == YDB_OK: subs
+        let rc = step()
+        if rc == YDB_OK: cur.subscripts()
         else: EMPTY_KEYS
     elif qt == qtKv:
-        let (rc, subs) = nodeProc(name, base)
+        let rc = step()
         if rc == YDB_OK:
-            let value = ydb_get(name, subs)
-            (keysToString(name, subs), value)
+            let subs = cur.subscripts()
+            (keysToString(name, subs), ydb_get(cur))
         else:
             (EMPTY_STRING, EMPTY_STRING)
     elif qt == qtValue:
-        let (rc, subs) = nodeProc(name, base)
-        if rc == YDB_OK: ydb_get(name, subs)
+        let rc = step()
+        if rc == YDB_OK: ydb_get(cur)
         else: EMPTY_STRING
     else:
         default(T)
@@ -1094,46 +1076,51 @@ template walkQ[T](qt: static QueryType, ydbvar: YdbVar, nodeProc: untyped): T =
 # ----------------------------------
 # Order template and procs
 # ---------------------------------- 
-template walkO[T](qt: static QueryType, ydbvar: YdbVar, nodeProc: untyped): T =
+template walkO[T](qt: static QueryType, ydbvar: YdbVar, reverse: static bool): T =
     let v = resolveVar(ydbvar)
     let name = v.name
     var subs = v.subscripts
+    var cur = initYdbKey(name, subs)
+    var nextSub: string
+    template step(): int =
+        when reverse: ydb_subscript_previous(cur, nextSub)
+        else: ydb_subscript_next(cur, nextSub)
     when qt == qtnext:
-        nodeProc(name, subs)
+        let rc = step()
+        if rc == YDB_OK: nextSub
+        else: EMPTY_STRING
     elif qt == qtCount:
-        var key = nodeProc(name, subs)
-        while key.len > 0:
+        while step() == YDB_OK:
           inc result
-          if subs.len > 0: subs[^1] = key
-          else: subs.add(key)
-          key = ydb_subscript_next(name, subs)
+          if subs.len > 0: subs[^1] = nextSub
+          else: subs.add(nextSub)
         result
     elif qt == qtKeys:
-        let key = nodeProc(name, subs)
-        if key.len == 0: return @[]
+        let rc = step()
+        if rc != YDB_OK: return @[]
         if subs.len > 0:
-            subs[^1] = key
+            subs[^1] = nextSub
         else:
-            subs.add(key)
+            subs.add(nextSub)
         subs
     elif qt == qtKey:
-        let key = nodeProc(name, subs)
-        if key.len > 0:
+        let rc = step()
+        if rc == YDB_OK:
             if subs.len > 0:
-              subs[^1] = key
+              subs[^1] = nextSub
             else:
-              subs.add(key)
+              subs.add(nextSub)
             keysToString(name, subs)
         else:
             EMPTY_STRING
     elif qt == qtKv:
-        let key = nodeProc(name, subs)
+        let rc = step()
+        if rc != YDB_OK: return (EMPTY_STRING, EMPTY_STRING)
         if subs.len > 0:
-            subs[^1] = key
+            subs[^1] = nextSub
         else:
-            subs.add(key)
-        let value = ydb_get(name, subs)
-        (key, value)
+            subs.add(nextSub)
+        (nextSub, ydb_get(cur))
     else:
         default(T)
 
@@ -1141,39 +1128,19 @@ template walkO[T](qt: static QueryType, ydbvar: YdbVar, nodeProc: untyped): T =
 # Query:
 #================
 proc Queryx*(isReverse: static bool, ydbvar: YdbVar): string =
-  when isReverse:
-    let procedure: NodeTraverseProc = ydb_node_previous
-  else:
-    let procedure: NodeTraverseProc = ydb_node_next
-  walkQ[string](qtNext, ydbvar, procedure)
+  walkQ[string](qtNext, ydbvar, isReverse)
 
 proc QueryxKEYS*(isReverse: static bool, ydbvar: YdbVar): seq[string] =
-  when isReverse:
-    let procedure: NodeTraverseProc = ydb_node_previous
-  else:
-    let procedure: NodeTraverseProc = ydb_node_next
-  walkQ[seq[string]](qtKeys, ydbvar, procedure)
+  walkQ[seq[string]](qtKeys, ydbvar, isReverse)
 
 proc QueryxKV*(isReverse: static bool, ydbvar: YdbVar): (string, string) =
-  when isReverse:
-    let procedure: NodeTraverseProc = ydb_node_previous
-  else:
-    let procedure: NodeTraverseProc = ydb_node_next
-  walkQ[(string, string)](qtKv, ydbvar, procedure)
+  walkQ[(string, string)](qtKv, ydbvar, isReverse)
 
 proc QueryxVAL*(isReverse: static bool, ydbvar: YdbVar): string =
-  when isReverse:
-    let procedure: NodeTraverseProc = ydb_node_previous
-  else:
-    let procedure: NodeTraverseProc = ydb_node_next
-  walkQ[string](qtValue, ydbvar, procedure)
+  walkQ[string](qtValue, ydbvar, isReverse)
 
 proc QueryxCOUNT*(isReverse: static bool, ydbvar: YdbVar): int =
-  when isReverse:
-    let procedure: NodeTraverseProc = ydb_node_previous
-  else:
-    let procedure: NodeTraverseProc = ydb_node_next
-  walkQ[int](qtCount, ydbvar, procedure)
+  walkQ[int](qtCount, ydbvar, isReverse)
 
 macro Query*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -1192,46 +1159,22 @@ macro QueryItr*(body: untyped): untyped =
 # Order:
 #================
 proc Orderx*(isReverse: static bool, ydbvar: YdbVar): string =
-  when isReverse:
-    let procedure: SubTraverseProc = ydb_subscript_previous
-  else:
-    let procedure: SubTraverseProc = ydb_subscript_next
-  walkO[string](qtNext, ydbvar, procedure)
+  walkO[string](qtNext, ydbvar, isReverse)
 
 proc OrderxKEY*(isReverse: static bool, ydbvar: YdbVar): string =
-  when isReverse:
-    let procedure: SubTraverseProc = ydb_subscript_previous
-  else:
-    let procedure: SubTraverseProc = ydb_subscript_next
-  walkO[string](qtKey, ydbvar, procedure)
+  walkO[string](qtKey, ydbvar, isReverse)
 
 proc OrderxKEYS*(isReverse: static bool, ydbvar: YdbVar): seq[string] =
-  when isReverse:
-    let procedure: SubTraverseProc = ydb_subscript_previous
-  else:
-    let procedure: SubTraverseProc = ydb_subscript_next
-  walkO[seq[string]](qtKeys, ydbvar, procedure)
+  walkO[seq[string]](qtKeys, ydbvar, isReverse)
 
 proc OrderxKV*(isReverse: static bool, ydbvar: YdbVar): (string, string) =
-  when isReverse:
-    let procedure: SubTraverseProc = ydb_subscript_previous
-  else:
-    let procedure: SubTraverseProc = ydb_subscript_next
-  walkO[(string, string)](qtKv, ydbvar, procedure)
+  walkO[(string, string)](qtKv, ydbvar, isReverse)
 
 proc OrderxVAL*(isReverse: static bool, ydbvar: YdbVar): string =
-  when isReverse:
-    let procedure: SubTraverseProc = ydb_subscript_previous
-  else:
-    let procedure: SubTraverseProc = ydb_subscript_next
-  walkO[string](qtValue, ydbvar, procedure)
+  walkO[string](qtValue, ydbvar, isReverse)
 
 proc OrderxCOUNT*(isReverse: static bool, ydbvar: YdbVar): int =
-  when isReverse:
-    let procedure: SubTraverseProc = ydb_subscript_previous
-  else:
-    let procedure: SubTraverseProc = ydb_subscript_next
-  walkO[int](qtCount, ydbvar, procedure)
+  walkO[int](qtCount, ydbvar, isReverse)
 
 macro Order*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -1263,19 +1206,23 @@ proc setupCTX(node: JsonNode, level: var int, subs: var seq[string]) =
       setupCTX(item, level, subs)
   else:
     # (String, Int, etc.) einfach ausgeben
+    var value: string
     if node.kind == JString:
-        ydb_set("CTX", subs, node.getStr())
+        value = node.getStr()
     elif node.kind == JInt:
-        ydb_set("CTX", subs, $node.getInt())
+        value = $node.getInt()
     elif node.kind == JFloat:
-        ydb_set("CTX", subs, $node.getFloat())
+        value = $node.getFloat()
     elif node.kind == JBool:
-        ydb_set("CTX", subs, $node.getBool())
+        value = $node.getBool()
     else:
         echo "Unknown datatype ", node.kind
+        return
+    ydb_set(keyOf("CTX", subs), value)
 
 proc callmx*(args: varargs[string]): string =
-    ydb_delete("CTX", @[], YDB_DEL_NODE)
+    var ctxKey = initYdbKey("CTX")
+    ydb_delete(ctxKey, YDB_DEL_NODE)
 
     if args.len == 2 and args[1][0] == '{' and args[1][^1] == '}': # Try to parse Json
         # JSON passed
@@ -1286,15 +1233,17 @@ proc callmx*(args: varargs[string]): string =
         # call the callin interface, The RESULT local variable can be readout with Get LOCAL(,,)
     elif args.len == 2:
         # Single argument
-        ydb_set("CTX", @[], args[1])
+        ydb_set(ctxKey, args[1])
     else:
         # Multiple arguments
         for i in 1..<args.len:
-            ydb_set("CTX", @[$i], args[i])
+            ctxKey.setSub(0, $i)
+            ydb_set(ctxKey, args[i])
 
     ydb_ci(args[0])
     #result = Get RESULT
-    result = ydb_get("RESULT", @[])
+    var resultKey = initYdbKey("RESULT")
+    result = ydb_get(resultKey)
 
 
 macro CallM*(body: untyped): untyped =
@@ -1348,7 +1297,9 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
                 echo "TPTOKEN=", TPTOKEN, " Exception in transaction:", getCurrentExceptionMsg()
             
             try:
-                let restarted = parseFastInt(ydb_get("$TRESTART", @[])) # How many times the proc was called from yottadb
+                let restarted = block:
+                    var restartKey = initYdbKey("$TRESTART")
+                    parseFastInt(ydb_get(restartKey)) # How many times the proc was called from yottadb
                 if restarted >= MAX_RESTARTS: 
                     echo "Too many transaction restarts, Rolling back.", getCurrentExceptionMsg()
                     return YDB_TP_ROLLBACK
@@ -1373,7 +1324,9 @@ macro transactionImpl(param: untyped, body: untyped): untyped =
                 echo "Exception in transaction:", getCurrentExceptionMsg()
             
             try:
-                let restarted = parseFastInt(ydb_get("$TRESTART", @[])) # How many times the proc was called from yottadb
+                let restarted = block:
+                    var restartKey = initYdbKey("$TRESTART")
+                    parseFastInt(ydb_get(restartKey)) # How many times the proc was called from yottadb
                 if restarted >= MAX_RESTARTS: 
                     echo "Too many transaction restarts, Rolling back.", getCurrentExceptionMsg()
                     return YDB_TP_ROLLBACK

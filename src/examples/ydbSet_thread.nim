@@ -21,8 +21,10 @@ template worker(body: untyped) =
 
 proc api(tn: int) =
   worker:
-    let txid = ydb_increment("^CNT", @["ydb_set"])
-    ydb_set("^YDB", @[$txid], "This is some test from api thread " & $tn)
+    var counterKey = initYdbKey("^CNT", "ydb_set")
+    let txid = ydb_increment(counterKey)
+    var dataKey = initYdbKey("^YDB", $txid)
+    ydb_set(dataKey, "This is some test from api thread " & $tn)
 
 proc dsl(tn: int) =
   worker:

@@ -38,17 +38,23 @@ proc worker(tn: int, iterations: int) =
       let tnr = info.split(",")[0]
       let fibresult = info.split(",")[1]
       let ms = info.split(",")[2]
-      let restarted = parseInt(ydb_get("$TRESTART", @[])) # How many times the proc was called from yottadb
-      let txid = ydb_increment("^CNT", @[THS, tnr], 1)
+      let restarted = block: # How many times the proc was called from yottadb
+        var restartKey = initYdbKey("$TRESTART")
+        parseInt(ydb_get(restartKey))
+      var counterKey = initYdbKey("^CNT", THS, tnr)
+      let txid = ydb_increment(counterKey, 1)
       let data = fmt"tn:{tnr}, restarts:{restarted}, fibresult:{fibresult}, ms:{ms}, tptoken:{TPTOKEN}"
-      ydb_set(GLOBAL, @[$txid, $tnr], $data)
+      var dataKey = initYdbKey(GLOBAL, $txid, $tnr)
+      ydb_set(dataKey, data)
     
     if rc == YDB_OK:
       let rc = Transaction($tn & "," & $ms):
         let info = $cast[cstring](param)
         let tn = info.split(",")[0]
         let ms = info.split(",")[1]
-        let txid = ydb_get("^CNT", @[THS, $tn]) # get last transaction id for this thread
+        let txid = block: # get last transaction id for this thread
+          var counterKey = initYdbKey("^CNT", THS, $tn)
+          ydb_get(counterKey)
         var data = newYdbVar(GLOBAL, @[$txid, $tn])
         data[] = data.value & " overall-time:" & $ms # append overall
     else:

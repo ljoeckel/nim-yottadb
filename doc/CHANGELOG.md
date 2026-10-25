@@ -1,3 +1,6 @@
+# Changelog for version 0.5.0
+# BREAKING CHANGE
+- The Subscripts argument for the ydb_get/ydb_set/... API has been removed. A YdbKey is now used instead
 # Changelog for version 0.4.6
 - .binary postfix has been removed. Handling of data sizes > 1MB now fully transparent with Set / Get
 - .OrderedSet postfix has been removed and replaced through the seqString/seqInt/seqFloat/seqBool family.

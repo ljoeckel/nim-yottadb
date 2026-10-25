@@ -162,18 +162,24 @@ proc testOrderIterators =
 when compileOption("threads"):
     proc testTransactionSetAPI =
         var rc = Transaction:
-            ydb_set("^AAA", @["100"], fmt"TPTOKEN={TPTOKEN}")
-        assert 1 == ydb_data("^AAA", @["100"]) 
+            var k = initYdbKey("^AAA", "100")
+            ydb_set(k, fmt"TPTOKEN={TPTOKEN}")
+        var k100 = initYdbKey("^AAA", "100")
+        assert 1 == ydb_data(k100) 
         
         rc = Transaction("ABC"):
             let dta = $cast[cstring](param)
-            ydb_set("^AAA", @["102", dta], "cstring TPTOKEN="  & $TPTOKEN)
-        assert 1 == ydb_data("^AAA", @["102", "ABC"]) 
+            var k = initYdbKey("^AAA", "102", dta)
+            ydb_set(k, "cstring TPTOKEN="  & $TPTOKEN)
+        var k102abc = initYdbKey("^AAA", "102", "ABC")
+        assert 1 == ydb_data(k102abc) 
 
         rc = Transaction(4712):
             let dta = $cast[cint](param)
-            ydb_set("^AAA", @["102", dta], "cint TPTOKEN="  & $TPTOKEN)
-        assert 1 == ydb_data("^AAA", @["102", "4712"])             
+            var k = initYdbKey("^AAA", "102", dta)
+            ydb_set(k, "cint TPTOKEN="  & $TPTOKEN)
+        var k1024712 = initYdbKey("^AAA", "102", "4712")
+        assert 1 == ydb_data(k1024712)             
 
         echo "Nested transaction tests do not work currently with MT, skipping"
 
@@ -445,7 +451,8 @@ else:
         Kill: ^AAA
 
         var rc = Transaction:
-            ydb_set("^AAA", @["1"], "noparam")
+            var k = initYdbKey("^AAA", "1")
+            ydb_set(k, "noparam")
         assert rc == YDB_OK
         assert 1 == Data ^AAA(1)
 
@@ -469,28 +476,33 @@ else:
         rc = Transaction("ABC"):
             let dta = $cast[cstring](param)
             assert dta == "ABC"
-            ydb_set("^AAA", @["2", dta], "cstring")
+            var k = initYdbKey("^AAA", "2", dta)
+            ydb_set(k, "cstring")
         assert rc == YDB_OK            
         assert 1 == Data ^AAA(2, "ABC")
 
         rc = Transaction(4712):
             let dta = cast[cint](param)
             assert dta == 4712
-            ydb_set("^AAA", @["3", $dta], "cint")
+            var k = initYdbKey("^AAA", "3", $dta)
+            ydb_set(k, "cint")
         assert rc == YDB_OK            
         assert 1 == Data ^AAA(3, 4712)
 
         # Try invalid globalname -> should rollback after 4 tries
         rc = Transaction:
-            ydb_set("^^AAA", @["999"], "tp_rollback")
+            var k = initYdbKey("^^AAA", "999")
+            ydb_set(k, "tp_rollback")
         assert rc == YDB_TP_ROLLBACK
 
         rc = Transaction:
             # Nested transaction
             var rc2 = Transaction:
-                ydb_set("^AAA", @["4"], "noparam")
+                var k = initYdbKey("^AAA", "4")
+                ydb_set(k, "noparam")
             assert rc2 == YDB_OK
-            ydb_set("^AAA", @["5"], "noparam")
+            var k5 = initYdbKey("^AAA", "5")
+            ydb_set(k5, "noparam")
         assert rc == YDB_OK           
         assert 1 == Data ^AAA(4)   
         assert 1 == Data ^AAA(5)
@@ -499,10 +511,12 @@ else:
         rc = Transaction:
             # Nested transaction with rollback
             var rc2 = Transaction:
-                ydb_set("^AAA", @["4"], "noparam")
+                var k = initYdbKey("^AAA", "4")
+                ydb_set(k, "noparam")
                 return YDB_TP_ROLLBACK
             assert rc2 == YDB_TP_ROLLBACK
-            ydb_set("^AAA", @["5"], "noparam")
+            var k5 = initYdbKey("^AAA", "5")
+            ydb_set(k5, "noparam")
         assert rc == YDB_OK           
         assert 0 == Data ^AAA(4)   
         assert 1 == Data ^AAA(5)

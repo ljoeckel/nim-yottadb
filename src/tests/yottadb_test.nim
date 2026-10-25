@@ -11,65 +11,76 @@ proc setupLL() =
     ^LJ
     
   let global = "^LL"
-  ydb_set(global, @["HAUS"], "")
-  ydb_set(global, @["HAUS", "ELEKTRIK"], "")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN"], "")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "1"], "Telefondose")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "2"], "Steckdose")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "3"], "IP-Dose")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "DOSEN", "4"], "KFZ-Dose")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL"], "")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL", "FARBEN"], "")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "KABEL", "STAERKEN"], "")
-  ydb_set(global, @["HAUS", "ELEKTRIK", "SICHERUNGEN"], "")
-  ydb_set(global, @["HAUS", "FLAECHEN", "RAUM1"], "")
-  ydb_set(global, @["HAUS", "FLAECHEN", "RAUM2"], "")
-  ydb_set(global, @["HAUS", "FLAECHEN", "RAUM2"], "")
-  ydb_set(global, @["HAUS", "HEIZUNG"], "")
-  ydb_set(global, @["HAUS", "HEIZUNG", "MESSGERAETE"], "")
-  ydb_set(global, @["HAUS", "HEIZUNG", "ROHRE"], "")
-  ydb_set(global, @["LAND"], "")
-  ydb_set(global, @["LAND", "FLAECHEN"], "")
-  ydb_set(global, @["LAND", "NUTZUNG"], "")
-  ydb_set(global, @["ORT"], "")
+  const paths = [
+    @["HAUS"],
+    @["HAUS", "ELEKTRIK"],
+    @["HAUS", "ELEKTRIK", "DOSEN"],
+    @["HAUS", "ELEKTRIK", "KABEL"],
+    @["HAUS", "ELEKTRIK", "KABEL", "FARBEN"],
+    @["HAUS", "ELEKTRIK", "KABEL", "STAERKEN"],
+    @["HAUS", "ELEKTRIK", "SICHERUNGEN"],
+    @["HAUS", "FLAECHEN", "RAUM1"],
+    @["HAUS", "FLAECHEN", "RAUM2"],
+    @["HAUS", "HEIZUNG"],
+    @["HAUS", "HEIZUNG", "MESSGERAETE"],
+    @["HAUS", "HEIZUNG", "ROHRE"],
+    @["LAND"],
+    @["LAND", "FLAECHEN"],
+    @["LAND", "NUTZUNG"],
+    @["ORT"],
+  ]
+  for path in paths:
+    var k = initYdbKey(global, path)
+    ydb_set(k, "")
+
+  const dosen = [
+    ("1", "Telefondose"),
+    ("2", "Steckdose"),
+    ("3", "IP-Dose"),
+    ("4", "KFZ-Dose"),
+  ]
+  for (sub, value) in dosen:
+    var k = initYdbKey(global, "HAUS", "ELEKTRIK", "DOSEN", sub)
+    ydb_set(k, value)
 
 
 # ------------- Test cases are here ---------------------
 # Write ^X(0..1000000) in 800ms. 
 proc simpleSet(global: string, cnt: int) =
-  var subs:seq[string]
+  var k = initYdbKey(global)
   for i in 0..cnt:
-    subs.add($i)
-    ydb_set(global, subs, $i)
-    discard subs.pop()
+    k.setSub(0, i)
+    ydb_set(k, $i)
 
 # Read ^X(0..100000000) in 600ms. 
 proc simpleGet(global: string, cnt: int) =
-  var subs:seq[string]
+  var k = initYdbKey(global)
   for i in 0..cnt:
-    subs.add($i)
-    assert $i == ydb_get(global, subs)
-    discard subs.pop()
+    k.setSub(0, i)
+    assert $i == ydb_get(k)
 
 # Delete ^X(0..100000000) in 550ms. 
 proc simpleDelete(global: string, cnt: int) =
-  var subs:seq[string]
+  var k = initYdbKey(global)
   for i in 0..cnt:
-    subs.add($i)
-    ydb_delete(global, subs, YDB_DEL_NODE)
-    discard subs.pop()
+    k.setSub(0, i)
+    ydb_delete(k, YDB_DEL_NODE)
 
 proc setWithError() =
   # set with empty global
-  doAssertRaises(YdbError): ydb_set("", @["x"], "x") # -151027762, %YDB-E-INVVARNAME
+  doAssertRaises(YdbError): # -151027762, %YDB-E-INVVARNAME
+    var k = initYdbKey("", "x")
+    ydb_set(k, "x")
   
   # Write global without subscript -> ^x="x"
-  ydb_set("^x", @[], "x")
-  assert "x" == ydb_get("^x", @[])
+  var k = initYdbKey("^x")
+  ydb_set(k, "x")
+  assert "x" == ydb_get(k)
 
   # Write global without value
-  ydb_set("^x", @["x"], "")
-  assert "" == ydb_get("^x", @["x"])
+  k.setSub(0, "x")
+  ydb_set(k, "")
+  assert "" == ydb_get(k)
 
 
 
@@ -88,40 +99,54 @@ proc testYdbVar() =
     assert v.value == "New " & $i
 
 proc testYdbSetGet() =
+  var k = initYdbKey("^LJ", "LAND", "ORT")
   for i in 0..MAX:
     let value = fmt"Hello Lothar Jöckel {i} aus der Schweiz"
-    ydb_set("^LJ", @["LAND", "ORT", $i], value)
-    assert value == ydb_get("^LJ", @["LAND", "ORT", $i])
-    ydb_set("^LJ", @["LAND", "ORT", $i, $i], value)
-    assert value == ydb_get("^LJ", @["LAND", "ORT", $i, $i])
+    k.setSub(2, i)
+    ydb_set(k, value)
+    assert value == ydb_get(k)
+    k.setSub(3, i)
+    ydb_set(k, value)
+    assert value == ydb_get(k)
+    k.setSubsLen(3)
 
-  ydb_set("^LJ", @["LAND", "STRASSE"], fmt"Gartenweg 4")
+  var s = initYdbKey("^LJ", "LAND", "STRASSE")
+  ydb_set(s, fmt"Gartenweg 4")
 
 
 proc testData() =
-  assert 0 == ydb_data("^LJ", @["XXX"])  # There is neither a value nor a subtree, i.e., it is undefined.
-  assert 10 == ydb_data("^LJ", @["LAND"])  # There is no value, but there is a subtree.
-  assert 11 == ydb_data("^LJ", @["LAND", "ORT", "1"])  # There are both a value and a subtree.
-  assert 1 == ydb_data("^LJ", @["LAND", "STRASSE"])  # There is a value, but no subtree
+  var k = initYdbKey("^LJ", "XXX")
+  assert 0 == ydb_data(k)  # There is neither a value nor a subtree, i.e., it is undefined.
+  k = initYdbKey("^LJ", "LAND")
+  assert 10 == ydb_data(k)  # There is no value, but there is a subtree.
+  k = initYdbKey("^LJ", "LAND", "ORT", "1")
+  assert 11 == ydb_data(k)  # There are both a value and a subtree.
+  k = initYdbKey("^LJ", "LAND", "STRASSE")
+  assert 1 == ydb_data(k)  # There is a value, but no subtree
 
 
 proc testNextNode(global: string, start: Subscripts = @[]) =
   var cnt = 0
-  var (rc, subs) = ydb_node_next(global, start)
+  var cur = initYdbKey(global, start)
+  var rc = ydb_node_next(cur)
   while rc == YDB_OK:
     inc cnt
-    (rc, subs) = ydb_node_next(global, subs)
+    rc = ydb_node_next(cur)
   assert cnt > 0
   assert rc == YDB_ERR_NODEEND
-  assert subs == @[]
+  # At the end of the tree the key keeps its last position
+  let lastNode = cur.subscripts()
+  assert ydb_node_next(cur) == YDB_ERR_NODEEND
+  assert cur.subscripts() == lastNode
 
 
 proc testPreviousNode(global: string, start: Subscripts = @[]) =
   var cnt = 0
-  var (rc, subs) = ydb_node_previous(global, start)
+  var cur = initYdbKey(global, start)
+  var rc = ydb_node_previous(cur)
   while rc == YDB_OK:
     inc(cnt)
-    (rc, subs) = ydb_node_previous(global, subs)
+    rc = ydb_node_previous(cur)
   doAssert cnt == MAX * 2 + 2
 
 proc testNextNodeIterator() =
@@ -162,24 +187,30 @@ proc testPreviousNodeIterator() =
   assert dbdata == refdata
 
 proc nextSubscript(global: string, start: Subscripts, expected: string) =
-  var subscript = ydb_subscript_next(global, start)
-  doAssert subscript == expected
+  var k = initYdbKey(global, start)
+  doAssert ydb_subscript_next(k) == expected
 
 proc deleteTree() =
-  ydb_delete("^LJ", @["LAND", "STRASSE"], YDB_DEL_NODE)
+  var k = initYdbKey("^LJ", "LAND", "STRASSE")
+  ydb_delete(k, YDB_DEL_NODE)
+  k = initYdbKey("^LJ", "LAND", "ORT")
   for i in 0..MAX:
-    ydb_delete("^LJ", @["LAND", "ORT", $i, $i], YDB_DEL_TREE)
+    k.setSub(2, i)
+    k.setSub(3, i)
+    ydb_delete(k, YDB_DEL_TREE)
 
 # Delete all globals from ^LJ, ^LJ will be removed from %GD
 proc testDeleteTree() =
-  ydb_delete("^LJ", @["LAND"], YDB_DEL_TREE)
+  var k = initYdbKey("^LJ", "LAND")
+  ydb_delete(k, YDB_DEL_TREE)
   let globals = getGlobals()
   assert globals.find("^LJ") == -1
 
 proc deleteNode() =
-    ydb_delete("^CNT", @["CHANNEL", "INPUT"], YDB_DEL_NODE)
-    var result = ydb_increment("^CNT", @["CHANNEL", "INPUT"], 1)
-    assert ydb_get("^CNT", @["CHANNEL", "INPUT"]) == $result
+    var k = initYdbKey("^CNT", "CHANNEL", "INPUT")
+    ydb_delete(k, YDB_DEL_NODE)
+    let result = ydb_increment(k, 1)
+    assert ydb_get(k) == $result
 
 
 
@@ -199,29 +230,41 @@ proc testSpecialVariables() =
   ]
 
   for variable in vars:
-    assert "" != ydb_get(variable, @[])
+    var k = initYdbKey(variable)
+    assert "" != ydb_get(k)
 
   for variable in xvars:
     var raised: bool
     try:
-        discard ydb_get(variable, @[])
+        var k = initYdbKey(variable)
+        discard ydb_get(k)
     except:
         raised = true
     assert raised == true
 
 
 proc testSetAndGetiable() =
-  ydb_set("X", @[], "hello")
-  ydb_set("X", @["1"], "hello X(1)")
-  ydb_set("X", @["1","1"], "hello X(1,1)")
-  ydb_set("X", @["1","2"], "hello X(1,2)")
-  ydb_set("X", @["1","3"], "hello X(1,3)")
-  ydb_set("X", @["2"], "hello X(2)")
-  ydb_set("X", @["2","3"], "hello X(2,3)")
+  var k = initYdbKey("X")
+  ydb_set(k, "hello")
+  k.setSub(0, "1")
+  ydb_set(k, "hello X(1)")
+  k.setSub(1, "1")
+  ydb_set(k, "hello X(1,1)")
+  k.setSub(1, "2")
+  ydb_set(k, "hello X(1,2)")
+  k.setSub(1, "3")
+  ydb_set(k, "hello X(1,3)")
+  k = initYdbKey("X", "2")
+  ydb_set(k, "hello X(2)")
+  k.setSub(1, "3")
+  ydb_set(k, "hello X(2,3)")
 
-  doAssert ydb_get("X", @[]) == "hello"
-  doAssert ydb_get("X", @["1"]) == "hello X(1)"
-  doAssert ydb_get("X", @["1","1"]) == "hello X(1,1)"
+  k = initYdbKey("X")
+  doAssert ydb_get(k) == "hello"
+  k.setSub(0, "1")
+  doAssert ydb_get(k) == "hello X(1)"
+  k.setSub(1, "1")
+  doAssert ydb_get(k) == "hello X(1,1)"
 
 
 proc testLock() =
@@ -254,50 +297,58 @@ proc testLock() =
 
 
 proc testLockIncrement() =
-  ydb_lock_incr(100000, "^LL", @["HAUS", "31"])
+  var k = initYdbKey("^LL", "HAUS", "31")
+  ydb_lock_incr(100000, k)
   assert getLockCountFromYottaDb() == 1
-  ydb_lock_incr(100000, "^LL", @["HAUS", "32"])
+  k.setSub(1, "32")
+  ydb_lock_incr(100000, k)
   assert getLockCountFromYottaDb() == 2
-  ydb_lock_incr(100000, "^LL", @["HAUS", "33"])
+  k.setSub(1, "33")
+  ydb_lock_incr(100000, k)
   assert getLockCountFromYottaDb() == 3
 
   # Decrement locks one by one
-  ydb_lock_decr("^LL", @["HAUS", "33"])
+  ydb_lock_decr(k)
   assert getLockCountFromYottaDb() == 2
-  ydb_lock_decr("^LL", @["HAUS", "32"])
+  k.setSub(1, "32")
+  ydb_lock_decr(k)
   assert getLockCountFromYottaDb() == 1
-  ydb_lock_decr("^LL", @["HAUS", "31"])
+  k.setSub(1, "31")
+  ydb_lock_decr(k)
   assert getLockCountFromYottaDb() == 0
 
   # Increment / Decrement non existing Lock (Should be ignored)
-  ydb_lock_decr("^LL", @["HAUS", "99"])
+  k.setSub(1, "99")
+  ydb_lock_decr(k)
   assert getLockCountFromYottaDb() == 0
 
   # Increment / Decrement non existing global (Lock will be created)
-  ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
+  k = initYdbKey("^ZZZZ", "HAUS", "31")
+  ydb_lock_incr(100000, k)
   assert getLockCountFromYottaDb() == 1
 
   # Increment / Decrement same Lock multiple times
-  ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
+  ydb_lock_incr(100000, k)
   assert getLockCountFromYottaDb() == 1
-  ydb_lock_incr(100000, "^ZZZZ", @["HAUS", "31"])
+  ydb_lock_incr(100000, k)
   assert getLockCountFromYottaDb() == 1
-  ydb_lock_decr("^ZZZZ", @["HAUS", "31"])
+  ydb_lock_decr(k)
   assert getLockCountFromYottaDb() == 1
-  ydb_lock_decr("^ZZZZ", @["HAUS", "31"])
+  ydb_lock_decr(k)
   assert getLockCountFromYottaDb() == 1
-  ydb_lock_decr("^ZZZZ", @["HAUS", "31"])
+  ydb_lock_decr(k)
   assert getLockCountFromYottaDb() == 0
 
 
 proc testIncrement() =
   let MAX = 1000 
   var cnt:int 
-  ydb_set("^COUNTERS", @["upcount"], "0")
+  var k = initYdbKey("^COUNTERS", "upcount")
+  ydb_set(k, "0")
   for i in 0..<MAX:
-    cnt = ydb_increment("^COUNTERS", @["upcount"])
+    cnt = ydb_increment(k)
   assert cnt == MAX
-  assert ydb_get("^COUNTERS", @["upcount"]) == $MAX
+  assert ydb_get(k) == $MAX
 
 proc testMaxSubscripts() =
   for i in 0..<33:
@@ -306,39 +357,40 @@ proc testMaxSubscripts() =
       keys.add($j)
 
     if i < 32:
-      ydb_set("^SUBS", keys, $i)
-      assert $i == ydb_get("^SUBS", keys)
+      var k = initYdbKey("^SUBS", keys)
+      ydb_set(k, $i)
+      assert $i == ydb_get(k)
     else:
-      doAssertRaises(YdbError): ydb_set("^SUBS", keys, $i)
+      doAssertRaises(YdbError):
+        var k = initYdbKey("^SUBS", keys)
+        ydb_set(k, $i)
 
 
 proc testDeleteExcl() =
-  ydb_set("DELTEST1", @["A"], "1")
-  ydb_set("DELTEST2", @["A"], "1")
-  ydb_set("DELTEST3", @["A"], "1")
-  ydb_set("DELTEST4", @["A"], "1")
-  ydb_set("DELTEST5", @["A"], "1")
+  for name in ["DELTEST1", "DELTEST2", "DELTEST3", "DELTEST4", "DELTEST5"]:
+    var k = initYdbKey(name, "A")
+    ydb_set(k, "1")
 
-  doAssert ydb_get("DELTEST1", @["A"]) == "1"
-  doAssert ydb_get("DELTEST2", @["A"]) == "1"
-  doAssert ydb_get("DELTEST3", @["A"]) == "1"
-  doAssert ydb_get("DELTEST4", @["A"]) == "1"
-  doAssert ydb_get("DELTEST5", @["A"]) == "1"
+  for name in ["DELTEST1", "DELTEST2", "DELTEST3", "DELTEST4", "DELTEST5"]:
+    var k = initYdbKey(name, "A")
+    doAssert ydb_get(k) == "1"
 
   ydb_delete_excl(@["DELTEST1","DELTEST3","DELTEST5"])
 
   # Global's are not allowed
   doAssertRaises(YdbError): ydb_delete_excl(@["^DELTEST"])
 
-  doAssert ydb_get("DELTEST1", @["A"]) == "1"
-  doAssert ydb_get("DELTEST3", @["A"]) == "1"
-  doAssert ydb_get("DELTEST5", @["A"]) == "1"
-  assert 0 == ydb_data("DELTEST2", @["A"])
-  assert 0 == ydb_data("DELTEST4", @["A"])
+  for name in ["DELTEST1", "DELTEST3", "DELTEST5"]:
+    var k = initYdbKey(name, "A")
+    doAssert ydb_get(k) == "1"
+  for name in ["DELTEST2", "DELTEST4"]:
+    var k = initYdbKey(name, "A")
+    assert 0 == ydb_data(k)
 
   # delete all variables
   ydb_delete_excl()
-  assert 0 == ydb_data("DELTEST1", @["A"])
+  var k = initYdbKey("DELTEST1", "A")
+  assert 0 == ydb_data(k)
 
 # -------------------------------------------------------------------
 

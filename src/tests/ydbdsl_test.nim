@@ -86,16 +86,20 @@ proc benchTestGlobals() =
             sum2 += Get ^GBL(i).int
         assert sum1 == sum2
     timed:
-        echo "ydb_set ^GBL(@[i])"
+        echo "ydb_set ^GBL(i)"
+        var setKey = initYdbKey("^GBL")
         for i in 0..BENCH_MAX_RECS:
-            ydb_set("^GBL", @[$i], $i)
+            setKey.setSub(0, i)
+            ydb_set(setKey, $i)
     timed:
         sum1 = 0
         sum2 = 0
-        echo "ydb_Get ^GBL(@[i])"
+        echo "ydb_get ^GBL(i)"
+        var getKey = initYdbKey("^GBL")
         for i in 0..BENCH_MAX_RECS:
             sum1 += i
-            sum2 += parseInt(ydb_get("^GBL", @[$i]))
+            getKey.setSub(0, i)
+            sum2 += parseInt(ydb_get(getKey))
         assert sum1 == sum2
     timed:
         echo "Query @gbl Indirection"
@@ -125,15 +129,19 @@ proc benchTestLocals() =
         assert sum1 == sum2
     timed:
         echo "ydb_set LCL(i)"
+        var setKey = initYdbKey("LCL")
         for i in 0..BENCH_MAX_RECS:
-            ydb_set("LCL", @[$i], $i)
+            setKey.setSub(0, i)
+            ydb_set(setKey, $i)
     timed:
         sum1 = 0
         sum2 = 0
         echo "ydb_get LCL(i)"
+        var getKey = initYdbKey("LCL")
         for i in 0..BENCH_MAX_RECS:
             sum1 += i
-            sum2 += parseInt(ydb_get("LCL", @[$i]))
+            getKey.setSub(0, i)
+            sum2 += parseInt(ydb_get(getKey))
         assert sum1 == sum2
     timed:
         echo "Query dsl"

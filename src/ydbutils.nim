@@ -43,7 +43,8 @@ proc getGlobals*(): seq[string] =
 
 proc getLocksFromYottaDb*(all: bool = false): seq[string] =
   # Show real locks on db with 'lke show'
-  let pid = ydb_get("$JOB", @[])
+  var jobKey = initYdbKey("$JOB")
+  let pid = ydb_get(jobKey)
   result = @[]
 
   let lke = findExe("lke")

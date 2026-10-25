@@ -157,7 +157,8 @@ proc testLocals2() =
   assert val == "2.2"
   
   # Data on localc
-  assert ydb_data("gbl",@["1"]) == 11
+  var dataKey = initYdbKey("gbl", "1")
+  assert ydb_data(dataKey) == 11
   assert Data(gbl(1)) == 11
   assert Data(gbl("1")) == 11
   assert Data(gbl(1,1))  == 1

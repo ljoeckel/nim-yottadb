@@ -17,70 +17,32 @@ proc clean() =
 
 proc upcount() =
     # api
+    var k = initYdbKey("^CNT", "upcount")
     for cnt in 0..<MAX:
-        discard ydb_increment("^CNT", @["upcount"])
-    assert MAX == parseInt(ydb_get("^CNT", @["upcount"]))
+        discard ydb_increment(k)
+    assert MAX == parseInt(ydb_get(k))
 
 proc setSimple() =
+    var k = initYdbKey("^BENCHMARK")
     for id in 0..<MAX:
-        ydb_set("^BENCHMARK",@[$id], $id)
+        k.setSub(0, id)
+        ydb_set(k, $id)
 
 proc getSimple() =
+    var k = initYdbKey("^BENCHMARK")
     for id in 0..<MAX:
-        let val = ydb_get("^BENCHMARK",@[$id])
+        k.setSub(0, id)
+        let val = ydb_get(k)
         assert $id == val
 
 proc query() =
     var cnt = 0
-    var (rc, subs) = ydb_node_next("^BENCHMARK")
-    while rc == YDB_OK:
-        (rc, subs) = ydb_node_next("^BENCHMARK", subs)
+    var cur = initYdbKey("^BENCHMARK")
+    while ydb_node_next(cur) == YDB_OK:
         inc cnt
     assert cnt == MAX
 
 proc order() =
-    var cnt = 0
-    var key = ydb_subscript_next("^BENCHMARK")
-    while key.len > 0:
-        key = ydb_subscript_next("^BENCHMARK", @[key])
-        inc cnt
-    assert cnt == MAX
-
-proc killnode() =
-    for id in 0..<MAX:
-        ydb_delete("^BENCHMARK", @[$id], YDB_DEL_NODE)
-    assert isEmpty("^BENCHMARK")
-
-
-
-proc upcountYK() =
-    # api
-    var key = initYdbKey("^CNT", "upcount")
-    for cnt in 0..<MAX:
-        discard ydb_increment(key)
-    assert MAX == parseInt(ydb_get(key))
-
-proc setSimpleYK() =
-    var key = initYdbKey("^BENCHMARK", "")
-    for id in 0..<MAX:
-        key.setSub(0, $id)
-        ydb_set(key, $id)
-
-proc getSimpleYK() =
-    var key = initYdbKey("^BENCHMARK", "")
-    for id in 0..<MAX:
-        key.setSub(0, $id)
-        let val = ydb_get(key)
-        assert $id == val
-
-proc queryYK() =
-    var cnt = 0
-    var cur = initYdbKey("^BENCHMARK") 
-    while ydb_node_next(cur) ==  YDB_OK:
-        inc cnt
-    assert cnt == MAX
-
-proc orderYK() =
     var cnt = 0
     var k = initYdbKey("^BENCHMARK")
     var nxt = ""
@@ -88,11 +50,11 @@ proc orderYK() =
         inc cnt
     assert cnt == MAX
 
-proc killnodeYK() =
-    var key = initYdbKey("^BENCHMARK", "")
+proc killnode() =
+    var k = initYdbKey("^BENCHMARK")
     for id in 0..<MAX:
-        key.setSub(0, $id)
-        ydb_delete(key, YDB_DEL_NODE)
+        k.setSub(0, id)
+        ydb_delete(k, YDB_DEL_NODE)
     assert isEmpty("^BENCHMARK")
 
 
@@ -180,17 +142,6 @@ when isMainModule:
             test "ydb_next": timed: query()
             test "ydb_subscript": timed: order()
             test "Killnode": timed: killnode()
-        echo ""
-
-    timed:
-        suite "API YdbKey":
-            clean()
-            test "upcount": timed: upcountYK()
-            test "set simple": timed: setSimpleYK()
-            test "get simple": timed: getSimpleYK()
-            test "ydb_next": timed: queryYK()
-            test "ydb_subscript": timed: orderYK()
-            test "Killnode": timed: killnodeYK()
         echo ""
 
     timed:

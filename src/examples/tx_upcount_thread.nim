@@ -26,8 +26,10 @@ proc worker(tn: int, iterations: int) =
       # errstr {.inject.} : ptr struct_ydb_buffer_t,
       # param {.inject.} : pointer
       let tn = $cast[cstring](param)
-      let txid = ydb_increment("^CNT", @["UPCOUNT"], 1)
-      ydb_set("^CNT", @[$txid, tn], $txid & "-" & $tptoken)
+      var counterKey = initYdbKey("^CNT", "UPCOUNT")
+      let txid = ydb_increment(counterKey, 1)
+      var dataKey = initYdbKey("^CNT", $txid, tn)
+      ydb_set(dataKey, $txid & "-" & $tptoken)
       if txid mod 100 == 0:
         echo "txid=", txid, " tptoken:", tptoken
 

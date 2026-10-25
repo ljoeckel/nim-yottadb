@@ -250,6 +250,8 @@ proc addSub*(k: var YdbKey, value: bool) =
 
 proc initYdbKey*(name: string, subs: varargs[string]): YdbKey =
   ## Create a reusable key for the variable `name` with the given subscripts.
+  ## A subscript collection (e.g. a `Subscripts` sequence) can be passed as a
+  ## single argument.
   if name.len == 0:
     raise newException(YdbError, "Empty variable name")
   result.setName(name)

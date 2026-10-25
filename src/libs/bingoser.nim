@@ -1,5 +1,6 @@
 import macros, strutils, strformat, options, tables, sets, json, sequtils
 import ydbimpl
+import ydbtypes
 import libs/libydb
 
 # Public API
@@ -52,6 +53,40 @@ proc delete[T](global: string, subs: seq[string], k: string; o: T);
 proc delete[T: object](subs: seq[string]; o: T);
 
 var IDX {.threadvar.}: int
+
+#-----------------------------
+# Node access helpers
+#-----------------------------
+# The serialization routines work with (global, subscripts) pairs. These
+# helpers project such a pair onto the reusable `YdbKey` API.
+
+proc keyOf(name: string, subs: openArray[string]): YdbKey =
+  ## Key for `name` with the given subscripts.
+  result = initYdbKey(name)
+  for sub in subs:
+    result.addSub(sub)
+
+proc setNode(name: string, subs: openArray[string], value: string) =
+  var key = keyOf(name, subs)
+  ydb_set(key, value)
+
+proc getNode(name: string, subs: openArray[string]): string =
+  var key = keyOf(name, subs)
+  ydb_get(key)
+
+proc deleteNode(name: string, subs: openArray[string], deltype: uint) =
+  var key = keyOf(name, subs)
+  ydb_delete(key, deltype)
+
+proc dataNode(name: string, subs: openArray[string]): int =
+  var key = keyOf(name, subs)
+  ydb_data(key)
+
+proc subscriptNext(name: string, subs: openArray[string]): string =
+  ## Next subscript at the level of the last element of `subs`.
+  ## Returns an empty string at the end of the level.
+  var key = keyOf(name, subs)
+  ydb_subscript_next(key)
 
 #-----------------------------
 # Index management
@@ -148,28 +183,28 @@ proc updateIndex[T](o: T, updateMode: UpdateMode) =
             if value.find(',') > 0:
               var parts = value.split(',')
               for part in parts:
-                ydb_set(gblname, @[strip(part), field.idValue], "")  
+                setNode(gblname, [strip(part), field.idValue], "")  
           else: # ??
-            ydb_set(gblname, @[value, field.idValue], "")
+            setNode(gblname, [value, field.idValue], "")
       else:
         for value in field.values:
           if value.find(',') > 0:
             var parts = value.split(',')
             for part in parts:
-              ydb_delete(gblname, @[strip(part), field.idValue], YDB_DEL_NODE)
+              deleteNode(gblname, [strip(part), field.idValue], YDB_DEL_NODE)
           else:
-            ydb_delete(gblname, @[value, field.idValue], YDB_DEL_NODE)
+            deleteNode(gblname, [value, field.idValue], YDB_DEL_NODE)
     elif field.value.isEmptyOrWhitespace:
     #   if updateMode == Update:
-    #     ydb_set(gblname, @["%", field.idValue], "") # prevent emptyindex error
+    #     setNode(gblname, ["%", field.idValue], "") # prevent emptyindex error
     #   else:
-    #     ydb_delete(gblname, @["%", field.idValue], YDB_DEL_NODE) # prevent emptyindex error
+    #     deleteNode(gblname, ["%", field.idValue], YDB_DEL_NODE) # prevent emptyindex error
       discard
     else: # string
       if updateMode == Update:
-          ydb_set(gblname, @[field.value, field.idValue], "")
+          setNode(gblname, [field.value, field.idValue], "")
       else:
-        ydb_delete(gblname, @[field.value, field.idValue], YDB_DEL_NODE)  
+        deleteNode(gblname, [field.value, field.idValue], YDB_DEL_NODE)  
 
 #----------------------------
 # Field management
@@ -205,20 +240,20 @@ macro fillFrom*(obj: var auto, data: JsonNode) =
 proc saveInYdb(global: string, subs: seq[string], key: string, value: string) =
   var subscpy = subs
   subscpy.add(key)
-  ydb_set(global, subscpy, value)
+  setNode(global, subscpy, value)
 
 
 proc loadFromYdb(global: string, subs: seq[string], key: string): string =
   var subscpy = subs
   subscpy.add(key)
-  result = ydb_get(global, subscpy)
+  result = getNode(global, subscpy)
 
 
 proc deleteFromYdb(global: string, subs: seq[string], key: string) =
   ## Delete the node at `subs` & `key` (leaves child nodes untouched).
   var subscpy = subs
   subscpy.add(key)
-  ydb_delete(global, subscpy, YDB_DEL_NODE)
+  deleteNode(global, subscpy, YDB_DEL_NODE)
 
 
 #-----------------------------
@@ -260,12 +295,12 @@ proc store[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet[
     elif T is enum:
       subscpy.add(k)
       subscpy.add($idx)
-      ydb_set(global, subscpy, $ord(elem))
+      setNode(global, subscpy, $ord(elem))
     else:
       # it's a seq[string],...
       subscpy.add(k)
       subscpy.add($idx)
-      ydb_set(global, subscpy, $elem)
+      setNode(global, subscpy, $elem)
     
     inc(idx)
 
@@ -369,10 +404,10 @@ proc load[T](global: string, subs: seq[string], k: string; x: var set[T]) =
   var subscripts = subs
   subscripts.add( @[k, ""] )
   while true:
-    let subkey = ydb_subscript_next(global, subscripts)
+    let subkey = subscriptNext(global, subscripts)
     if subkey.len == 0: break
     subscripts[^1] = subkey
-    let value = ydb_get(global, subscripts)
+    let value = getNode(global, subscripts)
     when typeof(x) is set[char]:
       x.incl(value[0])
     else:
@@ -390,10 +425,10 @@ proc load[T: var SomeSet](global: string, subs: seq[string], k: string; x: var T
   var subscripts = subs
   subscripts.add(@[k, ""])
   while true:
-    let subkey = ydb_subscript_next(global, subscripts)
+    let subkey = subscriptNext(global, subscripts)
     if subkey.len == 0: break
     subscripts[^1] = subkey
-    x.incl(ydb_get(global, subscripts))
+    x.incl(getNode(global, subscripts))
     inc(idx)
 
 # seq[T] | seq[T of object]
@@ -403,7 +438,7 @@ proc load[T](global: string, subs: seq[string], k: string; x: var seq[T] ) =
     subscripts.add("")
     let gbl = "^" & $T
     while true:
-      let subkey = ydb_subscript_next(gbl, subscripts)
+      let subkey = subscriptNext(gbl, subscripts)
       if subkey.len == 0: break
       subscripts[^1] = subkey
       var t:T = T()
@@ -413,10 +448,10 @@ proc load[T](global: string, subs: seq[string], k: string; x: var seq[T] ) =
     var subscripts = subs
     subscripts.add(@[k,""])
     while true:
-      let subkey = ydb_subscript_next(global, subscripts)
+      let subkey = subscriptNext(global, subscripts)
       if subkey.len == 0: break
       subscripts[^1] = subkey
-      x.add(ydb_get(global, subscripts))
+      x.add(getNode(global, subscripts))
 
 proc load[K, V](global: string, subs: seq[string], kv: string; o: var (Table[K, V]|OrderedTable[K, V])) =
   for fn, fv in pairs(o):
@@ -429,7 +464,7 @@ proc load[T](global: string, subs: seq[string], k: string; o: var Option[T]) =
   #load(global, subs, o)
   var subscripts = subs
   subscripts.add(k)
-  let val = ydb_get(global, subscripts)
+  let val = getNode(global, subscripts)
   if val.len > 0: o = some(val)
   # echo "363 global:", global, " subs:", subs, ",'", k, "'=", val
 
@@ -452,7 +487,7 @@ proc loadObject*[T](subs: seq[string], globalName: string = $typeof(T)): T =
   # Test for empty id
   if subs.len == 0 or (subs.len >= 1 and subs[0] == ""): return T()
   # Test for existence
-  if ydb_data(gbl, subs) > 1:
+  if dataNode(gbl, subs) > 1:
     load(gbl, subs, result)
   else:
     return T()
@@ -496,19 +531,19 @@ proc delete[T](global: string, subs: seq[string], k: string; x: seq[T] | SomeSet
     subscripts.add("")
     var keys: seq[string]
     while true:
-      let subkey = ydb_subscript_next(gbl, subscripts)
+      let subkey = subscriptNext(gbl, subscripts)
       if subkey.len == 0: break
       subscripts[^1] = subkey
       keys.add(subkey)
     for subkey in keys:
       var childsubs = subs
       childsubs.add(subkey)
-      ydb_delete(gbl, childsubs, YDB_DEL_TREE)
+      deleteNode(gbl, childsubs, YDB_DEL_TREE)
   else:
     # Elements live under subs & k & idx -> drop the whole subtree.
     var subscpy = subs
     subscpy.add(k)
-    ydb_delete(global, subscpy, YDB_DEL_TREE)
+    deleteNode(global, subscpy, YDB_DEL_TREE)
 
 proc delete[K, V](global: string, subs: seq[string], kv: string; o: (Table[K, V]|OrderedTable[K, V])) =
   deleteFromYdb(global, subs, kv)
@@ -540,7 +575,7 @@ proc deleteObject*[T](subs: seq[string]) =
   # Recursive scan: updates the indexes and removes the fields / child objects
   delete(subs, obj)
   # Drop any remaining nodes of the primary global (e.g. nodes not part of the type)
-  ydb_delete(gbl, subs, YDB_DEL_TREE)
+  deleteNode(gbl, subs, YDB_DEL_TREE)
 
 proc deleteObject*[T](id: int) =
   deleteObject[T](@[$id])
