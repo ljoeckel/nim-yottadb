@@ -93,10 +93,10 @@ func fasttrim*(str: string): string {.inline.} =
     return str.substr(first, last)
 
 
-func keysToString(global: string, subs: Subscripts): string {.inline.} =
-  result = global
+proc keysToString(key: YdbKey): string {.inline.} =
+  result = key.name[0..key.nameUsed-1]
   result.add("(")
-  result.add(subs.join(","))
+  result.add(key.toSeq().join(","))
   result.add(")")
 
 
@@ -943,32 +943,29 @@ macro Set*(body: untyped): untyped =
 # advance it in place, so no key has to be rebuilt per node.
 template walkNodes(reverse: static bool, ydbvar: YdbVar, body: untyped) =
   let v = resolveVar(ydbvar)
-  let gblName {.inject.} = v.name
   var cur {.inject.} = initYdbKey(v.name, v.subscripts)
-  var subs {.inject.}: seq[string]
   var rc {.inject.} = when reverse: ydb_node_previous(cur) else: ydb_node_next(cur)
   while rc == YDB_OK:
-    subs = cur.subscripts()
     body
     rc = when reverse: ydb_node_previous(cur) else: ydb_node_next(cur)
 
 # returns ^global(key,..)
 iterator QueryItrx*(reverse: static bool, ydbvar: YdbVar): string =
   walkNodes(reverse, ydbvar):
-    yield keysToString(gblName, subs)
+    yield keysToString(cur)
 
 # returns @["1"], @["2"], ...
 iterator QueryItrxKEYS*(reverse: static bool, ydbvar: YdbVar): seq[string] =
   walkNodes(reverse, ydbvar):
-    yield subs
+    yield cur.toSeq()
 
 iterator QueryItrxKV*(reverse: static bool, ydbvar: YdbVar): (string, string) =
   walkNodes(reverse, ydbvar):
-    yield (keysToString(gblName, subs), ydb_get(cur))
+    yield(keysToString(cur), ydb_get(cur))
 
 iterator QueryItrxSV*(reverse: static bool, ydbvar: YdbVar): (seq[string], string) =
   walkNodes(reverse, ydbvar):
-    yield (subs, ydb_get(cur))
+    yield (cur.toSeq(), ydb_get(cur))
 
 iterator QueryItrxVAL*(reverse: static bool, ydbvar: YdbVar): string =
   walkNodes(reverse, ydbvar):
@@ -986,27 +983,23 @@ iterator QueryItrxCOUNT*(reverse: static bool, ydbvar: YdbVar): int =
 # --------------------
 template walkOrderNodes(reverse: static bool, ydbvar: YdbVar, body: untyped) =
   let v = resolveVar(ydbvar)
-  let gblName {.inject.} = v.name
   var cur {.inject.} = initYdbKey(v.name, v.subscripts)
-  var subs {.inject.} = v.subscripts
   var nextSub: string
   while true:
     let rc = when reverse: ydb_subscript_previous(cur, nextSub)
              else: ydb_subscript_next(cur, nextSub)
     if rc != YDB_OK: break
-    if subs.len > 0: subs[^1] = nextSub
-    else: subs.add(nextSub)
-    let key {.inject.} = nextSub
+    cur.key = nextSub
     body
 
 # returns ^global(key,..)
 iterator OrderItrx*(reverse: static bool, ydbvar: YdbVar): string =
   walkOrderNodes(reverse, ydbvar):
-    yield key
+    yield cur.key
 
 iterator OrderItrxKEYS*(reverse: static bool, ydbvar: YdbVar): seq[string] =
   walkOrderNodes(reverse, ydbvar):
-    yield subs
+    yield cur.toSeq()
 
 iterator OrderItrxVAL*(reverse: static bool, ydbvar: YdbVar): string =
   walkOrderNodes(reverse, ydbvar):
@@ -1014,15 +1007,15 @@ iterator OrderItrxVAL*(reverse: static bool, ydbvar: YdbVar): string =
 
 iterator OrderItrxKV*(reverse: static bool, ydbvar: YdbVar): (string, string) =
   walkOrderNodes(reverse, ydbvar):
-    yield (key, ydb_get(cur))
+    yield (cur.key, ydb_get(cur))
 
 iterator OrderItrxSV*(reverse: static bool, ydbvar: YdbVar): (seq[string], string) =
   walkOrderNodes(reverse, ydbvar):
-    yield (subs, ydb_get(cur))
+    yield (cur.toSeq(), ydb_get(cur))
 
 iterator OrderItrxKEY*(reverse: static bool, ydbvar: YdbVar): string =
   walkOrderNodes(reverse, ydbvar):
-    yield keysToString(gblName, subs)
+    yield keysToString(cur)
 
 iterator OrderItrxCOUNT*(reverse: static bool, ydbvar: YdbVar): int =
   var cnt = 0
@@ -1051,7 +1044,7 @@ template walkQ[T](qt: static QueryType, ydbvar: YdbVar, reverse: static bool): T
         else: ydb_node_next(cur)
     when qt == qtnext:
         let rc = step()
-        if rc == YDB_OK: keysToString(name, cur.subscripts())
+        if rc == YDB_OK: keysToString(cur)
         else: EMPTY_STRING
     elif qt  == qtCount:
         var cnt = 0
@@ -1060,13 +1053,13 @@ template walkQ[T](qt: static QueryType, ydbvar: YdbVar, reverse: static bool): T
         cnt
     elif qt == qtKeys:
         let rc = step()
-        if rc == YDB_OK: cur.subscripts()
+        if rc == YDB_OK: cur.toSeq()
         else: EMPTY_KEYS
     elif qt == qtKv:
         let rc = step()
         if rc == YDB_OK:
-            let subs = cur.subscripts()
-            (keysToString(name, subs), ydb_get(cur))
+            let subs = cur.toSeq()
+            (keysToString(cur), ydb_get(cur))
         else:
             (EMPTY_STRING, EMPTY_STRING)
     elif qt == qtValue:
@@ -1114,7 +1107,7 @@ template walkO[T](qt: static QueryType, ydbvar: YdbVar, reverse: static bool): T
               subs[^1] = nextSub
             else:
               subs.add(nextSub)
-            keysToString(name, subs)
+            keysToString(cur)
         else:
             EMPTY_STRING
     elif qt == qtKv:

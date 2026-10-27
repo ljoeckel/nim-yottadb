@@ -66,6 +66,7 @@ type
     ## (`setName`, `setSub`, `addSub`, `subCount`, ...) rather than setting them
     ## directly.
     name*: string
+    key*: string # last $order key
     nameUsed*: int
     subs*: array[YDB_MAX_SUBS, string]
     subUsed*: array[YDB_MAX_SUBS, int]
@@ -197,9 +198,13 @@ func subscript*(k: var YdbKey, i: int): string =
     raise newException(YdbError, "subscript index out of range: " & $i)
   k.subs[i][0 ..< k.subUsed[i]]
 
-proc subscripts*(k: var YdbKey): Subscripts =
-  ## Copy of the subscripts of the key (allocates; for diagnostics and for
-  ## interoperating with the `Subscripts`-based API).
+func toSeq*(k: YdbKey): seq[string] =
+  ## Copy of the subscripts of the key as a `seq[string]`.
+  ##
+  ## Only the `k.nsubs` valid subscripts are returned; the remaining slots of
+  ## the `subs` array are unused capacity and are skipped. Note that
+  ## `subs[i].len` is the buffer capacity, so the used length comes from
+  ## `subUsed[i]`.
   result = newSeq[string](k.nsubs)
   for i in 0 ..< k.nsubs:
     result[i] = k.subs[i][0 ..< k.subUsed[i]]

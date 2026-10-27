@@ -135,9 +135,9 @@ proc testNextNode(global: string, start: Subscripts = @[]) =
   assert cnt > 0
   assert rc == YDB_ERR_NODEEND
   # At the end of the tree the key keeps its last position
-  let lastNode = cur.subscripts()
+  let lastNode = cur.toSeq()
   assert ydb_node_next(cur) == YDB_ERR_NODEEND
-  assert cur.subscripts() == lastNode
+  assert cur.toSeq() == lastNode
 
 
 proc testPreviousNode(global: string, start: Subscripts = @[]) =
