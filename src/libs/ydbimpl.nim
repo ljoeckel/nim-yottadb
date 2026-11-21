@@ -172,39 +172,39 @@ template checkRC() =
 proc ydb_tp_start(myTxn: ydb_tpfnptr_t, param: string, transid:string): int =
   ## Start a single-threaded transaction
   checkBuffers()
-  result = ydb_tp_s(myTxn, cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
+  result = ydb_tp_s(myTxn, cast[pointer](param.cstring), transid.cstring, 0, GLOBAL.addr)
   checkRC()
 
 proc ydb_tp_start(myTxn: ydb_tpfnptr_t, param: int, transid:string): int =
   ## Start a single-threaded transaction
   checkBuffers()
-  result = ydb_tp_s(myTxn, cast[pointer](param.cint), transid, 0, GLOBAL.addr)
+  result = ydb_tp_s(myTxn, cast[pointer](param.cint), transid.cstring, 0, GLOBAL.addr)
   checkRC()
 
 proc ydb_tp_start(myTxn: ydb_tpfnptr_t, param: pointer, transid:string): int =
   ## Start a single-threaded transaction, passing `param` unchanged to the
   ## callback (e.g. a pointer to caller-owned data).
   checkBuffers()
-  result = ydb_tp_s(myTxn, param, transid, 0, GLOBAL.addr)
+  result = ydb_tp_s(myTxn, param, transid.cstring, 0, GLOBAL.addr)
   checkRC()
 
 proc ydb_tp2_start(myTxn: YDB_tp2fnptr_t, param:string, transid:string): int =
   ## Start a multi-threaded transaction
   checkBuffers()
-  result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cstring), transid, 0, GLOBAL.addr)
+  result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cstring), transid.cstring, 0, GLOBAL.addr)
   checkRC()
 
 proc ydb_tp2_start(myTxn: YDB_tp2fnptr_t, param:int, transid:string): int =
   ## Start a multi-threaded transaction
   checkBuffers()
-  result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cint), transid, 0, GLOBAL.addr)
+  result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), cast[pointer](param.cint), transid.cstring, 0, GLOBAL.addr)
   checkRC()
 
 proc ydb_tp2_start(myTxn: YDB_tp2fnptr_t, param:pointer, transid:string): int =
   ## Start a multi-threaded transaction, passing `param` unchanged to the
   ## callback (e.g. a pointer to caller-owned data).
   checkBuffers()
-  result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), param, transid, 0, GLOBAL.addr)
+  result = ydb_tp_st(0.uint64, ERRMSG.addr, cast[ydb_tp2fnptr_t](myTxn), param, transid.cstring, 0, GLOBAL.addr)
   checkRC()
 
 proc ydb_tp_mt*[T: YDB_tp2fnptr_t](myTxnProc: T, param: string = "", transid: string = ""): int =

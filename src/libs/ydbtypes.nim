@@ -209,6 +209,11 @@ func toSeq*(k: YdbKey): seq[string] =
   for i in 0 ..< k.nsubs:
     result[i] = k.subs[i][0 ..< k.subUsed[i]]
 
+func subscripts*(k: YdbKey): seq[string] =
+  ## Copy of the subscripts of the key; alias for `toSeq` so that a `YdbKey`
+  ## can be read like a `YdbVar` (`k.subscripts` / `k.subscripts()`).
+  k.toSeq()
+
 proc setSub*(k: var YdbKey, i: int, value: string) =
   ## Set subscript `i` to `value`.
   if value.len > 0:
