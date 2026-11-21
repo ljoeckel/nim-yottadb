@@ -1,3 +1,6 @@
+const libYdb {.strdefine.} = "libyottadb.so"   # or -d:libYdb=/abs/path/libyottadb.so
+{.push dynlib: libYdb, cdecl.}
+
 const
   YDB_DEL_TREE* = cuint(1)
   YDB_DEL_NODE* = cuint(2)
@@ -140,3 +143,5 @@ proc ydb_zwr2str_s*(zwr: ptr ydb_buffer_t; str: ptr ydb_buffer_t): cint {.cdecl,
 proc ydb_zwr2str_st*(tptoken: uint64; errstr: ptr ydb_buffer_t;
                      zwr: ptr ydb_buffer_t; str: ptr ydb_buffer_t): cint {.cdecl, importc: "ydb_zwr2str_st".}                     
 
+
+{.pop.}

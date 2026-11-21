@@ -1037,14 +1037,12 @@ type QueryType = enum
 
 template walkQ[T](qt: static QueryType, ydbvar: YdbVar, reverse: static bool): T =
     let v = resolveVar(ydbvar)
-    let name = v.name
-    var cur = initYdbKey(name, v.subscripts)
+    var cur = initYdbKey(v.name, v.subscripts)
     template step(): int =
         when reverse: ydb_node_previous(cur)
         else: ydb_node_next(cur)
     when qt == qtnext:
-        let rc = step()
-        if rc == YDB_OK: keysToString(cur)
+        if step() == YDB_OK: keysToString(cur)
         else: EMPTY_STRING
     elif qt  == qtCount:
         var cnt = 0
@@ -1052,19 +1050,15 @@ template walkQ[T](qt: static QueryType, ydbvar: YdbVar, reverse: static bool): T
             inc cnt
         cnt
     elif qt == qtKeys:
-        let rc = step()
-        if rc == YDB_OK: cur.toSeq()
+        if step() == YDB_OK: cur.toSeq()
         else: EMPTY_KEYS
     elif qt == qtKv:
-        let rc = step()
-        if rc == YDB_OK:
-            let subs = cur.toSeq()
+        if step() == YDB_OK:
             (keysToString(cur), ydb_get(cur))
         else:
             (EMPTY_STRING, EMPTY_STRING)
     elif qt == qtValue:
-        let rc = step()
-        if rc == YDB_OK: ydb_get(cur)
+        if step() == YDB_OK: ydb_get(cur)
         else: EMPTY_STRING
     else:
         default(T)
