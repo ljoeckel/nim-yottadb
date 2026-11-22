@@ -93,8 +93,8 @@ func fasttrim*(str: string): string {.inline.} =
     return str.substr(first, last)
 
 
-proc keysToString(key: YdbKey): string {.inline.} =
-  result = key.name[0..key.nameUsed-1]
+proc keysToString(key: var YdbKey): string {.inline.} =
+  result = key.globalName
   result.add("(")
   result.add(key.toSeq().join(","))
   result.add(")")
@@ -562,27 +562,24 @@ func getTimeout(arg: string): int =
 # ----------------------------------------
 # The DSL describes a variable as (name, subscripts) in a `YdbVar`, while the
 # database API works on a reusable `YdbKey`. Point operations go through a
-# per-thread scratch key, so a DSL statement does not allocate a key.
+# per-thread scratch key that only *views* the `YdbVar`'s strings
+# (`setKeyView`), so a DSL statement neither allocates nor copies.
 
 var dslKey {.threadvar.}: YdbKey
 
-proc loadKey(k: var YdbKey, name: string, subs: openArray[string]) =
-  ## Overwrite `k` with `name` + `subs`, reusing its buffers.
-  k.setName(name)
-  k.setSubsLen(0)
-  for i in 0 ..< subs.len:
-    k.setSub(i, subs[i])
-
 proc keyOf(v: YdbVar): var YdbKey =
   ## Thread-local key for the variable `v`.
-  ## The key is reused by the next `keyOf` call in this thread, so use it
-  ## immediately; traversal code keeps its own key and is unaffected.
-  loadKey(dslKey, v.name, v.subscripts)
+  ##
+  ## Zero-copy: the key's buffers point straight into `v.name`/`v.subscripts`.
+  ## The key is reused by the next `keyOf` call in this thread and is only valid
+  ## as long as `v` is alive, so use it immediately within the same statement;
+  ## traversal code keeps its own owned key and is unaffected.
+  dslKey.setKeyView(v.name, v.subscripts)
   result = dslKey
 
 proc keyOf(name: string, subs: openArray[string]): var YdbKey =
   ## Thread-local key for `name` + `subs` (same lifetime rules as `keyOf(YdbVar)`).
-  loadKey(dslKey, name, subs)
+  dslKey.setKeyView(name, subs)
   result = dslKey
 
 # --------------------------------------

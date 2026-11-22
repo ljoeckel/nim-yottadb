@@ -563,6 +563,9 @@ proc ydb_subscript_previous*(k: var YdbKey): string =
 proc nodeTraverse(k: var YdbKey, previous: bool): int =
   ## Advance the key in place to the next/previous node of the tree.
   checkBuffers()
+  # Traversal writes the result into the key's subscript buffers, so a
+  # zero-copy `setKeyView` key (pointing into caller memory) must not be used.
+  doAssert not k.isView, "ydb_node_next/previous need an owned YdbKey (initYdbKey)"
   let savedN = k.nsubs
 
   # YottaDB rejects NULL buf_addr entries in ret_subsarray.
@@ -672,14 +675,11 @@ proc ydb_get*(k: var YdbKey): string =
       let n = DATABUF.len_used.int
       result.setLen(n)
       copyMem(addr result[0], DATABUF.buf_addr[0].addr, n)
-    elif k.nameUsed > 0 and k.name[0] == '$':
+    elif k.nameUsed > 0 and k.nameBuf.buf_addr != nil and k.nameBuf.buf_addr[0] == '$':
       raise newException(YdbError, "Cannot access special var: " & k.globalName)
   elif rc == YDB_ERR_GVUNDEF:
     # A node without a value may still hold a large value split into blocks.
-    if ydb_data(k) == YDB_DATA_NOVALUE_DESC:
-      result = getBlob(k)
-    else:
-      result = EMPTY_STRING
+    result = getBlob(k)
   else:
     checkRC()
 

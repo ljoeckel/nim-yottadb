@@ -74,6 +74,12 @@ type
     cbufs*: array[YDB_MAX_SUBS, ydb_buffer_t]
     ## Cached `ydb_buffer_t` views on `subs`/`subUsed`. Maintained on every
     ## mutation so that no per-call conversion is needed.
+    nameBuf*: ydb_buffer_t
+    ## Cached `ydb_buffer_t` view on `name` (owned buffer or caller memory).
+    isView*: bool
+    ## `true` when the buffers are *not* owned by the key: `setKeyView` points
+    ## `nameBuf`/`cbufs` straight at caller memory, so the key is read-only and
+    ## must not be traversed (see `setKeyView`).
 
 
 const
@@ -101,7 +107,17 @@ proc `=copy`*(dest: var YdbKey, src: YdbKey) =
     dest.subs[i] = src.subs[i]
     dest.subUsed[i] = src.subUsed[i]
   dest.nsubs = src.nsubs
-  dest.rebuildCbufs()
+  dest.isView = src.isView
+  if src.isView:
+    # A view has no owned buffers to rebuild: keep pointing at caller memory.
+    dest.nameBuf = src.nameBuf
+    dest.cbufs = src.cbufs
+  else:
+    dest.rebuildCbufs()
+    dest.nameBuf = ydb_buffer_t(
+      len_alloc: dest.name.len.uint32,
+      len_used: dest.nameUsed.uint32,
+      buf_addr: (if dest.name.len == 0: nil else: cast[cstring](unsafeAddr dest.name[0])))
 
 
 # -----------------------------------
@@ -132,10 +148,18 @@ proc subBuffers*(k: var YdbKey): ptr UncheckedArray[ydb_buffer_t] =
   ## Pointer to the cached `ydb_buffer_t` array of the key. All
   ## `YDB_MAX_SUBS` entries are valid, so the array can be used both as input
   ## subscripts and as output buffer for `ydb_node_next`.
+  ##
+  ## For a key created with `setKeyView` the entries point into caller memory,
+  ## so the array must only be used as *input*.
   cast[ptr UncheckedArray[ydb_buffer_t]](addr k.cbufs[0])
 
 proc reserveName(k: var YdbKey, n: int) =
-  reserve(k.name, n)
+  if k.name.len >= n: return          # capacity is fine, nameBuf still valid
+  reserve(k.name, n)                  # the buffer may move: refresh the view
+  k.nameBuf = ydb_buffer_t(
+    len_alloc: k.name.len.uint32,
+    len_used: k.nameUsed.uint32,
+    buf_addr: cast[cstring](unsafeAddr k.name[0]))
 
 func formatInt*(buf: var array[24, char], x: SomeInteger): int =
   ## Write the decimal representation of `x` right-aligned into `buf` and
@@ -183,10 +207,16 @@ proc setName*(k: var YdbKey, name: string) =
   if name.len > 0:
     copyMem(addr k.name[0], unsafeAddr name[0], name.len)
   k.nameUsed = name.len
+  k.nameBuf = ydb_buffer_t(
+    len_alloc: k.name.len.uint32,
+    len_used: name.len.uint32,
+    buf_addr: (if k.name.len == 0: nil else: cast[cstring](unsafeAddr k.name[0])))
 
 func globalName*(k: var YdbKey): string =
   ## The variable name of the key.
-  k.name[0 ..< k.nameUsed]
+  if k.nameUsed == 0: return ""
+  result = newString(k.nameUsed)
+  copyMem(addr result[0], k.nameBuf.buf_addr, k.nameUsed)
 
 func subCount*(k: var YdbKey): int =
   ## Number of subscripts of the key.
@@ -196,7 +226,10 @@ func subscript*(k: var YdbKey, i: int): string =
   ## The `i`-th subscript of the key.
   if i < 0 or i >= k.nsubs:
     raise newException(YdbError, "subscript index out of range: " & $i)
-  k.subs[i][0 ..< k.subUsed[i]]
+  let n = k.subUsed[i]
+  result = newString(n)
+  if n > 0:
+    copyMem(addr result[0], k.cbufs[i].buf_addr, n)
 
 func toSeq*(k: YdbKey): seq[string] =
   ## Copy of the subscripts of the key as a `seq[string]`.
@@ -207,7 +240,10 @@ func toSeq*(k: YdbKey): seq[string] =
   ## `subUsed[i]`.
   result = newSeq[string](k.nsubs)
   for i in 0 ..< k.nsubs:
-    result[i] = k.subs[i][0 ..< k.subUsed[i]]
+    let n = k.subUsed[i]
+    result[i] = newString(n)
+    if n > 0:
+      copyMem(addr result[i][0], k.cbufs[i].buf_addr, n)
 
 func subscripts*(k: YdbKey): seq[string] =
   ## Copy of the subscripts of the key; alias for `toSeq` so that a `YdbKey`
@@ -314,20 +350,47 @@ proc `$`*(k: var YdbKey): string =
   result.add '('
   for i in 0 ..< k.nsubs:
     if i > 0: result.add ','
-    result.add k.subs[i][0 ..< k.subUsed[i]]
+    result.add k.subscript(i)
   result.add ')'
 
 # -----------------------------------
 # YdbKey <-> ydb_buffer_t
 # -----------------------------------
 
-proc nameBuffer*(k: var YdbKey): ydb_buffer_t =
+proc nameBuffer*(k: var YdbKey): ydb_buffer_t {.inline.} =
   ## `ydb_buffer_t` view on the variable name of the key.
-  ## The pointer remains valid as long as the key is not reallocated.
-  ydb_buffer_t(
-    len_alloc: k.name.len.uint32,
-    len_used: k.nameUsed.uint32,
-    buf_addr: (if k.name.len == 0: nil else: cast[cstring](unsafeAddr k.name[0])))
+  ## The pointer remains valid as long as the key is not reallocated (owned) or
+  ## as long as the caller's strings are alive (view, see `setKeyView`).
+  k.nameBuf
+
+proc setKeyView*(k: var YdbKey, name: string, subs: openArray[string]) =
+  ## Point `k` directly at `name`/`subs` instead of copying them into the key's
+  ## own buffers (zero-copy).
+  ##
+  ## The result is a *read-only* key: it can be handed to `ydb_get`, `ydb_data`,
+  ## `ydb_delete`, `ydb_increment`, `ydb_lock_incr`, `ydb_lock_decr` and
+  ## `ydb_set`, which only read the name and subscripts. It must **not** be used
+  ## for `ydb_node_next`/`ydb_node_previous`, which write their result into the
+  ## subscript buffers, nor be mutated with `setSub`/`addSub`.
+  ##
+  ## Lifetime: `name` and `subs` must stay alive and unchanged until the
+  ## operation that consumes the key has returned.
+  if subs.len > YDB_MAX_SUBS:
+    raise newException(YdbError, "too many subscripts: " & $subs.len)
+  k.isView = true
+  k.nameUsed = name.len
+  k.nsubs = subs.len
+  k.nameBuf = ydb_buffer_t(
+    len_alloc: name.len.uint32,
+    len_used: name.len.uint32,
+    buf_addr: (if name.len == 0: nil else: cast[cstring](unsafeAddr name[0])))
+  for i in 0 ..< subs.len:
+    let n = subs[i].len
+    k.subUsed[i] = n
+    k.cbufs[i] = ydb_buffer_t(
+      len_alloc: n.uint32,
+      len_used: n.uint32,
+      buf_addr: (if n == 0: nil else: cast[cstring](unsafeAddr subs[i][0])))
 
 proc fillSubBuffers*(k: var YdbKey, dst: var array[YDB_MAX_SUBS, ydb_buffer_t]) =
   ## Copy the cached `ydb_buffer_t` views of the key into `dst`.
