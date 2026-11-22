@@ -89,3 +89,71 @@ when isMainModule:
     test "zlib": runTest(zlib)
     test "lz4": runTest(lz4)
     test "Zstd": runTest(zstd)
+
+    test "value formats":
+        Kill ^SeqFmt
+
+        # plain format: `join(seq, ",")`
+        Set: ^SeqFmt("ints") = "1,2,3"
+        check @[1, 2, 3] == Get ^SeqFmt("ints").seqInt
+
+        # spaces are accepted in both formats now (plain used to give @[1, 0, 0])
+        Set: ^SeqFmt("intsSpaced") = "1, 2, 3"
+        check @[1, 2, 3] == Get ^SeqFmt("intsSpaced").seqInt
+        Set: ^SeqFmt("intsNeg") = " -7, 0, 42 "
+        check @[-7, 0, 42] == Get ^SeqFmt("intsNeg").seqInt
+
+        # `@[..]` format: what `Set: ^x(1) = seq` stores via `$seq`
+        Set: ^SeqFmt("intsAt") = "@[1, 2, 3]"
+        check @[1, 2, 3] == Get ^SeqFmt("intsAt").seqInt
+        Set: ^SeqFmt("intsQuoted") = "@[\"1\", \"2\"]"
+        check @[1, 2] == Get ^SeqFmt("intsQuoted").seqInt
+
+        # boundary values must stay on the fast path
+        Set: ^SeqFmt("intsEdge") = $high(int) & "," & $low(int) & ",0"
+        check @[high(int), low(int), 0] == Get ^SeqFmt("intsEdge").seqInt
+
+        # floats
+        Set: ^SeqFmt("floats") = "1.5, -2.25, .5, 3."
+        check @[1.5, -2.25, 0.5, 3.0] == Get ^SeqFmt("floats").seqFloat
+        Set: ^SeqFmt("floatsAt") = "@[1.5, -2.25]"
+        check @[1.5, -2.25] == Get ^SeqFmt("floatsAt").seqFloat
+        Set: ^SeqFmt("floatsExp") = "1e3, 2.5"
+        check @[1000.0, 2.5] == Get ^SeqFmt("floatsExp").seqFloat
+
+        # bools
+        Set: ^SeqFmt("bools") = "1, 0, T, F"
+        check @[true, false, true, false] == Get ^SeqFmt("bools").seqBool
+        Set: ^SeqFmt("boolsAt") = "@[true, FALSE, 1]"
+        check @[true, false, true] == Get ^SeqFmt("boolsAt").seqBool
+
+        # strings: the `@[..]` format is trimmed, the plain one is not
+        Set: ^SeqFmt("strs") = "@[\"a\", \"bb\", \"\"]"
+        check @["a", "bb", ""] == Get ^SeqFmt("strs").seqString
+        Set: ^SeqFmt("strsPlain") = "a,b ,c"
+        check @["a", "b ", "c"] == Get ^SeqFmt("strsPlain").seqString
+
+        # round trip through `$seq`
+        let ints = @[5, -6, 70_000]
+        Set: ^SeqFmt("rtInts") = ints
+        check ints == Get ^SeqFmt("rtInts").seqInt
+        let strs = @["x", "y z", "q"]
+        Set: ^SeqFmt("rtStrs") = strs
+        check strs == Get ^SeqFmt("rtStrs").seqString
+
+        # a large value in the plain format (not covered by the tests above)
+        var joined = newStringOfCap(hugeInt.len * 8)
+        for i, v in hugeInt:
+            if i > 0: joined.add ','
+            joined.add $v
+        Set: ^SeqFmt("hugeJoined") = joined
+        check hugeInt == Get ^SeqFmt("hugeJoined").seqInt
+
+        # values the fast scanners reject keep their historical result
+        # (fallback to the token parser, which swallows the parse error)
+        Set: ^SeqFmt("intsTrailingComma") = "1,2,"
+        check @[1, 2, 0] == Get ^SeqFmt("intsTrailingComma").seqInt
+        Set: ^SeqFmt("emptyString") = ""
+        check @[""] == Get ^SeqFmt("emptyString").seqString
+
+        Kill ^SeqFmt
