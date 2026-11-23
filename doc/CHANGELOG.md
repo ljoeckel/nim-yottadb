@@ -1,3 +1,23 @@
+# Version 0.5.1
+# Enhancements
+- Added 'ydb' scope to access yottadb globals with the '^' caret.
+```nim
+ydb:
+  ^Customer(4711, "name") = "Lothar"
+  ^Customer(4711, "count") = "1"
+  let v = ^Customer(4711, "name") & "," & ^Customer(4711, "count")
+  assert v == "Lothar,1"
+
+ydb:
+  var cust = "^Customer(4788, name)" # set key
+  @cust = "Arno Miller" # save on DB
+  assert "Arno Miller" == @cust # get from DB
+  
+  cust = "^Customer(4788, adress)" # set key
+  @cust = "CH-44053 New Buchs LU" # save on DB
+  assert "CH-44053 New Buchs LU" == @cust # get from DB
+```
+
 # Changelog for version 0.5.0
 # BREAKING CHANGE
 - The Subscripts argument for the ydb_get/ydb_set/... API has been removed. A YdbKey is now used instead

@@ -1137,6 +1137,88 @@ macro Set*(body: untyped): untyped =
     processStmtList(body)
     newCall(ident"setx", buildYdbVars(args))
 
+# ==========================================================
+# ydb: block - `^Global(subscripts)` / `@indirection` without Get/Set
+# ==========================================================
+# Inside a `ydb:` block the `^Global(...)` and `@var` syntax is rewritten at
+# compile time:
+#
+#   ydb:
+#     ^Customer(4711, "name") = "Lothar"      # -> Set: ^Customer(4711,"name") = ...
+#     echo ^Customer(4711, "name")            # -> echo Get ^Customer(4711,"name")
+#     let name = ^Customer(4711, "name")      # -> let name = Get ^Customer(...)
+#     let g = "^Customer(4711, name)"
+#     @g = "Lothar"                           # -> Set: @g = "Lothar"
+#     echo @g                                 # -> echo Get @g
+#
+# Why a block is needed: `^Customer(...) = v` parses fine
+# (nnkAsgn(nnkPrefix("^", Call(...)), v)), but Nim has no user definable
+# assignment operator, so a plain statement can never be re-routed. An
+# `untyped` macro argument is never semchecked, so the rewrite happens before
+# the compiler complains about the assignment target.
+
+const
+  YDB_DSL_MACROS = ["Get", "Set", "Kill", "Killnode", "Delexcl", "Data",
+                    "Increment", "Lock", "Query", "QueryItr", "Order",
+                    "OrderItr"]
+  # `^` = global, `@` = indirection (the name is resolved at runtime)
+  YDB_PREFIXES = ["^", INDIRECTION]
+
+func isYdbRead(node: NimNode): bool {.inline.} =
+    ## `^Global(..)`, `^Global(..).postfix`, `^Global`, `@var`
+    node.kind == nnkPrefix and node.len == 2 and
+        node[0].kind in {nnkIdent, nnkSym} and node[0].strVal in YDB_PREFIXES and
+        node[1].kind in {nnkCall, nnkDotExpr, nnkIdent}
+
+func isYdbWrite(node: NimNode): bool {.inline.} =
+    ## `^Global(..) = value`, `@var = value`
+    node.kind == nnkAsgn and node[0].kind == nnkPrefix and node[0].len == 2 and
+        node[0][0].kind in {nnkIdent, nnkSym} and
+        node[0][0].strVal in YDB_PREFIXES
+
+func isYdbReadDot(node: NimNode): bool {.inline.} =
+    ## `@var.postfix` parses as DotExpr(Prefix(@, var), postfix)
+    node.kind == nnkDotExpr and node.len == 2 and isYdbRead(node[0])
+
+proc rewriteYdb(node: NimNode): NimNode
+
+proc ydbRead(node: NimNode): NimNode =
+    ## `^Global(..)` / `@var` -> `Get ^Global(..)` / `Get @var`
+    var args: seq[NimNode]
+    transform(node, args, @[DEFAULT])
+    let (typename, _) = getApiName("get", args)
+    newCall(ident(typename), buildYdbVar(args))
+
+proc ydbWrite(node: NimNode): NimNode =
+    ## `^Global(..) = value` / `@var = value` -> `Set: ...`
+    var args: seq[NimNode]
+    transform(node[0], args)                                   # lhs
+    args.add(newLit(VALUEMARK))
+    args.add(newCall(ident"$", rewriteYdb(node[1])))           # rhs (may read too)
+    newCall(ident"setx", buildYdbVars(args))
+
+proc rewriteYdb(node: NimNode): NimNode =
+    ## Recursively replaces `^Global(..)` reads/writes in an expression tree.
+    if isYdbRead(node) or isYdbReadDot(node):
+        return ydbRead(node)
+    if isYdbWrite(node):
+        return ydbWrite(node)
+    # leave `Kill ^GBL(..)`, `Get ^GBL(..)`, ... to their own macros
+    if node.kind in {nnkCall, nnkCommand} and node.len > 0 and
+            node[0].kind in {nnkIdent, nnkSym} and
+            node[0].strVal in YDB_DSL_MACROS:
+        return node
+    if node.len == 0:
+        return node
+    result = copyNimNode(node)
+    for child in node:
+        result.add(rewriteYdb(child))
+
+macro ydb*(body: untyped): untyped =
+    ## Statement block that allows `^Global(subscripts)` and `@indirection` as a
+    ## value and as the target of `=`, instead of writing `Get ..` / `Set: ...`.
+    result = rewriteYdb(body)
+
 # --------------------
 # Query Iterators
 # --------------------

@@ -54,6 +54,44 @@ nim-yottadb supports binary Data and can handle very large record sizes (practic
 let image = Get ^images(4711)
 ```
 
+## ydb: block - `^Global(..)` without Get/Set
+Inside a `ydb:` block, `^Global(subscripts)` can be used directly as a value and
+as the target of `=`:
+
+```nim
+import yottadb
+
+ydb:
+  ^Customer(4711, "name") = "Lothar"     # Set: ^Customer(4711, "name") = "Lothar"
+  echo ^Customer(4711, "name")           # echo Get ^Customer(4711, "name")
+  let name = ^Customer(4711, "name")     # let name = Get ^Customer(4711, "name")
+  let n = ^Counter(4711).int             # postfixes work too
+```
+
+Indirection with `@` works the same way (`Get @var` / `Set: @var = ...`). The
+name (including any subscripts) is built at runtime:
+
+```nim
+ydb:
+  let cust = "^Customer(4711, name)"
+  @cust = "Lothar"                       # Set: @cust = "Lothar"
+  echo @cust                             # echo Get @cust
+  let id = @cust                         # let id = Get @cust
+  let amount = @cust.int                 # .int after @name works too
+```
+
+Note: inside a `ydb:` block `@x` always means indirection, it is never the
+Nim `@` (array/seq) operator.
+
+The block is an `untyped` macro: `^Global(..)` reads are rewritten to `Get`,
+and `^Global(..) = value` assignments are rewritten to `Set:`. The classic
+macros (`Get`, `Set:`, `Kill`, `Data`, `Increment`, `Lock`, `QueryItr`,
+`OrderItr`, ...) keep working unchanged inside the block.
+
+Outside of a `ydb:` block, `^Global(..)` alone cannot be used: Nim has no
+user-definable assignment operator, so `^Global(..) = value` can only be
+re-routed while the statement is still untyped macro input.
+
 ## Get - 'default'
 Get supports a `default` value:
 ```nim

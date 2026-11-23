@@ -32,8 +32,7 @@ proc getSimple() =
     var k = initYdbKey("^BENCHMARK")
     for id in 0..<MAX:
         k.setSub(0, id)
-        let val = ydb_get(k)
-        assert $id == val
+        assert $id == ydb_get(k)
 
 proc query() =
     var cnt = 0
@@ -71,8 +70,7 @@ proc setSimple_dsl() =
 
 proc getSimple_dsl() =
     for id in 0..<MAX:
-        let val = Get ^BENCHMARK(id)
-        assert $id == val
+        assert $id == Get ^BENCHMARK(id)
 
 proc query_dsl() =
     var cnt = 0
@@ -106,8 +104,7 @@ proc setSimple_indirect() =
 proc getSimple_indirect() =
     let gbl = "^BENCHMARK"
     for id in 0..<MAX:
-        let val = Get @gbl(id)
-        assert $id == val
+        assert $id == Get @gbl(id)
         
 proc query_indirect() =
     var cnt = 0
@@ -127,6 +124,42 @@ proc killnode_indirect() =
     let gbl = "^BENCHMARK"
     for id in 0..<MAX:
         Kill: @gbl(id)
+    assert isEmpty("^BENCHMARK")
+
+
+
+proc upcount_block() =
+    var gblcnt = "^CNT(upcount)"
+    Kill: @gblcnt
+    for cnt in 0..<MAX:
+        discard Increment @gblcnt
+    assert MAX == Get @gblcnt.int
+
+proc setSimple_block() =
+    ydb:
+        for id in 0..<MAX:
+            ^BENCHMARK(id) = id
+
+proc getSimple_block() =
+    for id in 0..<MAX:
+        ydb:
+            assert $id == ^BENCHMARK(id)
+        
+proc query_block() =
+    var cnt = 0
+    for gbl in QueryItr ^BENCHMARK:
+        inc cnt
+    assert cnt == MAX
+
+proc order_block() =
+    var cnt = 0
+    for gbl in OrderItr ^BENCHMARK:
+        inc cnt
+    assert cnt == MAX
+
+proc killnode_block() =
+    for id in 0..<MAX:
+        Kill: ^BENCHMARK(id)
     assert isEmpty("^BENCHMARK")
 
 
@@ -164,5 +197,15 @@ when isMainModule:
             test "Query @": timed: query_indirect()
             test "Order @": timed: order_indirect()
             test "Killnode @": timed: killnode_indirect()
+
+    timed:
+        suite "ydb block":
+            clean()
+            test "upcount @": timed: upcount_block()
+            test "set simple @": timed: setSimple_block()
+            test "get simple @": timed: getSimple_block()
+            test "Query @": timed: query_block()
+            test "Order @": timed: order_block()
+            test "Killnode @": timed: killnode_block()
 
     clean()

@@ -94,7 +94,78 @@ Any expression evaluating to a string may be used after `@`.
 
 ---
 
-## 4. `Set:` — write a value
+## 4. `ydb:` — globals as ordinary values
+
+A `ydb:` block rewrites `^Global(subscripts)` and `@indirection` at compile
+time into their `Get` / `Set` forms, so a node can be used like a normal Nim
+value:
+
+```nim
+ydb:
+  ^Customer(4711, "name") = "Lothar"
+  ^Customer(4711, "count") = "1"
+  let v = ^Customer(4711, "name") & "," & ^Customer(4711, "count")
+  assert v == "Lothar,1"
+
+  # postfixes keep working on reads
+  let count = ^Customer(4711, "count").int
+  assert count == 1
+```
+
+The rules are:
+
+* A `^Global(..)` used as an expression becomes `Get ^Global(..)`. It returns a
+  `string`, so the usual postfixes (`.int`, `.seqInt`, `.gzip`, ...) can follow.
+* `^Global(..) = value` becomes `Set: ^Global(..) = value`. The right-hand side
+  is converted with `$`, so `int` and `float` values can be assigned directly.
+* `@key` is resolved at run time, exactly like `Get @key` / `Set: @key = value`.
+  The key string may contain subscripts and can be reassigned between
+  statements.
+* Statements that already use a DSL macro (`Get`, `Set:`, `Kill:`,
+  `Increment`, `Query`, `Order`, `Lock`, ...) are left untouched, so both
+  styles can be mixed inside the block.
+* The block does not introduce a Nim scope: `let`/`var` declared inside it stay
+  visible afterwards.
+
+The block is required for assignment (`^Gbl(..) = v` / `@gbl = v`) because Nim
+has no user-definable assignment operator; plain reads can still use `Get`.
+
+Indirection inside a block:
+
+```nim
+ydb:
+  var cust = "^Customer(4788, name)"      # set key
+  @cust = "Arno Miller"                   # write
+  assert "Arno Miller" == @cust           # read
+
+  cust = "^Customer(4788, adress)"        # change key
+  @cust = "CH-44053 New Buchs LU"
+  assert "CH-44053 New Buchs LU" == @cust
+```
+
+`ydb:` also works inside procedures and transaction bodies, which is handy when
+the key is built with `strformat`:
+
+```nim
+proc setCustomerName(id: int, name: string) =
+    ydb:
+        let cust = &"^Customer({id}, name)"
+        @cust = name
+```
+
+```nim
+let rc = Transaction(customer):
+    let cust = cast[ptr Customer](param)[]
+    let gbl = &"^Customer({cust.id}, name)"
+    ydb:
+        @gbl = cust.name
+```
+
+See [`vision.nim`](../src/examples/vision.nim) for a complete example.
+
+---
+
+## 5. `Set:` — write a value
 
 Assigns a value to a global/local/special variable. It is a **statement** macro
 (the `:` is required) and may contain **multiple** assignments:
@@ -119,7 +190,7 @@ Set: ^X(id, "Amount") = 1500.50
 
 ---
 
-## 5. `Get` — read a value
+## 6. `Get` — read a value
 
 `Get` returns the stored value as a `string`:
 
@@ -170,7 +241,7 @@ If the node does not exist, the `default` value is returned.
 
 ---
 
-## 6. `Data` — check existence / type
+## 7. `Data` — check existence / type
 
 `Data` returns an `int` describing a node:
 
@@ -198,7 +269,7 @@ assert 1 == Data @gbl
 
 ---
 
-## 7. `Increment` — atomic counter
+## 8. `Increment` — atomic counter
 
 Atomically increments a node and returns the new value:
 
@@ -212,7 +283,7 @@ Works on globals and locals; `by=` sets the increment amount (default `1`).
 
 ---
 
-## 8. `Kill`, `Killnode`, `Delexcl` — deletion
+## 9. `Kill`, `Killnode`, `Delexcl` — deletion
 
 * **`Kill:`** deletes a whole tree (variable and all descendants).
 * **`Killnode:`** deletes a single node only.
@@ -235,7 +306,7 @@ rejected with a `YdbError`.
 
 ---
 
-## 9. `Lock` — concurrency control
+## 10. `Lock` — concurrency control
 
 Locks up to 35 variables at once. Other processes trying to lock the same
 variable block until the lock is released or a timeout expires.
@@ -275,7 +346,7 @@ withlock(4711):                 # lock ^LOCKS(4711) for the block
 
 ---
 
-## 10. `Query` / `QueryItr` — traverse nodes
+## 11. `Query` / `QueryItr` — traverse nodes
 
 `Query` returns the **next node** in collating order (a fully qualified key like
 `"^LL(HAUS)"`); `QueryItr` is its iterator form.
@@ -327,7 +398,7 @@ while gbl.len > 0:
 
 ---
 
-## 11. `Order` / `OrderItr` — traverse subscripts
+## 12. `Order` / `OrderItr` — traverse subscripts
 
 `Order` returns the **next subscript** at the last given level (a plain string
 like `"HAUS"`); `OrderItr` is its iterator form.
@@ -368,7 +439,7 @@ for key, value in OrderItr ^LL("HAUS", "ELEKTRIK", "DOSEN", "").kv:
 
 ---
 
-## 12. `CallM` — Call-In interface
+## 13. `CallM` — Call-In interface
 
 Calls an M routine registered in the call-in table (`ydb_ci`), exchanging data
 through the local variable `CTX`. The result is read back from `RESULT`.
@@ -390,10 +461,10 @@ For an example call-in table and M routines see `src/tests/callin.nim`.
 
 ---
 
-## 13. `Transaction` — atomic transactions
+## 14. `Transaction` — atomic transactions
 
 Wraps a block in a YottaDB transaction. If a concurrent update conflicts, the
-block is re-run automatically (up to 4 restarts).
+block is re-run automatically (up to 3 restarts).
 
 ```nim
 let rc = Transaction:
@@ -469,7 +540,7 @@ mode only `param` is injected.
 
 ---
 
-## 14. Binary data & large records
+## 15. Binary data & large records
 
 `Set`/`Get` handle arbitrary binary `string`s transparently — no special
 postfix is needed. Records larger than the 1 MB internal buffer are stored in
@@ -483,7 +554,7 @@ assert data == createBinData(1024)
 
 ---
 
-## 15. Direct `ydbimpl.nim` API
+## 16. Direct `ydbimpl.nim` API
 
 The direct API uses a mutable `YdbKey` instead of parsing DSL expressions.
 Create a key with a variable name and zero or more string subscripts, then pass
@@ -561,7 +632,7 @@ an empty subscript must be distinguished from the end of traversal.
 
 `YDB_OK` is zero. The `YDB_DATA_UNDEF`, `YDB_DATA_VALUE_NODESC`,
 `YDB_DATA_NOVALUE_DESC` and `YDB_DATA_VALUE_DESC` constants describe node
-existence and descendants as shown in the [`Data` section](#6-data--check-existence--type).
+existence and descendants as shown in the [`Data` section](#7-data--check-existence--type).
 The public error/status constants include `YDB_ERR_GVUNDEF`,
 `YDB_ERR_NODEEND`, `YDB_ERR_TPTIMEOUT`, `YDB_TP_RESTART`,
 `YDB_TP_ROLLBACK` and `YDB_LOCK_TIMEOUT`.
@@ -577,10 +648,10 @@ raises `YdbError`.
 Build with `--threads:on` to use YottaDB's threaded entry points. The
 `ydb_tp_mt` callback receives the transaction token, error buffer and parameter;
 the ordinary `ydb_tp` callback receives the parameter. For most transaction
-code, the [`Transaction` DSL](#13-transaction--atomic-transactions) handles
+code, the [`Transaction` DSL](#14-transaction--atomic-transactions) handles
 callback setup and retries more conveniently.
 
-## 16. Serialization
+## 17. Serialization
 
 `yottadb` re-exports the object serialization helpers from `bingoser.nim`.
 They store Nim objects in YottaDB globals, using object field names as
@@ -685,7 +756,7 @@ See [`serialization_test.nim`](../src/tests/serialization_test.nim) for a
 round-trip example, and [`clientser.nim`](../src/examples/clientser.nim) for
 examples with nested objects, sequences and sets.
 
-## 17. Related utilities (outside the DSL)
+## 18. Related utilities (outside the DSL)
 
 These are also re-exported by `yottadb` and are commonly used with the DSL:
 
@@ -716,6 +787,7 @@ These are also re-exported by `yottadb` and are commonly used with the DSL:
 
 | Statement | Purpose | Example |
 |-----------|---------|---------|
+| `ydb:` | globals as plain values | `ydb: ^gbl(1) = "x"` |
 | `Set:` | write | `Set: ^gbl(1) = "x"` |
 | `Get` | read | `Get ^gbl(1).int` |
 | `Data` | existence/type | `Data ^gbl(1)` |
