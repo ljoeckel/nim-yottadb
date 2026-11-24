@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ljoeckel/nim-yottadb)
+
 # nim-yottadb
 **Nim Language implementation for the YottaDB database**
 
