@@ -583,6 +583,121 @@ proc keyOf(name: string, subs: openArray[string]): var YdbKey =
   result = dslKey
 
 # --------------------------------------
+# Indirection resolution
+# --------------------------------------
+# An indirection variable (`@gbl`) carries the global name as a runtime string,
+# which may itself contain subscripts (`"^GBL(1,2)"`). Resolving that on every
+# operation - split the name, trim the parts, build the subscript seq - costs
+# more than the database call it decorates, although the name is normally the
+# same on every iteration of a loop.
+#
+# So the parse is cached per thread (one entry: the name used last) and the
+# common cases need no allocation at all:
+#   * a name without embedded subscripts (`"^GBL"`) needs no resolution,
+#   * a cached name with embedded subscripts is viewed directly as long as the
+#     DSL statement adds no subscripts of its own.
+type IndirectionCache = object
+  name: string        # the indirection name this entry was parsed from
+  base: string        # name without embedded subscripts ("^GBL")
+  subs: Subscripts    # embedded subscripts, `resolveVar` rules
+  subsM: Subscripts   # embedded subscripts, `resolveVarPrefix` rules
+  hasSubs: bool       # `name` contains "(..)"
+  valid: bool
+
+var indCache {.threadvar.}: IndirectionCache
+
+# Subscripts resolved at runtime, owned by this thread so that a key built from
+# them stays valid until the database call that consumes it has returned.
+var dslSubs {.threadvar.}: Subscripts
+
+proc cacheIndirection(name: string) =
+  ## Parse `name` into the thread-local cache, unless it is already there.
+  if indCache.valid and indCache.name == name: return
+  let openPar = name.find('(')
+  indCache.valid = false
+  indCache.hasSubs = openPar != -1
+  indCache.subs.setLen(0)
+  indCache.subsM.setLen(0)
+  if openPar == -1:
+    indCache.base = name
+  else:
+    let closePar = name.rfind(')')
+    indCache.base = name[0 ..< openPar]
+    let inner = name[openPar + 1 ..< closePar]
+    # `resolveVar` splits and trims, `resolveVarPrefix` uses `stringToSeq`:
+    # keep both flavours so that a cached name behaves exactly like before.
+    for idx in inner.split(','):
+      indCache.subs.add(fasttrim(idx))
+    indCache.subsM = stringToSeq(inner)
+  indCache.name = name
+  indCache.valid = true
+
+func hasIndirectSubs(subs: openArray[string], multi: static bool): bool {.inline.} =
+  ## `true` when a subscript carries the `@[..]` sequence marker.
+  for s in subs:
+    when multi:
+      if s.startsWith(INDIRECTION_KEYS): return true
+    else:
+      if INDIRECTION_KEYS in s: return true
+  false
+
+proc keyOfResolved(ydbvar: YdbVar, multi: static bool): var YdbKey =
+  ## Thread-local key for `ydbvar`, resolving an `@indirection` name and any
+  ## `@[..]` subscripts at runtime. Same lifetime rules as `keyOf`.
+  ##
+  ## `multi` selects the rules of `resolveVarPrefix` (Set, Kill, Killnode,
+  ## Lock, ...) instead of those of `resolveVar` (Get, Data, Increment).
+  template addSub(s: string) =
+    when multi:
+      if s.startsWith(INDIRECTION_KEYS): dslSubs.add(stringToSeq(s))
+      else: dslSubs.add(s)
+    else:
+      if INDIRECTION_KEYS in s: dslSubs.add(stringToSeq(s))
+      else: dslSubs.add(s)
+
+  if ydbvar.prefix != INDIRECTION:
+    if not hasIndirectSubs(ydbvar.subscripts, multi):
+      result = keyOf(ydbvar)               # plain `^GBL(..)`: nothing to resolve
+      return
+    dslSubs.setLen(0)
+    for s in ydbvar.subscripts: addSub(s)
+    result = keyOf(ydbvar.name, dslSubs)   # only `@[..]` subscripts to expand
+    return
+
+  # `@gbl`: the variable name is a runtime string
+  cacheIndirection(ydbvar.name)
+  if not indCache.hasSubs:
+    if not hasIndirectSubs(ydbvar.subscripts, multi):
+      result = keyOf(indCache.base, ydbvar.subscripts)
+      return
+    dslSubs.setLen(0)
+    for s in ydbvar.subscripts: addSub(s)
+    result = keyOf(indCache.base, dslSubs)
+    return
+
+  # the name carries the subscripts: "^GBL(1,2)"
+  when multi:
+    if ydbvar.subscripts.len == 0 and not hasIndirectSubs(indCache.subsM, multi):
+      result = keyOf(indCache.base, indCache.subsM)
+      return
+  else:
+    if ydbvar.subscripts.len == 0 and not hasIndirectSubs(indCache.subs, multi):
+      result = keyOf(indCache.base, indCache.subs)
+      return
+
+  # subscripts of the name plus the ones written in the DSL statement
+  dslSubs.setLen(0)
+  when multi:
+    for s in indCache.subsM: addSub(s)
+    for s in ydbvar.subscripts: addSub(s)
+  else:
+    # historical `resolveVar` rule: the extra subscripts follow every part
+    for s in indCache.subs:
+      addSub(s)
+      for r in ydbvar.subscripts: addSub(r)
+  result = keyOf(indCache.base, dslSubs)
+
+# --------------------------------------
 # macros call's one of this for each macro
 # ----------------------------------------
 
@@ -590,10 +705,7 @@ proc keyOf(name: string, subs: openArray[string]): var YdbKey =
 # Data
 #================
 proc datax*(ydbvar: YdbVar): int =
-    if needsNormalization(ydbvar):
-        let v = resolveVar(ydbvar)
-        return ydb_data(keyOf(v))
-    ydb_data(keyOf(ydbvar))
+    ydb_data(keyOfResolved(ydbvar, false))
 
 macro Data*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -604,11 +716,7 @@ macro Data*(body: untyped): untyped =
 # Get
 #================
 proc getx*(ydbvar: YdbVar): string {.inline.} =
-    if needsNormalization(ydbvar):
-        let v = resolveVar(ydbvar)
-        result = ydb_get(keyOf(v))
-    else:
-        result = ydb_get(keyOf(ydbvar))
+    result = ydb_get(keyOfResolved(ydbvar, false))
     if result.len == 0 and ydbvar.value.len > 0:
         return ydbvar.value # return 'default value' if nothing found
 
@@ -944,18 +1052,10 @@ defineGetX(bool, parseFastBool)
 #================
 proc killnodex*(ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
-        if needsNormalization(ydbvar):
-            let v = resolveVarPrefix(ydbvar)
-            ydb_delete(keyOf(v), YDB_DEL_NODE)
-        else:
-            ydb_delete(keyOf(ydbvar), YDB_DEL_NODE)
+        ydb_delete(keyOfResolved(ydbvar, true), YDB_DEL_NODE)
 
 proc killnodex*(ydbvar: YdbVar) =
-    if needsNormalization(ydbvar):
-        let v = resolveVarPrefix(ydbvar)
-        ydb_delete(keyOf(v), YDB_DEL_NODE)
-    else:
-        ydb_delete(keyOf(ydbvar), YDB_DEL_NODE)
+    ydb_delete(keyOfResolved(ydbvar, true), YDB_DEL_NODE)
 
 macro Killnode*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -968,18 +1068,10 @@ macro Killnode*(body: untyped): untyped =
 #================
 proc killx*(ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
-        if needsNormalization(ydbvar):
-            let v = resolveVarPrefix(ydbvar)
-            ydb_delete(keyOf(v), YDB_DEL_TREE)
-        else:
-            ydb_delete(keyOf(ydbvar), YDB_DEL_TREE)
+        ydb_delete(keyOfResolved(ydbvar, true), YDB_DEL_TREE)
 
 proc killx*(ydbvar: YdbVar) =
-    if needsNormalization(ydbvar):
-        let v = resolveVarPrefix(ydbvar)
-        ydb_delete(keyOf(v), YDB_DEL_TREE)
-    else:
-        ydb_delete(keyOf(ydbvar), YDB_DEL_TREE)
+    ydb_delete(keyOfResolved(ydbvar, true), YDB_DEL_TREE)
 
 macro Kill*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -1018,10 +1110,7 @@ macro Delexcl*(body: untyped): untyped =
 #================
 proc incrementx*(ydbvar: YdbVar): int =
     let inc = if ydbvar.value.len == 0: 1 else: parseFastInt(ydbvar.value)
-    if needsNormalization(ydbvar):
-        let v = resolveVar(ydbvar)
-        return ydb_increment(keyOf(v), inc)
-    ydb_increment(keyOf(ydbvar), inc)
+    ydb_increment(keyOfResolved(ydbvar, false), inc)
 
 macro Increment*(body: untyped): untyped =
     var args: seq[NimNode]
@@ -1117,18 +1206,10 @@ macro Lock*(body: untyped): untyped =
 #================
 proc setx*(ydbvars: seq[YdbVar]) =
     for ydbvar in ydbvars:
-        if needsNormalization(ydbvar):
-            let v = resolveVarPrefix(ydbvar)
-            ydb_set(keyOf(v), v.value)
-        else:
-            ydb_set(keyOf(ydbvar), ydbvar.value)
+        ydb_set(keyOfResolved(ydbvar, true), ydbvar.value)
 
 proc setx*(ydbvar: YdbVar) =
-    if needsNormalization(ydbvar):
-        let v = resolveVarPrefix(ydbvar)
-        ydb_set(keyOf(v), v.value)
-    else:
-        ydb_set(keyOf(ydbvar), ydbvar.value)
+    ydb_set(keyOfResolved(ydbvar, true), ydbvar.value)
 
 macro Set*(body: untyped): untyped =
     # Set MUST be used in the form 'Set: <varname> = <value>'

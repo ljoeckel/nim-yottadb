@@ -28,6 +28,7 @@ const examples = @[
     "src/examples/hello_customer",
     "src/examples/tx",
     "src/examples/image_loader",
+    "src/examples/vision",
     "src/3n1/solver",
     #"m/bidwars",
     ]
