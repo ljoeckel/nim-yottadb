@@ -1,4 +1,34 @@
 # YottaDB commands
+## Create default ".gld" file
+```bash
+yottadb -run GDE <<< "EXIT"
+```
+## Create new database
+```bash
+mupip create
+```
+
+## Export Database
+```bash
+# 1. Freeze the database to ensure a consistent snapshot
+$ydb_dist/mupip freeze -ON
+# Option A: Fast Binary Format (Same CPU Architecture)
+$ydb_dist/mupip extract -format=BINARY "*" /path/to/backup.dat
+# Option B: Plain-Text ZWR Format (Cross-Platform Compatible)
+$ydb_dist/mupip extract -format=ZWR "*" /path/to/backup.zwr
+# 3. Unfreeze the database to resume normal operations
+$ydb_dist/mupip freeze -off
+```
+
+## Restore the Database
+```bash
+$ydb_dist/mupip create
+# 3. Load the data into the new database (Match the format used in Step 1)
+# If you transferred a BINARY file:
+$ydb_dist/mupip load -format=BINARY /path/to/destination/backup.dat
+# If you transferred a ZWR file:
+$ydb_dist/mupip load -format=ZWR /path/to/destination/backup.zwr
+```
 
 ## Enable / Disable Journaling
 Show current status:
