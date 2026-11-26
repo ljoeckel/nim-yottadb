@@ -348,9 +348,36 @@ proc testPrevSubscript() =
         dbdata.add(gbl)
     assert dbdata == refdata
 
+proc testMemberAccess() =
+    # `.len`, `.toUpperAscii`, ... are regular proc calls on the fetched value,
+    # not DSL postfixes. Only known postfixes (`.int`, `.seqInt`, ...) are
+    # interpreted by the DSL.
+    Set: ^GBL("s") = "hello"
+
+    assert (Get ^GBL("s").len) == 5
+    assert (Get ^GBL("s")).len == 5
+
+    ydb:
+        assert ^GBL("s").len == 5
+        let n = ^GBL("s").len
+        assert n == 5
+        assert ^GBL("s").toUpperAscii == "HELLO"
+
+        let g = "^GBL(s)"
+        assert @g.len == 5
+
+    # a known postfix still works and can be followed by a member access
+    let os = @[1, 2, 3]
+    Set: ^GBL("seq") = os
+    assert (Get ^GBL("seq").seqInt).len == 3
+    ydb:
+        assert ^GBL("seq").seqInt.len == 3
+
+
 if isMainModule:
     test "Globals": testGlobals()
     test "GetWithType": testGetWithType()
+    test "MemberAccess": testMemberAccess()
     test "DeleteExclusive": testDelexcl()
     test "NextNode": testNextNode()
     test "PrevNode": testPreviousNode()

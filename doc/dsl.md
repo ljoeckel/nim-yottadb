@@ -83,6 +83,17 @@ ydb:
 Note: inside a `ydb:` block `@x` always means indirection, it is never the
 Nim `@` (array/seq) operator.
 
+A `.name` after a read is only treated as a DSL postfix when it is a *known*
+postfix (`.int`, `.seqInt`, `.gzip`, ...). Any other dot access is a normal
+proc/field access on the fetched value:
+
+```nim
+ydb:
+  ^Customer(4711, "name") = "Lothar"
+  echo ^Customer(4711, "name").len          # len(Get ^Customer(..)) -> 6
+  echo Get ^Customer(4711, "name").toUpperAscii
+```
+
 The block is an `untyped` macro: `^Global(..)` reads are rewritten to `Get`,
 and `^Global(..) = value` assignments are rewritten to `Set:`. The classic
 macros (`Get`, `Set:`, `Kill`, `Data`, `Increment`, `Lock`, `QueryItr`,

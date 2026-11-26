@@ -243,6 +243,90 @@ proc getApiName(basename: string; args: var seq[NimNode]): (string, bool) =
     apiName.add(secondArg)
   (apiName, reverse)
 
+# ----------------------------------------
+# DSL postfix vs. regular member access
+# ----------------------------------------
+# `.name` after a read is a DSL postfix only when it names a *known* postfix
+# (`.int`, `.seqInt`, `.gzip`, ...). Anything else (`^gbl(1).len`) is a
+# regular proc/field access on the fetched value and is kept as a method call:
+# `len(Get ^gbl(1))`.
+
+const
+    POSTFIX_NAMES = [INT, INT8, INT16, INT32, INT64,
+                     UINT, UINT8, UINT16, UINT32, UINT64,
+                     FLOAT, FLOAT64, BOOL,
+                     KEY, KEYS, KV, SV, COUNT, VAL,
+                     SEQSTRING, SEQINT, SEQFLOAT, SEQBOOL,
+                     REVERSE, GZIP, ZLIB, LZ4, ZSTD, BROTLI]
+
+func isPostfixName(node: NimNode): bool =
+    ## `.int` / `.seqInt` / `.gzip` / ...: an ident naming a known DSL postfix.
+    if node.kind notin {nnkIdent, nnkSym}: return false
+    let name = node.strVal.toUpperAscii()
+    for postfix in POSTFIX_NAMES:
+        if postfix == name: return true
+    false
+
+func isPostfixChain(node: NimNode): bool =
+    ## Operand of a `^`/`@` prefix: the read plus only known postfixes, e.g.
+    ## `gbl(1)`, `gbl(1).seqInt`, `gbl(1).seqInt.gzip`.
+    case node.kind
+    of nnkCall, nnkIdent, nnkSym: true
+    of nnkDotExpr: node.len == 2 and isPostfixName(node[1]) and isPostfixChain(node[0])
+    else: false
+
+func isYdbPrefixNode(node: NimNode): bool {.inline.} =
+    ## `^` (global) or `@` (indirection)
+    node.kind in {nnkIdent, nnkSym} and
+        (node.strVal == "^" or node.strVal == INDIRECTION)
+
+func isYdbReadExpr(node: NimNode): bool =
+    ## `^Global`, `^Global(..)`, `@var`, each optionally followed by DSL
+    ## postfixes: `^Global(..).seqInt`, `@var.gzip`, ...
+    case node.kind
+    of nnkDotExpr:
+        node.len == 2 and isPostfixName(node[1]) and isYdbReadExpr(node[0])
+    of nnkPrefix:
+        node.len == 2 and isYdbPrefixNode(node[0]) and isPostfixChain(node[1])
+    else:
+        false
+
+proc splitMemberAccess(node: NimNode; base: var NimNode;
+                       accesses: var seq[NimNode]): bool =
+    ## Split regular (non-postfix) member accesses off a read expression:
+    ##   `^gbl(..).len.a`  -> base `^gbl(..)`, accesses @[len, a]
+    ##   `@var.len.a`      -> base `@var`,     accesses @[len, a]
+    ## Known postfixes stay attached to `base`, so
+    ## `^gbl(..).seqInt.len` becomes `len(Get ^gbl(..).seqInt)`.
+    accesses.setLen(0)
+    if node.kind == nnkPrefix and node.len == 2 and isYdbPrefixNode(node[0]) and
+            node[1].kind == nnkDotExpr:
+        # `^` swallows the dot chain: `^gbl(..).len` == Prefix(^, DotExpr(.., len))
+        var chain = node[1]
+        while chain.kind == nnkDotExpr and not isPostfixChain(chain):
+            accesses.add(chain[1])
+            chain = chain[0]
+        if accesses.len > 0:
+            base = newTree(nnkPrefix, node[0], chain)
+            return true
+        return false
+    # `@var.a.b` == DotExpr(DotExpr(Prefix(@, var), a), b)
+    var inner = node
+    while inner.kind == nnkDotExpr and not isYdbReadExpr(inner):
+        accesses.add(inner[1])
+        inner = inner[0]
+    if accesses.len > 0 and isYdbReadExpr(inner):
+        base = inner
+        return true
+    accesses.setLen(0)
+    false
+
+proc applyMemberAccess(read: NimNode; accesses: seq[NimNode]): NimNode =
+    ## Re-attach `a`, `b` of `^gbl(..).a.b` as method calls: `b(a(read))`.
+    result = read
+    for i in countdown(accesses.high, 0):
+        result = newTree(nnkDotExpr, result, accesses[i])
+
 # ------------------
 # Macro procs
 # ------------------
@@ -1010,11 +1094,20 @@ proc getxzstd*(ydbvar: YdbVar): string =
     copyMem(result[0].addr, buf[0].unsafeAddr, buf.len)    
     discard free_context(dctx)
 
-macro Get*(body: untyped): untyped =
+proc ydbRead(node: NimNode): NimNode =
+    ## `^Global(..)` / `@var` -> `Get ^Global(..)` / `Get @var`
     var args: seq[NimNode]
-    transform(body, args, @[DEFAULT])
+    transform(node, args, @[DEFAULT])
     let (typename, _) = getApiName("get", args)
     newCall(ident(typename), buildYdbVar(args))
+
+macro Get*(body: untyped): untyped =
+    # `Get ^gbl(1).len` / `Get @var.len`: `.len` is not a DSL postfix -> method call
+    var base: NimNode
+    var accesses: seq[NimNode]
+    if splitMemberAccess(body, base, accesses):
+        return applyMemberAccess(ydbRead(base), accesses)
+    result = ydbRead(body)
 
 
 # -------------------------------------
@@ -1245,30 +1338,13 @@ const
   # `^` = global, `@` = indirection (the name is resolved at runtime)
   YDB_PREFIXES = ["^", INDIRECTION]
 
-func isYdbRead(node: NimNode): bool {.inline.} =
-    ## `^Global(..)`, `^Global(..).postfix`, `^Global`, `@var`
-    node.kind == nnkPrefix and node.len == 2 and
-        node[0].kind in {nnkIdent, nnkSym} and node[0].strVal in YDB_PREFIXES and
-        node[1].kind in {nnkCall, nnkDotExpr, nnkIdent}
-
 func isYdbWrite(node: NimNode): bool {.inline.} =
     ## `^Global(..) = value`, `@var = value`
     node.kind == nnkAsgn and node[0].kind == nnkPrefix and node[0].len == 2 and
         node[0][0].kind in {nnkIdent, nnkSym} and
         node[0][0].strVal in YDB_PREFIXES
 
-func isYdbReadDot(node: NimNode): bool {.inline.} =
-    ## `@var.postfix` parses as DotExpr(Prefix(@, var), postfix)
-    node.kind == nnkDotExpr and node.len == 2 and isYdbRead(node[0])
-
 proc rewriteYdb(node: NimNode): NimNode
-
-proc ydbRead(node: NimNode): NimNode =
-    ## `^Global(..)` / `@var` -> `Get ^Global(..)` / `Get @var`
-    var args: seq[NimNode]
-    transform(node, args, @[DEFAULT])
-    let (typename, _) = getApiName("get", args)
-    newCall(ident(typename), buildYdbVar(args))
 
 proc ydbWrite(node: NimNode): NimNode =
     ## `^Global(..) = value` / `@var = value` -> `Set: ...`
@@ -1280,10 +1356,16 @@ proc ydbWrite(node: NimNode): NimNode =
 
 proc rewriteYdb(node: NimNode): NimNode =
     ## Recursively replaces `^Global(..)` reads/writes in an expression tree.
-    if isYdbRead(node) or isYdbReadDot(node):
+    if isYdbReadExpr(node):
         return ydbRead(node)
     if isYdbWrite(node):
         return ydbWrite(node)
+    # `^gbl(..).len` / `@var.len`: a regular proc/field access on the fetched
+    # value, not a DSL postfix -> `len(Get ^gbl(..))`
+    var base: NimNode
+    var accesses: seq[NimNode]
+    if splitMemberAccess(node, base, accesses):
+        return applyMemberAccess(ydbRead(base), accesses)
     # leave `Kill ^GBL(..)`, `Get ^GBL(..)`, ... to their own macros
     if node.kind in {nnkCall, nnkCommand} and node.len > 0 and
             node[0].kind in {nnkIdent, nnkSym} and
