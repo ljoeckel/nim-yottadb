@@ -362,6 +362,13 @@ proc splitValueOps(node: NimNode; base: var NimNode; ops: var seq[NimNode];
         # `^`/`@` swallow the chain: `^gbl(..)[0..10]` == Prefix(^, BracketExpr)
         prefix = node[0]
         inner = node[1]
+    elif anyBase and node.kind == nnkPrefix and node.len == 2 and
+            node[0].kind in {nnkIdent, nnkSym} and node[0].strVal == "$":
+        # YottaDB special variables parse like `^`: `$TRESTART.int` is
+        # Prefix($, DotExpr(.., int)). Only handled for `Get` - inside a `ydb:`
+        # block `$x` is Nim's `$` operator.
+        prefix = node[0]
+        inner = node[1]
     else:
         inner = node
     while isValueOp(inner) and not isPostfixChain(inner):

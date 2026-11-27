@@ -63,8 +63,8 @@ import yottadb
 
 ydb:
   ^Customer(4711, "name") = "Lothar"     # Set: ^Customer(4711, "name") = "Lothar"
-  echo ^Customer(4711, "name")           # echo Get ^Customer(4711, "name")
-  let name = ^Customer(4711, "name")     # let name = Get ^Customer(4711, "name")
+  echo ^Customer(4711, "name")           # Lothar
+  let name = ^Customer(4711, "name")     # Nim variable asigned from global var 
   let n = ^Counter(4711).int             # postfixes work too
 ```
 
@@ -73,10 +73,11 @@ name (including any subscripts) is built at runtime:
 
 ```nim
 ydb:
-  let cust = "^Customer(4711, name)"
+  var cust = "^Customer(4711, name)"
   @cust = "Lothar"                       # Set: @cust = "Lothar"
-  echo @cust                             # echo Get @cust
+  echo @cust                             # Lothar
   let id = @cust                         # let id = Get @cust
+  cust = "^Customer(4711, account, 1)"
   let amount = @cust.int                 # .int after @name works too
 ```
 
@@ -363,11 +364,23 @@ Set:
   # and so on
 ```
 
+Postfixes work on local variables as well:
+```nim
+Set: local = "42"
+assert (Get local.int) == 42
+assert (Get myvar(1).int8) == 1
+```
+
 # Special Variables
 To read a special variable, use `Get`:
 ```nim
 let zversion = Get $ZVERSION
 echo zversion
+```
+Postfixes and other value operations work here too:
+```nim
+let restarts = Get $TRESTART.int        # getx + toInt
+let first2 = Get $ZVERSION[0..1]        # slice of the read value
 ```
 To set a special variable via the DSL use `Set:` with empty parentheses `()`:
 ```nim

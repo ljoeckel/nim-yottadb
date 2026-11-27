@@ -16,7 +16,7 @@ let maxFibonacci = calcFibonacciValueFor1000ms(1200)
 
 proc myTxn(p0: pointer): cint {.cdecl.} =
   let someParam = $cast[cstring](p0)
-  let restarted = Get ($TRESTART).int
+  let restarted = Get $TRESTART.int
   if restarted > 0:
     discard Increment ^TXS("restarted")
 
