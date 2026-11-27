@@ -35,19 +35,19 @@ const
     REVERSE = "REVERSE"
     VAL = "VAL"
     # type postfix
-    INT = "INT"
-    INT8 = "INT8"
-    INT16 = "INT16"
-    INT32 = "INT32"
-    INT64 = "INT64"
-    UINT = "UINT"
-    UINT8 = "UINT8"
-    UINT16 = "UINT16"
-    UINT32 = "UINT32"
-    UINT64 = "UINT64"
-    FLOAT = "FLOAT"
-    FLOAT64 = "FLOAT64"
-    BOOL = "BOOL"
+    # INT = "INT"
+    # INT8 = "INT8"
+    # INT16 = "INT16"
+    # INT32 = "INT32"
+    # INT64 = "INT64"
+    # UINT = "UINT"
+    # UINT8 = "UINT8"
+    # UINT16 = "UINT16"
+    # UINT32 = "UINT32"
+    # UINT64 = "UINT64"
+    # FLOAT = "FLOAT"
+    # FLOAT64 = "FLOAT64"
+    # BOOL = "BOOL"
     # for seq[str|int|float]bool]
     SEQSTRING = "SEQSTRING"
     SEQINT = "SEQINT"
@@ -224,10 +224,12 @@ proc getApiName(basename: string; args: var seq[NimNode]): (string, bool) =
   while i >= 2 and args[i-1].kind == nnkStrLit and args[i-1].strVal == TYPEDESC:
     let arg = args[i][1].strVal.toUpperAscii()
     case arg
-    of INT, INT8, INT16, INT32, INT64,
-       UINT, UINT8, UINT16, UINT32, UINT64,
-       FLOAT, FLOAT64, BOOL,
-       KEY, KEYS, KV, SV, COUNT, VAL,
+    # of INT, INT8, INT16, INT32, INT64,
+    #    UINT, UINT8, UINT16, UINT32, UINT64,
+    #    FLOAT, FLOAT64, BOOL,
+    #    KEY, KEYS, KV, SV, COUNT, VAL,
+    #    SEQSTRING, SEQINT, SEQFLOAT, SEQBOOL:
+    of KEY, KEYS, KV, SV, COUNT, VAL,
        SEQSTRING, SEQINT, SEQFLOAT, SEQBOOL:
       apiName.add(arg)
     of REVERSE:
@@ -244,20 +246,23 @@ proc getApiName(basename: string; args: var seq[NimNode]): (string, bool) =
   (apiName, reverse)
 
 # ----------------------------------------
-# DSL postfix vs. regular member access
+# DSL postfix vs. regular value operations
 # ----------------------------------------
 # `.name` after a read is a DSL postfix only when it names a *known* postfix
-# (`.int`, `.seqInt`, `.gzip`, ...). Anything else (`^gbl(1).len`) is a
-# regular proc/field access on the fetched value and is kept as a method call:
-# `len(Get ^gbl(1))`.
+# (`.int`, `.seqInt`, `.gzip`, ...). Anything else is an ordinary operation on
+# the fetched value and is kept outside the fetch: `len(Get ^gbl(1))`,
+# `(Get ^gbl(1))[0..10]`, `substr(Get ^gbl(1), 0, 2)`.
 
 const
-    POSTFIX_NAMES = [INT, INT8, INT16, INT32, INT64,
-                     UINT, UINT8, UINT16, UINT32, UINT64,
-                     FLOAT, FLOAT64, BOOL,
-                     KEY, KEYS, KV, SV, COUNT, VAL,
+    POSTFIX_NAMES = [KEY, KEYS, KV, SV, COUNT, VAL,
                      SEQSTRING, SEQINT, SEQFLOAT, SEQBOOL,
                      REVERSE, GZIP, ZLIB, LZ4, ZSTD, BROTLI]
+    # POSTFIX_NAMES = [INT, INT8, INT16, INT32, INT64,
+    #                  UINT, UINT8, UINT16, UINT32, UINT64,
+    #                  FLOAT, FLOAT64, BOOL,
+    #                  KEY, KEYS, KV, SV, COUNT, VAL,
+    #                  SEQSTRING, SEQINT, SEQFLOAT, SEQBOOL,
+    #                  REVERSE, GZIP, ZLIB, LZ4, ZSTD, BROTLI]
 
 func isPostfixName(node: NimNode): bool =
     ## `.int` / `.seqInt` / `.gzip` / ...: an ident naming a known DSL postfix.
@@ -267,65 +272,141 @@ func isPostfixName(node: NimNode): bool =
         if postfix == name: return true
     false
 
-func isPostfixChain(node: NimNode): bool =
-    ## Operand of a `^`/`@` prefix: the read plus only known postfixes, e.g.
-    ## `gbl(1)`, `gbl(1).seqInt`, `gbl(1).seqInt.gzip`.
-    case node.kind
-    of nnkCall, nnkIdent, nnkSym: true
-    of nnkDotExpr: node.len == 2 and isPostfixName(node[1]) and isPostfixChain(node[0])
-    else: false
-
 func isYdbPrefixNode(node: NimNode): bool {.inline.} =
     ## `^` (global) or `@` (indirection)
     node.kind in {nnkIdent, nnkSym} and
         (node.strVal == "^" or node.strVal == INDIRECTION)
 
+func isIndirectCall(node: NimNode): bool {.inline.} =
+    ## `@var(subscripts...)` parses as Call(Prefix(@, var), subs...)
+    node.kind == nnkCall and node.len > 0 and node[0].kind == nnkPrefix and
+        node[0].len == 2 and isYdbPrefixNode(node[0][0]) and
+        node[0][1].kind in {nnkIdent, nnkSym}
+
+func isPostfixChain(node: NimNode): bool =
+    ## A read that carries only known DSL postfixes: `gbl(1)`, `gbl(1).seqInt`,
+    ## `^gbl(1).seqInt.gzip`, `@var.gzip`, `@var("x").gzip`.
+    case node.kind
+    of nnkIdent, nnkSym: true
+    of nnkCall: node.len > 0 and
+        (node[0].kind in {nnkIdent, nnkSym} or isIndirectCall(node))
+    of nnkDotExpr:
+        node.len == 2 and isPostfixName(node[1]) and isPostfixChain(node[0])
+    of nnkPrefix:
+        node.len == 2 and isYdbPrefixNode(node[0]) and isPostfixChain(node[1])
+    else: false
+
 func isYdbReadExpr(node: NimNode): bool =
-    ## `^Global`, `^Global(..)`, `@var`, each optionally followed by DSL
-    ## postfixes: `^Global(..).seqInt`, `@var.gzip`, ...
+    ## `^Global`, `^Global(..)`, `@var`, `@var(..)`, each optionally followed
+    ## by DSL postfixes: `^Global(..).seqInt`, `@var.gzip`, ...
     case node.kind
     of nnkDotExpr:
         node.len == 2 and isPostfixName(node[1]) and isYdbReadExpr(node[0])
     of nnkPrefix:
         node.len == 2 and isYdbPrefixNode(node[0]) and isPostfixChain(node[1])
+    of nnkCall:
+        isIndirectCall(node)
     else:
         false
 
-proc splitMemberAccess(node: NimNode; base: var NimNode;
-                       accesses: var seq[NimNode]): bool =
-    ## Split regular (non-postfix) member accesses off a read expression:
-    ##   `^gbl(..).len.a`  -> base `^gbl(..)`, accesses @[len, a]
-    ##   `@var.len.a`      -> base `@var`,     accesses @[len, a]
-    ## Known postfixes stay attached to `base`, so
+func isValueOp(node: NimNode): bool {.inline.} =
+    ## An operation applied to the fetched value: `.field`, `.proc(args)` or
+    ## indexing/slicing `[..]`.
+    case node.kind
+    of nnkDotExpr, nnkBracketExpr: node.len > 0
+    of nnkCall: node.len > 0 and node[0].kind in {nnkDotExpr, nnkBracketExpr}
+    else: false
+
+# Type conversions used by the DSL (`.int`, `.float`, ...). The procs are
+# deliberately *not* named after the type: a `proc float(s: string)` shadows
+# the `float` type, so `float(x)` conversions, `float.high` and even
+# `Table[int, ..]` in importing modules resolve to the proc instead.
+const
+    CONVERSIONS = [("int", "toInt"), ("int8", "toInt8"), ("int16", "toInt16"),
+                   ("int32", "toInt32"), ("int64", "toInt64"),
+                   ("uint", "toUint"), ("uint8", "toUint8"),
+                   ("uint16", "toUint16"), ("uint32", "toUint32"),
+                   ("uint64", "toUint64"), ("float", "toFloat"), ("float32", "toFloat32"),
+                   ("float64", "toFloat64"), ("bool", "toBool")]
+
+func conversionProc(name: string): string =
+    ## `int` / `.Int` -> `toInt`; "" when `name` is not a type conversion.
+    if name.len == 0: return ""
+    let lower = name.toLowerAscii()
+    for conversion in CONVERSIONS:
+        if conversion[0] == lower: return conversion[1]
+    ""
+
+func isReadBase(node: NimNode): bool =
+    ## Expressions the `Get` macro accepts as a key: `^gbl(..)`, `@var`,
+    ## `@var(..)`, a local variable `var` / `var(..)`, an indirection string or
+    ## a tuple with attributes (`Get (^gbl, default=1)`).
+    node.kind in {nnkIdent, nnkSym, nnkCall, nnkPrefix, nnkStrLit, nnkPar,
+                  nnkTupleConstr}
+
+proc splitValueOps(node: NimNode; base: var NimNode; ops: var seq[NimNode];
+                   anyBase = false): bool =
+    ## Split the value operations off a read expression. `base` is the read
+    ## itself (known postfixes stay attached), `ops` are re-applied outside:
+    ##   `^gbl(..).len`         -> base `^gbl(..)`, ops @[.len]
+    ##   `^gbl(..)[0..10]`      -> base `^gbl(..)`, ops @[[0..10]]
+    ##   `^gbl(..).substr(0,2)` -> base `^gbl(..)`, ops @[.substr(0,2)]
+    ##   `@var[0..10]`          -> base `@var`,     ops @[[0..10]]
     ## `^gbl(..).seqInt.len` becomes `len(Get ^gbl(..).seqInt)`.
-    accesses.setLen(0)
-    if node.kind == nnkPrefix and node.len == 2 and isYdbPrefixNode(node[0]) and
-            node[1].kind == nnkDotExpr:
-        # `^` swallows the dot chain: `^gbl(..).len` == Prefix(^, DotExpr(.., len))
-        var chain = node[1]
-        while chain.kind == nnkDotExpr and not isPostfixChain(chain):
-            accesses.add(chain[1])
-            chain = chain[0]
-        if accesses.len > 0:
-            base = newTree(nnkPrefix, node[0], chain)
-            return true
+    ## With `anyBase` (used by `Get`) any key expression is accepted, so
+    ## `Get local(1).int` becomes `toInt(Get local(1))`.
+    ops.setLen(0)
+    var inner: NimNode
+    var prefix: NimNode
+    if node.kind == nnkPrefix and node.len == 2 and isYdbPrefixNode(node[0]):
+        # `^`/`@` swallow the chain: `^gbl(..)[0..10]` == Prefix(^, BracketExpr)
+        prefix = node[0]
+        inner = node[1]
+    else:
+        inner = node
+    while isValueOp(inner) and not isPostfixChain(inner):
+        ops.add(inner)
+        if inner.kind == nnkCall:   # `.f(args)`: its callee dot is consumed too
+            inner = inner[0][0]
+        else:
+            inner = inner[0]
+    if ops.len == 0:
         return false
-    # `@var.a.b` == DotExpr(DotExpr(Prefix(@, var), a), b)
-    var inner = node
-    while inner.kind == nnkDotExpr and not isYdbReadExpr(inner):
-        accesses.add(inner[1])
+    while inner.kind == nnkPar and inner.len == 1:
         inner = inner[0]
-    if accesses.len > 0 and isYdbReadExpr(inner):
+    if prefix != nil:
+        base = newTree(nnkPrefix, prefix, inner)
+        return true
+    if (anyBase and isReadBase(inner)) or isYdbReadExpr(inner):
         base = inner
         return true
-    accesses.setLen(0)
+    ops.setLen(0)          # not a read at all -> leave the expression alone
     false
 
-proc applyMemberAccess(read: NimNode; accesses: seq[NimNode]): NimNode =
-    ## Re-attach `a`, `b` of `^gbl(..).a.b` as method calls: `b(a(read))`.
+proc applyValueOps(read: NimNode; ops: seq[NimNode]): NimNode =
+    ## Re-attach the operations of `^gbl(..).a[0].b(1)` to the fetched value.
+    ## Type conversions (`.int`, `.Int`, `.float`, ...) map to `toInt`,
+    ## `toFloat`, ...
     result = read
-    for i in countdown(accesses.high, 0):
-        result = newTree(nnkDotExpr, result, accesses[i])
+    for i in countdown(ops.high, 0):
+        let op = ops[i]
+        case op.kind
+        of nnkDotExpr:
+            let conv = conversionProc(op[1].strVal)
+            if conv.len > 0:
+                result = newCall(ident(conv), result)
+            else:
+                result = newTree(nnkDotExpr, result, op[1])
+        of nnkBracketExpr:
+            var bracket = newTree(nnkBracketExpr, result)
+            for j in 1 ..< op.len: bracket.add(op[j])
+            result = bracket
+        of nnkCall:            # `.f(args)` -> `f(value, args)`
+            var call = newTree(nnkCall, newTree(nnkDotExpr, result, op[0][1]))
+            for j in 1 ..< op.len: call.add(op[j])
+            result = call
+        else:
+            discard
 
 # ------------------
 # Macro procs
@@ -1102,11 +1183,12 @@ proc ydbRead(node: NimNode): NimNode =
     newCall(ident(typename), buildYdbVar(args))
 
 macro Get*(body: untyped): untyped =
-    # `Get ^gbl(1).len` / `Get @var.len`: `.len` is not a DSL postfix -> method call
+    # `Get ^gbl(1).len`, `Get ^gbl(1)[0..10]`, `Get local(1).int`, ... : what
+    # follows the key are ordinary value operations, not DSL postfixes.
     var base: NimNode
-    var accesses: seq[NimNode]
-    if splitMemberAccess(body, base, accesses):
-        return applyMemberAccess(ydbRead(base), accesses)
+    var ops: seq[NimNode]
+    if splitValueOps(body, base, ops, anyBase = true):
+        return applyValueOps(ydbRead(base), ops)
     result = ydbRead(body)
 
 
@@ -1114,30 +1196,30 @@ macro Get*(body: untyped): untyped =
 # Int / Uint / Float / Bool conversions
 # -------------------------------------
         
-template defineGetX(typeName, parseFunc: untyped) =
-  proc `getx typeName`*(ydbvar: YdbVar): typeName =
-    let s = getx(ydbvar)
-    if s.len == 0: return cast[typeName](0)
-    let tmpvar = parseFunc(s)
-    if tmpvar < low(typeName) or tmpvar > high(typeName):
-      raise newException(RangeDefect, "Illegal number. Must be in range " & $low(typeName) & ".." & $high(typeName))
-    else:
-      result = cast[typeName](tmpvar)
+# template defineGetX(typeName, parseFunc: untyped) =
+#   proc `getx typeName`*(ydbvar: YdbVar): typeName =
+#     let s = getx(ydbvar)
+#     if s.len == 0: return cast[typeName](0)
+#     let tmpvar = parseFunc(s)
+#     if tmpvar < low(typeName) or tmpvar > high(typeName):
+#       raise newException(RangeDefect, "Illegal number. Must be in range " & $low(typeName) & ".." & $high(typeName))
+#     else:
+#       result = cast[typeName](tmpvar)
 
-defineGetX(int, parseFastInt)
-defineGetX(int8, parseFastInt)
-defineGetX(int16, parseFastInt)
-defineGetX(int32, parseFastInt)
-defineGetX(int64, parseFastInt)
-defineGetX(uint, parseUInt)
-defineGetX(uint8, parseUInt)
-defineGetX(uint16, parseUInt)
-defineGetX(uint32, parseUInt)
-defineGetX(uint64, parseUInt)
-defineGetX(float, parseFloat)
-#defineGetX(float32, parseFloat) #TODO: cast gives strange results
-defineGetX(float64, parseFloat)
-defineGetX(bool, parseFastBool)
+# defineGetX(int, parseFastInt)
+# defineGetX(int8, parseFastInt)
+# defineGetX(int16, parseFastInt)
+# defineGetX(int32, parseFastInt)
+# defineGetX(int64, parseFastInt)
+# defineGetX(uint, parseUInt)
+# defineGetX(uint8, parseUInt)
+# defineGetX(uint16, parseUInt)
+# defineGetX(uint32, parseUInt)
+# defineGetX(uint64, parseUInt)
+# defineGetX(float, parseFloat)
+# #defineGetX(float32, parseFloat) #TODO: cast gives strange results
+# defineGetX(float64, parseFloat)
+# defineGetX(bool, parseFastBool)
 
 
 #================
@@ -1360,12 +1442,13 @@ proc rewriteYdb(node: NimNode): NimNode =
         return ydbRead(node)
     if isYdbWrite(node):
         return ydbWrite(node)
-    # `^gbl(..).len` / `@var.len`: a regular proc/field access on the fetched
-    # value, not a DSL postfix -> `len(Get ^gbl(..))`
+    # `^gbl(..).len` / `^gbl(..)[0..10]` / `@var.len`: ordinary operations on
+    # the fetched value, not DSL postfixes -> `len(Get ^gbl(..))`,
+    # `(Get ^gbl(..))[0..10]`
     var base: NimNode
-    var accesses: seq[NimNode]
-    if splitMemberAccess(node, base, accesses):
-        return applyMemberAccess(ydbRead(base), accesses)
+    var ops: seq[NimNode]
+    if splitValueOps(node, base, ops):
+        return applyValueOps(ydbRead(base), ops)
     # leave `Kill ^GBL(..)`, `Get ^GBL(..)`, ... to their own macros
     if node.kind in {nnkCall, nnkCommand} and node.len > 0 and
             node[0].kind in {nnkIdent, nnkSym} and
@@ -1820,3 +1903,46 @@ template withlock*(lockid: untyped, body: untyped): untyped =
     except:
         echo "Exception while locking body: ", getCurrentExceptionMsg()
     Lock: {-^LOCKS(lockid)}
+
+
+template defineConvertTo(T: typedesc, procName, parseFunc: untyped) =
+  ## Defines `proc to<Type>(s: string): T`, the range-checked conversion used by
+  ## the DSL dot syntax: `Get ^gbl.int` becomes `toInt(getx(..))`.
+  ## The procs are *not* named after the type on purpose: a `proc float(s: string)`
+  ## would shadow the `float` type in every importing module, breaking
+  ## `float(x)`, `float.high` and even `Table[int, ..]`.
+  proc `procName`*(s: string): T =
+    if s.len == 0: return default(T)
+    let tmpvar = parseFunc(s)
+    if tmpvar < low(T) or tmpvar > high(T):
+      raise newException(RangeDefect, "Illegal number. Must be in range " & $low(T) & ".." & $high(T))
+    else:
+      # Convert, don't `cast`: the parser returns int/BiggestUInt/float, and
+      # `cast[float32](3.1414)` would reinterpret the 8 double bytes instead of
+      # narrowing to float32.
+      when T is bool:
+        result = tmpvar
+      else:
+        result = T(tmpvar)
+
+defineConvertTo(int, toInt, parseFastInt)
+defineConvertTo(int8, toInt8, parseFastInt)
+defineConvertTo(int16, toInt16, parseFastInt)
+defineConvertTo(int32, toInt32, parseFastInt)
+defineConvertTo(int64, toInt64, parseFastInt)
+defineConvertTo(uint, toUint, parseUInt)
+defineConvertTo(uint8, toUint8, parseUInt)
+defineConvertTo(uint16, toUint16, parseUInt)
+defineConvertTo(uint32, toUint32, parseUInt)
+defineConvertTo(uint64, toUint64, parseUInt)
+defineConvertTo(float, toFloat, parseFloat)
+defineConvertTo(float64, toFloat64, parseFloat)
+defineConvertTo(float32, toFloat32, parseFloat)
+defineConvertTo(bool, toBool, parseFastBool)
+
+# proc int*(s: string): int =
+#     echo "int* s=", s
+#     convertToInt(s)
+# proc int8*(s: string): int8 =
+#     echo "int8* s=", s
+#     convertToInt8(s)

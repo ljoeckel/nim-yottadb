@@ -59,7 +59,7 @@ proc testGetWithType() =
     assert uint32.high == Get ^GBL("uint32").uint32
     assert uint64.high == Get ^GBL("uint64").uint64
     assert 3.1414 == Get ^GBL("float").float
-    #assert 3.1414.float32 == Get ^GBL("float32").float32    #TODO: float32 cast gives strange result
+    assert 3.1414.float32 == Get ^GBL("float32").float32
     assert 3.1414.float64 == Get ^GBL("float64").float64
     
     let os = @[1,2,3,4,5,6,7,8,9,10]
@@ -372,6 +372,17 @@ proc testMemberAccess() =
     assert (Get ^GBL("seq").seqInt).len == 3
     ydb:
         assert ^GBL("seq").seqInt.len == 3
+
+    # indexing/slicing and dot calls with arguments on the fetched value
+    Set: ^GBL("csv") = "a,b,c"
+    assert (Get ^GBL("csv")[0..2]) == "a,b"
+    assert (Get ^GBL("csv").split(',').len) == 3
+    ydb:
+        assert ^GBL("csv")[0..2] == "a,b"
+        assert ^GBL("csv").len == 5
+        assert ^GBL("csv").split(',').len == 3
+        let gcsv = "^GBL(csv)"
+        assert @gcsv[0..2] == "a,b"
 
 
 if isMainModule:

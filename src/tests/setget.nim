@@ -397,7 +397,7 @@ proc testNumbersRange() =
     ^tmp("float32") = (10.0 / 3.0).float32
 
   assert Get(^tmp("float").float) == (10.0 / 3.0).float
-  #assert Get(^tmp("float32").float32) == (10.0 / 3.0).float32 TODO: cast float32 gives strange result
+  assert Get(^tmp("float32").float32) == (10.0 / 3.0).float32
   assert Get(^tmp("float64").float64) == (10.0 / 3.0).float64
 
 

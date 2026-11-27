@@ -85,13 +85,16 @@ Nim `@` (array/seq) operator.
 
 A `.name` after a read is only treated as a DSL postfix when it is a *known*
 postfix (`.int`, `.seqInt`, `.gzip`, ...). Any other dot access is a normal
-proc/field access on the fetched value:
+proc/field access on the fetched value. The same applies to indexing/slicing
+and to dot calls with arguments:
 
 ```nim
 ydb:
   ^Customer(4711, "name") = "Lothar"
   echo ^Customer(4711, "name").len          # len(Get ^Customer(..)) -> 6
   echo Get ^Customer(4711, "name").toUpperAscii
+  echo ^Customer(4711, "name")[0..2]        # (Get ^Customer(..))[0..2] -> Lot
+  echo ^Customer(4711, "name").split('o')   # split(Get ^Customer(..), 'o')
 ```
 
 The block is an `untyped` macro: `^Global(..)` reads are rewritten to `Get`,
@@ -322,16 +325,22 @@ assert zwr2str(""""hello""_$C(9)_"""World"""") == "hello\9World"
 The `str2zwr` and `zwr2str` functions exist for compatibility. The historical 1 MB record-size limit no longer applies; nim-yottadb can handle much larger records, practically limited by available memory.
 
 # 'Get' with postfix
-You can enforce an expected type when reading Data from YottaDB using a postfix. If the stored value is out of the specified type range, a `ValueError` is raised.
+You can enforce an expected type when reading Data from YottaDB using a postfix. If the stored value is out of the specified type range, a `RangeDefect` is raised.
 ```nim
 let i = Get ^global(1).int16
 let f = Get ^global(4711).float32
 let u = Get ^global(815).uint8
 ```
-Supported postfixes include:
+Supported postfixes (case-insensitive, `.Int` works too) include:
 - int, int8, int16, int32, int64
 - uint, uint8, uint16, uint32, uint64
 - float, float32, float64
+- bool
+
+They are implemented as the exported conversions `toInt`, `toInt8`, ..., `toUint`, ...,
+`toFloat`, `toFloat32`, `toFloat64` and `toBool`, which may also be called directly:
+`toInt("42")`. They are deliberately *not* named `int`, `float`, ... — such names would
+shadow the built-in types of every importing module.
 
 # .seqStr, .seqInt, seqFloat, seqBool Postfix
 Allows reading back a set of the given type.
