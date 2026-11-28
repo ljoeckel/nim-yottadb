@@ -1,35 +1,76 @@
-# Version 0.5.1
-# Enhancements
-- Added 'ydb' scope to access yottadb globals with the '^' caret.
-```nim
-ydb:
-  ^Customer(4711, "name") = "Lothar"
-  ^Customer(4711, "count") = "1"
-  let v = ^Customer(4711, "name") & "," & ^Customer(4711, "count")
-  assert v == "Lothar,1"
+# Changelog: v0.4.11 to v0.5.1
 
-ydb:
-  var cust = "^Customer(4788, name)" # set key
-  @cust = "Arno Miller" # save on DB
-  assert "Arno Miller" == @cust # get from DB
-  
-  cust = "^Customer(4788, adress)" # set key
-  @cust = "CH-44053 New Buchs LU" # save on DB
-  assert "CH-44053 New Buchs LU" == @cust # get from DB
-```
+## Breaking changes
 
-# Changelog for version 0.5.0
-# BREAKING CHANGE
-- The Subscripts argument for the ydb_get/ydb_set/... API has been removed. A YdbKey is now used instead
-# Enhancements
-- Support for lz4, zstd added
-- Types that should be serialized can now be passed as param to the Transaction macro:
+- Reworked the database API around `YdbKey`; `YdbKey` is now the primary key
+  representation for direct API calls and iterators.
+- Removed the `seq[string]` subscript API. Pass subscripts individually or
+  manage them through `YdbKey.setSub`, `YdbKey.addSub`, and the related key
+  methods instead.
+
+## New features
+
+- Added a `ydb` statement block for writing YottaDB globals and indirections
+  with caret syntax:
+
+  ```nim
+  ydb:
+    ^Customer(4711, "name") = "Lothar"
+    let value = ^Customer(4711, "name")
+  ```
+- Added reusable `YdbKey` support with mutable name and subscript buffers,
+  integer, float, boolean, string, and character subscript setters, subscript
+  removal/clearing, key conversion, and key buffer access.
+- Added support for passing Nim types to `Transaction` macros.
 ```nim
-let obj4712 = Dummy(name: "martina", age: 99)
+let obj4712 = Customer(name: "martina", age: 99)
 rc = Transaction(obj4712):
-    let obj = cast[ptr Dummy](param)[]
-    saveObject[Dummy](4712, obj)
+    let obj = cast[ptr Customer](param)[]
+    saveObject[Customer](4712, obj)
 ```
+- Added indirection caching and an indirection-key cache that improve repeated
+  indirection and DSL lookups.
+- Added `OrderItr.SV` support.
+- Expanded postfix support to work with integer, floating-point, and boolean
+  values, YottaDB variables, and YottaDB special variables.
+- Nim procedures can now be used as postfix functions on global variables.
+- `Get` can now access special variables without brackets.
+- Improved `Get .seqXXX` sequence handling and added a benchmark and tests.
+- Added a `Ctrl-C` handler.
+- `saveObject` and `loadObject` can now use a caller-selected global name.
+- Added database backup and extract scripts.
+- Added a YottaDB key micro-benchmark.
+- Support for lz4, zstd added
+
+## API and implementation improvements
+
+- Simplified and unified direct database operations around `YdbKey`.
+- Updated `OrderItr` and `QueryItr` to use `YdbKey` instead of separate
+  subscript representations.
+- Refactored postfix parsing and numeric postfix handling.
+- Optimized key operations, including zero-copy `keyOf` handling.
+- Optimized `ydb_get` to avoid an unnecessary `ydb_data` call.
+- Added YdbVar normalization checks and reduced work in hot database paths.
+- Improved indirection parsing and thread-local key reuse.
+- Added configurable dynamic loading of `libyottadb.so`.
+- Removed the YottaDB release-version dependency from `nim.cfg`.
+
+## Fixes
+
+- Fixed the `ydbkey` test.
+- Updated binary and DSL tests for the new key and transaction APIs.
+- Updated transaction, threaded transaction, and iterator examples.
+
+## Tooling and documentation
+
+- Bumped the package version from 0.4.11 to 0.5.1.
+- Updated the Nimble test and example lists.
+- Added new YdbKey, sequence, indirection, special-variable, and transaction
+  tests.
+- Expanded the DSL, user guide, YottaDB API, and changelog documentation.
+- Added examples for vision processing and YdbKey benchmarking.
+
+
 # Changelog for version 0.4.6
 - .binary postfix has been removed. Handling of data sizes > 1MB now fully transparent with Set / Get
 - .OrderedSet postfix has been removed and replaced through the seqString/seqInt/seqFloat/seqBool family.
