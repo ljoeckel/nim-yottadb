@@ -343,6 +343,14 @@ They are implemented as the exported conversions `toInt`, `toInt8`, ..., `toUint
 `toInt("42")`. They are deliberately *not* named `int`, `float`, ... — such names would
 shadow the built-in types of every importing module.
 
+In command form `Get` binds to the leftmost operand of the expression, so comparisons and
+arithmetic need no extra parentheses:
+```nim
+assert Get ^counter(1).int == 42
+let n = Get ^counter(1).int + 1
+if Get $TRESTART.int > 0: echo "restarted"
+```
+
 # .seqStr, .seqInt, seqFloat, seqBool Postfix
 Allows reading back a set of the given type.
 Data must be saved as comma separated list.

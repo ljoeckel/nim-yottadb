@@ -34,25 +34,12 @@ const
     SV = "SV"
     REVERSE = "REVERSE"
     VAL = "VAL"
-    # type postfix
-    # INT = "INT"
-    # INT8 = "INT8"
-    # INT16 = "INT16"
-    # INT32 = "INT32"
-    # INT64 = "INT64"
-    # UINT = "UINT"
-    # UINT8 = "UINT8"
-    # UINT16 = "UINT16"
-    # UINT32 = "UINT32"
-    # UINT64 = "UINT64"
-    # FLOAT = "FLOAT"
-    # FLOAT64 = "FLOAT64"
-    # BOOL = "BOOL"
     # for seq[str|int|float]bool]
     SEQSTRING = "SEQSTRING"
     SEQINT = "SEQINT"
     SEQFLOAT = "SEQFLOAT"
     SEQBOOL = "SEQBOOL"
+    # for compression
     GZIP = "GZIP"
     ZLIB = "ZLIB"
     LZ4 = "LZ4"
@@ -224,11 +211,6 @@ proc getApiName(basename: string; args: var seq[NimNode]): (string, bool) =
   while i >= 2 and args[i-1].kind == nnkStrLit and args[i-1].strVal == TYPEDESC:
     let arg = args[i][1].strVal.toUpperAscii()
     case arg
-    # of INT, INT8, INT16, INT32, INT64,
-    #    UINT, UINT8, UINT16, UINT32, UINT64,
-    #    FLOAT, FLOAT64, BOOL,
-    #    KEY, KEYS, KV, SV, COUNT, VAL,
-    #    SEQSTRING, SEQINT, SEQFLOAT, SEQBOOL:
     of KEY, KEYS, KV, SV, COUNT, VAL,
        SEQSTRING, SEQINT, SEQFLOAT, SEQBOOL:
       apiName.add(arg)
@@ -257,12 +239,6 @@ const
     POSTFIX_NAMES = [KEY, KEYS, KV, SV, COUNT, VAL,
                      SEQSTRING, SEQINT, SEQFLOAT, SEQBOOL,
                      REVERSE, GZIP, ZLIB, LZ4, ZSTD, BROTLI]
-    # POSTFIX_NAMES = [INT, INT8, INT16, INT32, INT64,
-    #                  UINT, UINT8, UINT16, UINT32, UINT64,
-    #                  FLOAT, FLOAT64, BOOL,
-    #                  KEY, KEYS, KV, SV, COUNT, VAL,
-    #                  SEQSTRING, SEQINT, SEQFLOAT, SEQBOOL,
-    #                  REVERSE, GZIP, ZLIB, LZ4, ZSTD, BROTLI]
 
 func isPostfixName(node: NimNode): bool =
     ## `.int` / `.seqInt` / `.gzip` / ...: an ident naming a known DSL postfix.
@@ -1189,44 +1165,39 @@ proc ydbRead(node: NimNode): NimNode =
     let (typename, _) = getApiName("get", args)
     newCall(ident(typename), buildYdbVar(args))
 
-macro Get*(body: untyped): untyped =
-    # `Get ^gbl(1).len`, `Get ^gbl(1)[0..10]`, `Get local(1).int`, ... : what
-    # follows the key are ordinary value operations, not DSL postfixes.
+proc getRead(node: NimNode): NimNode =
+    ## The emitted read for `node` (read + value ops), or nil when `node` is
+    ## not something `Get` can read.
+    var node = node
+    while node.kind == nnkPar and node.len == 1:
+        node = node[0]
     var base: NimNode
     var ops: seq[NimNode]
-    if splitValueOps(body, base, ops, anyBase = true):
+    if splitValueOps(node, base, ops, anyBase = true):
         return applyValueOps(ydbRead(base), ops)
+    if isReadBase(node):
+        return ydbRead(node)
+    nil
+
+proc getLeftmost(node: NimNode): NimNode =
+    ## `Get` applies to the leftmost operand of a compound expression. Nim's
+    ## command syntax parses `Get ^X.int == 2` as `Get(^X.int == 2)`, so the
+    ## read is emitted for `^X.int` and the comparison stays normal Nim code
+    ## (`toInt(getx(..)) == 2`). Same for `Get ^X.int + 1`, `Get ^X.len > 3`.
+    if node.kind == nnkInfix and node.len == 3:
+        let left = getLeftmost(node[1])
+        if left != nil:
+            return newTree(nnkInfix, node[0], left, node[2])
+        return nil
+    getRead(node)
+
+macro Get*(body: untyped): untyped =
+    # `Get ^gbl(1).len`, `Get ^gbl(1)[0..10]`, `Get local(1).int`,
+    # `Get ^X.int == 2` (command form binds to the leftmost operand)
+    let value = getLeftmost(body)
+    if value != nil:
+        return value
     result = ydbRead(body)
-
-
-# -------------------------------------
-# Int / Uint / Float / Bool conversions
-# -------------------------------------
-        
-# template defineGetX(typeName, parseFunc: untyped) =
-#   proc `getx typeName`*(ydbvar: YdbVar): typeName =
-#     let s = getx(ydbvar)
-#     if s.len == 0: return cast[typeName](0)
-#     let tmpvar = parseFunc(s)
-#     if tmpvar < low(typeName) or tmpvar > high(typeName):
-#       raise newException(RangeDefect, "Illegal number. Must be in range " & $low(typeName) & ".." & $high(typeName))
-#     else:
-#       result = cast[typeName](tmpvar)
-
-# defineGetX(int, parseFastInt)
-# defineGetX(int8, parseFastInt)
-# defineGetX(int16, parseFastInt)
-# defineGetX(int32, parseFastInt)
-# defineGetX(int64, parseFastInt)
-# defineGetX(uint, parseUInt)
-# defineGetX(uint8, parseUInt)
-# defineGetX(uint16, parseUInt)
-# defineGetX(uint32, parseUInt)
-# defineGetX(uint64, parseUInt)
-# defineGetX(float, parseFloat)
-# #defineGetX(float32, parseFloat) #TODO: cast gives strange results
-# defineGetX(float64, parseFloat)
-# defineGetX(bool, parseFastBool)
 
 
 #================
@@ -1768,7 +1739,6 @@ proc callmx*(args: varargs[string]): string =
             ydb_set(ctxKey, args[i])
 
     ydb_ci(args[0])
-    #result = Get RESULT
     var resultKey = initYdbKey("RESULT")
     result = ydb_get(resultKey)
 
@@ -1925,8 +1895,7 @@ template defineConvertTo(T: typedesc, procName, parseFunc: untyped) =
       raise newException(RangeDefect, "Illegal number. Must be in range " & $low(T) & ".." & $high(T))
     else:
       # Convert, don't `cast`: the parser returns int/BiggestUInt/float, and
-      # `cast[float32](3.1414)` would reinterpret the 8 double bytes instead of
-      # narrowing to float32.
+      # `cast[float32](3.1414)` would reinterpret the 8 double bytes instead of narrowing to float32.
       when T is bool:
         result = tmpvar
       else:
@@ -1946,10 +1915,3 @@ defineConvertTo(float, toFloat, parseFloat)
 defineConvertTo(float64, toFloat64, parseFloat)
 defineConvertTo(float32, toFloat32, parseFloat)
 defineConvertTo(bool, toBool, parseFastBool)
-
-# proc int*(s: string): int =
-#     echo "int* s=", s
-#     convertToInt(s)
-# proc int8*(s: string): int8 =
-#     echo "int8* s=", s
-#     convertToInt8(s)
