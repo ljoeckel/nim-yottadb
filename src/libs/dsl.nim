@@ -44,7 +44,6 @@ const
     ZLIB = "ZLIB"
     LZ4 = "LZ4"
     ZSTD = "ZSTD"
-    BROTLI = "BROTLI"
 
 
 const
@@ -216,7 +215,7 @@ proc getApiName(basename: string; args: var seq[NimNode]): (string, bool) =
       apiName.add(arg)
     of REVERSE:
       reverse = true
-    of GZIP, ZLIB, LZ4, ZSTD, BROTLI:
+    of GZIP, ZLIB, LZ4, ZSTD:
       secondArg = arg
     else:
       raise newException(YdbError, fmt"Unsupported postfix '{arg}'")
@@ -238,7 +237,7 @@ proc getApiName(basename: string; args: var seq[NimNode]): (string, bool) =
 const
     POSTFIX_NAMES = [KEY, KEYS, KV, SV, COUNT, VAL,
                      SEQSTRING, SEQINT, SEQFLOAT, SEQBOOL,
-                     REVERSE, GZIP, ZLIB, LZ4, ZSTD, BROTLI]
+                     REVERSE, GZIP, ZLIB, LZ4, ZSTD]
 
 func isPostfixName(node: NimNode): bool =
     ## `.int` / `.seqInt` / `.gzip` / ...: an ident naming a known DSL postfix.
@@ -1142,21 +1141,37 @@ defineGetSeq(float, float)
 defineGetSeq(bool, bool)
 
 
+# --- Decompression, string level
+# Counterparts of the yottadb.gzip/zlib/lz4/zstd compression procs.
+
+proc decompressGzip*(data: string): string =
+    zippy.uncompress(data)
+
+proc decompressZlib*(data: string): string =
+    zippy.uncompress(data)
+
+proc decompressLz4*(data: string): string =
+    lz4.uncompress(data)
+
+proc decompressZstd*(data: string): string =
+    var dctx = new_decompress_context()
+    let buf = decompress(dctx, data)
+    result = newString(buf.len)
+    if buf.len > 0:
+        copyMem(result[0].addr, buf[0].unsafeAddr, buf.len)
+    discard free_context(dctx)
+
 proc getxgzip*(ydbvar: YdbVar): string =
-    zippy.uncompress(getx(ydbvar))
+    decompressGzip(getx(ydbvar))
 
 proc getxzlib*(ydbvar: YdbVar): string =
-    zippy.uncompress(getx(ydbvar))
+    decompressZlib(getx(ydbvar))
 
 proc getxlz4*(ydbvar: YdbVar): string =
-    lz4.uncompress(getx(ydbvar))
+    decompressLz4(getx(ydbvar))
 
 proc getxzstd*(ydbvar: YdbVar): string =
-    var dctx = new_decompress_context()
-    let buf = decompress(dctx, getx(ydbvar))
-    result = newString(buf.len)
-    copyMem(result[0].addr, buf[0].unsafeAddr, buf.len)    
-    discard free_context(dctx)
+    decompressZstd(getx(ydbvar))
 
 proc ydbRead(node: NimNode): NimNode =
     ## `^Global(..)` / `@var` -> `Get ^Global(..)` / `Get @var`

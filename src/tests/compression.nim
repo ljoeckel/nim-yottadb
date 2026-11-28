@@ -1,92 +1,137 @@
-import std/strutils
-import std/[unittest]
-import std/enumerate
-import std/tables
-
-import std/random
+import std/[strutils, os, algorithm, unittest]
 import yottadb
 import ydbutils
 
-var COMPRESSED: seq[string]
-var RAW: seq[string]
+# ---------------------------------------------------------------------------
+# Payload
+#
+# The benchmark compresses the project's own source code instead of reading
+# words from a global of another project (^stopwordsDE), so it is
+# self-contained and runs in any environment.
+# ---------------------------------------------------------------------------
 
-const MAX_RUN = 100000
-proc getWordCount(): int =
-    for cnt in OrderItr ^stopwordsDE.count:
-        return cnt
+const
+    BlockSize = 64 * 1024          ## bytes of source per compressed block
+    TargetBytes = 8 * 1024 * 1024  ## repeat the corpus until we have this much
+    SkippedDirs = ["nimcache", "nimblecache", "nimbledeps", ".git", "htmldocs"]
 
-let cnt = getWordCount()
-var wordsTable = initTable[int, string](cnt)
-for (i, key) in enumerate(OrderItr ^stopwordsDE):
-    wordsTable[i] = key
+const ThisFile = currentSourcePath()
+let projectRoot = ThisFile.parentDir.parentDir.parentDir
 
-proc createTestData() =
-    proc genWords(): string =
-        result = newStringOfCap(1024)
-        for words in 0..rand(50..512):
-            let r = rand(0..cnt-1)
-            result.add(wordsTable[r])
-            result.add(' ')
+var RAW: seq[string]  ## uncompressed blocks used as payload
 
-    for i in 0..MAX_RUN:
-        RAW.add(genWords())
+func isSourceFile(path: string): bool =
+    case path.splitFile.ext.toLowerAscii
+    of ".nim", ".nims", ".cfg": true
+    else: false
 
-proc calcRatio(info: string, ms: int, bytes: int, compressedSize: int) =
-    let bps = bytes / ms * 1000
-    let ratio = bytes.float / compressedSize.float
-    echo info, " raw: ", hrb(bytes), "b, Compressed:", hrb(compressedSize), "b processed in ", ms, " ms. MB/sec=", bps / 1024 / 1024, "  Ratio=", ratio
+proc isSkipped(root, path: string): bool =
+    for part in relativePath(root, path).split(DirSep):
+        if part in SkippedDirs:
+            return true
+    false
+
+proc collectSourceCode(root: string): string =
+    ## Concatenates all Nim sources and config files below `root`.
+    var files: seq[string]
+    for path in walkDirRec(root):
+        if path.isSourceFile and not isSkipped(root, path):
+            files.add(path)
+    files.sort()
+
+    for path in files:
+        result.add("\n# ---- ")
+        result.add(path.relativePath(root))
+        result.add(" ----\n")
+        result.add(readFile(path))
+
+proc buildPayload(): seq[string] =
+    ## Cuts the project's source code into fixed size blocks and repeats the
+    ## block list until `TargetBytes` is reached, so timings are meaningful.
+    let corpus = collectSourceCode(projectRoot)
+    doAssert corpus.len > 0, "No source files found below " & projectRoot
+
+    var blocks: seq[string]
+    var pos = 0
+    while pos < corpus.len:
+        let stop = min(pos + BlockSize, corpus.len)
+        blocks.add(corpus[pos ..< stop])
+        pos = stop
+
+    var total = 0
+    while total < TargetBytes:
+        for chunk in blocks:
+            result.add(chunk)
+            inc total, chunk.len
+
+func humanBytes(bytes: int): string =
+    if bytes < 1024:
+        $bytes & " B"
+    elif bytes < 1024 * 1024:
+        formatFloat(bytes.float / 1024, ffDecimal, 1) & " KiB"
+    else:
+        formatFloat(bytes.float / 1024 / 1024, ffDecimal, 2) & " MiB"
+
+proc calcRatio(info: string, elapsedMs: int64, bytes, compressedSize: int) =
+    let ms = max(elapsedMs, 1)
+    let mbPerSec = bytes.float / 1024 / 1024 / (ms.float / 1000)
+    let ratio = bytes.float / max(compressedSize, 1).float
+    echo info, ": raw=", humanBytes(bytes),
+         ", compressed=", humanBytes(compressedSize),
+         ", ratio=", formatFloat(ratio, ffDecimal, 2),
+         ", ", ms, " ms, ", formatFloat(mbPerSec, ffDecimal, 2), " MB/s"
 
 
-template defineTest(typeName): untyped =
-    proc `testCompress typename`() =
-        var wordLen, compressedLen = 0
-        COMPRESSED.setLen(0)
-        let ms = timed_ms:
-            for data in RAW:
-                COMPRESSED.add(data.`typeName`)
+proc compressGzip(s: string): string = yottadb.gzip(s)
+proc compressZlib(s: string): string = yottadb.zlib(s)
+proc compressLz4(s: string): string = yottadb.lz4(s)
+proc compressZstd(s: string): string = yottadb.zstd(s)
 
-            for i in 0..<COMPRESSED.len:
-                inc(wordLen, RAW[i].len)
-                inc(compressedLen, COMPRESSED[i].len)
-        calcRatio("Compress", ms, wordLen, compressedLen)
+template defineTest(typeName: untyped, label: string, compress, decompress: untyped) =
 
-    proc `testUncompress typename`() =
-        var wordLen, compressedLen = 0
-        let ms = timed_ms:
-            for i in 0..<COMPRESSED.len:
-                let data = COMPRESSED[i].`typeName`
-                inc(compressedLen, COMPRESSED[i].len)
-                inc(wordLen, data.len)
-        calcRatio("Uncompress", ms, wordLen, compressedLen)
+    proc `testCompress typeName`(): seq[string] =
+        var rawLen, compressedLen = 0
+        result = newSeqOfCap[string](RAW.len)
+        let elapsed = timed_ms:
+            for chunk in RAW:
+                result.add(compress(chunk))
+            for i in 0 ..< result.len:
+                inc rawLen, RAW[i].len
+                inc compressedLen, result[i].len
+                Set: ^testCompression(label, i) = result[i] # save compress on db
+        calcRatio("compress " & label, elapsed, rawLen, compressedLen)
 
-    
-    # proc `testUncompress typename`(): int =
-    #     var total = 0
-    #     for kb in BLOCKSIZES:
-    #       let compressed = Get ^tmp(kb)
-    #       echo "  RC (", kb ,") ", compressed.len, " bytes"
-    #       let lenCompressed = compressed.len  
-    #       let dbdata = Get ^tmp(kb).`typename`
-    #       echo "  R  (", kb ,") ", dbdata.len, " bytes"
-    #       inc(total, dbdata.len)
-    #     assert total == TOTAL_BYTES    
-    #     return total
+    proc `testUncompress typeName`(compressed: seq[string]) =
+        var decompressed = newSeq[string](compressed.len)
+        var rawLen, compressedLen = 0
+        let elapsed = timed_ms:
+            for i in 0 ..< compressed.len:
+                decompressed[i] = decompress(compressed[i])
+                inc compressedLen, compressed[i].len
+                inc rawLen, decompressed[i].len
+        calcRatio("uncompress " & label, elapsed, rawLen, compressedLen)
+        for i in 0 ..< decompressed.len:
+            #check decompressed[i] == RAW[i] # in memory
+            check Get ^testCompression(label, i).`typename` == RAW[i]
 
-defineTest(gzip)
-defineTest(zlib)
-defineTest(lz4)
-defineTest(zstd)
-
-
-template runTest(typeName): untyped =
-    `testCompress typeName`()
-    `testUncompress typeName`()
-    
-
+defineTest(Gzip, "gzip", compressGzip, decompressGzip)
+defineTest(Zlib, "zlib", compressZlib, decompressZlib)
+defineTest(Lz4, "lz4", compressLz4, decompressLz4)
+defineTest(Zstd, "zstd", compressZstd, decompressZstd)
 
 if isMainModule:
-    createTestData()
-    test "gzip": runTest(gzip)
-    test "zlib": runTest(zlib)
-    test "lz4":  runTest(lz4)
-    test "zstd": runTest(zstd)
+    RAW = buildPayload()
+    var totalBytes = 0
+    for chunk in RAW:
+        inc totalBytes, chunk.len
+    echo "Payload: ", RAW.len, " blocks from ", projectRoot,
+         " (", humanBytes(totalBytes), ")"
+
+    test "gzip":
+        testUncompressGzip(testCompressGzip())
+    test "zlib":
+        testUncompressZlib(testCompressZlib())
+    test "lz4":
+        testUncompressLz4(testCompressLz4())
+    test "zstd":
+        testUncompressZstd(testCompressZstd())

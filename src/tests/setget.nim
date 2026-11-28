@@ -152,7 +152,7 @@ proc testSetGet() =
   assert "pi" == Get ^X(id, "s")
   assert 3 == Get ^X(id, "i", 4711).int
   assert 33 == Get ^X(id, id, 4711, "i").int
-  assert Get(^X(id, "f").float) == 3.1414
+  assert Get ^X(id, "f").float == 3.1414
   
   # Set multiple items
   Set:
@@ -256,18 +256,18 @@ proc ifVariants() =
     ^hello("a","1","b") = "a1b"
 
 
-  if Get(^hello("a")) == "a": assert true else: assert false
+  if Get ^hello("a") == "a": assert true else: assert false
   if "a" == Get ^hello("a"): assert true else: assert false 
   if 1 == Get ^hello(1).int: assert true else: assert false
-  if Get(^hello(1).int) == 1: assert true else: assert false
+  if Get ^hello(1).int == 1: assert true else: assert false
   if 1.5 == Get ^hello("1.5").float: assert true else: assert false
-  if Get(^hello("1.5").float) == 1.5: assert true else: assert false
+  if Get ^hello("1.5").float == 1.5: assert true else: assert false
 
   if (Get ^hello(1).int) == 1: assert true else: assert false
   if 1 == Get ^hello(1).int: assert true else: assert false
   var sub:Subscripts = @["a", "1", "b"]
   if "a1b" == Get ^hello(sub): assert true else: assert false
-  if Get(^hello(sub)) == "a1b": assert true else: assert false
+  if Get ^hello(sub) == "a1b": assert true else: assert false
 
 proc echoTest() =
   # ----------------------
@@ -285,7 +285,7 @@ proc intUpdate() =
   let subs = @["4711", "Acc123"]
   # Get and Update .int
   Set: ^hello2(subs) = 1500
-  assert Get(^hello2(subs)) == "1500"
+  assert Get ^hello2(subs) == "1500"
   var amount = Get ^hello2(subs).int
   amount += 1500
   Set: ^hello2(subs) = amount
@@ -296,7 +296,7 @@ proc intSetUpdate() =
   let subs = @["4711", "Acc123"]
   Set: ^hello2(subs) = 1500
   # Get and Update .int
-  assert Get(^hello2(subs)) == "1500"
+  assert Get ^hello2(subs) == "1500"
   var amount = Get ^hello2(subs).int
   amount += 1500
   Set: ^hello2(subs) = amount
@@ -311,13 +311,13 @@ proc testSetGetTuple() =
   Set:
       ^gbl1="gbl1"
       ^gbl2="gbl2"
-  assert "gbl1" & "gbl2" == Get(^gbl1) & Get(^gbl2)
+  assert "gbl1" & "gbl2" == Get ^gbl1 & Get ^gbl2
   assert "gbl1" & "gbl2" == (Get ^gbl1) & (Get ^gbl2)
 
   Set:
       ^gbl(1)="gbl1"
       ^gbl(2)="gbl2"
-  assert "gbl1" & "gbl2" == Get(^gbl(1)) & Get(^gbl(2))
+  assert "gbl1" & "gbl2" == Get ^gbl(1) & Get ^gbl(2)
   assert "gbl1" & "gbl2" == (Get ^gbl(1)) & (Get ^gbl(2))
 
 proc testExtendSubscriptWithString =
@@ -339,10 +339,10 @@ proc testNumbersRange() =
     ^tmp("00") = 00
     ^tmp("+1") = +1
     ^tmp("-0") = -0
-  assert Get(^tmp("-1").int) == -1
-  assert Get(^tmp("00").int) == 0
-  assert Get(^tmp("+1").int) == 1
-  assert Get(^tmp("-0").int) == 0
+  assert Get ^tmp("-1").int == -1
+  assert Get ^tmp("00").int == 0
+  assert Get ^tmp("+1").int == 1
+  assert Get ^tmp("-0").int == 0
 
   Set:
     ^tmp("int64") = high(int64)
@@ -353,18 +353,18 @@ proc testNumbersRange() =
     ^tmp("int32.high") = int32.high
     ^tmp("int32.low") = int32.low
 
-  assert Get(^tmp("int64").int) == int.high
+  assert Get ^tmp("int64").int == int.high
   doAssertRaises(RangeDefect): discard Get ^tmp("int64").int8
   doAssertRaises(RangeDefect): discard Get ^tmp("int64").int16
   doAssertRaises(RangeDefect): discard Get ^tmp("int64").int32
 
-  assert Get(^tmp("int8.high").int8) == int8.high
-  assert Get(^tmp("int8.low").int8) == int8.low
-  assert Get(^tmp("int16.high").int16) == int16.high
-  assert Get(^tmp("int16.low").int16) == int16.low
-  assert Get(^tmp("int32.high").int32) == int32.high
-  assert Get(^tmp("int32.low").int32) == int32.low
-  assert Get(^tmp("int64").int64) == int64.high
+  assert Get ^tmp("int8.high").int8 == int8.high
+  assert Get ^tmp("int8.low").int8 == int8.low
+  assert Get ^tmp("int16.high").int16 == int16.high
+  assert Get ^tmp("int16.low").int16 == int16.low
+  assert Get ^tmp("int32.high").int32 == int32.high
+  assert Get ^tmp("int32.low").int32 == int32.low
+  assert Get ^tmp("int64").int64 == int64.high
 
   Set:
     ^tmp("uint") = uint.high
@@ -378,27 +378,27 @@ proc testNumbersRange() =
     ^tmp("uint32.high") = uint32.high
     ^tmp("uint32.low") = uint32.low
 
-  assert Get(^tmp("uint64").uint) == uint.high
+  assert Get ^tmp("uint64").uint == uint.high
   doAssertRaises(ValueError): discard Get ^tmp("uint64").int8
   doAssertRaises(RangeDefect): discard Get ^tmp("uint64").uint16
   doAssertRaises(RangeDefect): discard Get ^tmp("uint64").uint32
 
-  assert Get(^tmp("uint32.high").uint32) == uint32.high
-  assert Get(^tmp("uint8.high").uint8) == uint8.high
-  assert Get(^tmp("uint8.low").uint8) == uint8.low
-  assert Get(^tmp("uint16.high").uint16) == uint16.high
-  assert Get(^tmp("uint16.low").uint16) == uint16.low
-  assert Get(^tmp("uint32.low").uint32) == uint32.low
-  assert Get(^tmp("uint64").uint64) == uint64.high
+  assert Get ^tmp("uint32.high").uint32 == uint32.high
+  assert Get ^tmp("uint8.high").uint8 == uint8.high
+  assert Get ^tmp("uint8.low").uint8 == uint8.low
+  assert Get ^tmp("uint16.high").uint16 == uint16.high
+  assert Get ^tmp("uint16.low").uint16 == uint16.low
+  assert Get ^tmp("uint32.low").uint32 == uint32.low
+  assert Get ^tmp("uint64").uint64 == uint64.high
 
   Set:
     ^tmp("float") = (10.0 / 3.0).float
     ^tmp("float64") = (10.0 / 3.0).float64
     ^tmp("float32") = (10.0 / 3.0).float32
 
-  assert Get(^tmp("float").float) == (10.0 / 3.0).float
-  assert Get(^tmp("float32").float32) == (10.0 / 3.0).float32
-  assert Get(^tmp("float64").float64) == (10.0 / 3.0).float64
+  assert Get ^tmp("float").float == (10.0 / 3.0).float
+  assert Get ^tmp("float32").float32 == (10.0 / 3.0).float32
+  assert Get ^tmp("float64").float64 == (10.0 / 3.0).float64
 
 
 proc setGet() =
